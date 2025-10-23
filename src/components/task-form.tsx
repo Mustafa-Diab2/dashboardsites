@@ -23,7 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { type Task } from '@/lib/data';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, serverTimestamp, query } from 'firebase/firestore';
+import { collection, serverTimestamp, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>;
@@ -53,8 +53,11 @@ export function TaskForm({
   const [form, setForm] = useState<TaskFormData>(INITIAL_FORM_STATE);
 
   const usersQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'users')) : null),
-    [firestore]
+    () => {
+        if (!firestore || !form.forTeam) return null;
+        return query(collection(firestore, 'users'), where('role', '==', form.forTeam));
+    },
+    [firestore, form.forTeam]
   );
   const { data: users } = useCollection(usersQuery);
 
@@ -227,7 +230,7 @@ export function TaskForm({
               <SelectContent>
                 {users?.map(member => (
                   <SelectItem key={member.id} value={member.id}>
-                    {member.fullName} ({member.role})
+                    {member.fullName}
                   </SelectItem>
                 ))}
               </SelectContent>

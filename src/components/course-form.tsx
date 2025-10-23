@@ -19,9 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { useMutations } from '@/hooks/use-mutations';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, where, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 const INITIAL_FORM_STATE = {
@@ -43,9 +43,20 @@ export default function CourseForm({
   const { addDoc } = useMutations();
   const [form, setForm] = useState(INITIAL_FORM_STATE);
 
+  const userDocRef = useMemoFirebase(
+    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user]
+  );
+  const { data: userData } = useDoc(userDocRef);
+  const userRole = (userData as any)?.role;
+  const userTeam = (userData as any)?.forTeam;
+
   const usersQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'users')) : null),
-    [firestore]
+    () => {
+      if (!firestore || userRole !== 'admin' || !userTeam) return null;
+      return query(collection(firestore, 'users'), where('forTeam', '==', userTeam));
+    },
+    [firestore, userRole, userTeam]
   );
   const { data: users } = useCollection(usersQuery);
 

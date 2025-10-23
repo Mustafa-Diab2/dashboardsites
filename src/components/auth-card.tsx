@@ -5,11 +5,16 @@ import {
   initiateEmailSignIn,
   initiateEmailSignUp,
 } from '@/firebase/non-blocking-login';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore, addDocumentNonBlocking } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import {
   Tabs,
@@ -17,13 +22,25 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { FirebaseError } from 'firebase/app';
+import { User, UserCredential, createUserWithEmailAndPassword } from 'firebase/auth';
+import { setDoc, doc, serverTimestamp } from 'firebase/firestore';
 
 export function AuthCard() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('frontend');
+  const [isMember, setIsMember] = useState(true);
   const [loading, setLoading] = useState(false);
   const auth = useAuth();
+  const firestore = useFirestore();
   const { toast } = useToast();
 
   const handleAuthError = (error: any) => {
@@ -39,11 +56,13 @@ export function AuthCard() {
           break;
         case 'auth/wrong-password':
           title = 'Invalid Password';
-          description = 'The password you entered is incorrect. Please try again.';
+          description =
+            'The password you entered is incorrect. Please try again.';
           break;
         case 'auth/invalid-email':
           title = 'Invalid Email';
-          description = 'The email address is not valid. Please check the format.';
+          description =
+            'The email address is not valid. Please check the format.';
           break;
         case 'auth/email-already-in-use':
           title = 'Email In Use';
@@ -52,11 +71,12 @@ export function AuthCard() {
           break;
         case 'auth/weak-password':
           title = 'Weak Password';
-          description = 'Your password is too weak. Please choose a stronger one.';
+          description =
+            'Your password is too weak. Please choose a stronger one.';
           break;
         case 'auth/invalid-credential':
-          title: 'Invalid Credentials';
-          description:
+          title = 'Invalid Credentials';
+          description =
             'The email or password you entered is incorrect. Please try again.';
           break;
         default:
@@ -76,6 +96,7 @@ export function AuthCard() {
   const login = async () => {
     setLoading(true);
     try {
+      if (!auth) throw new Error('Auth service not available');
       await initiateEmailSignIn(auth, email, password);
     } catch (e: any) {
       handleAuthError(e);
@@ -86,8 +107,34 @@ export function AuthCard() {
 
   const signup = async () => {
     setLoading(true);
+    if (!auth || !firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Firebase is not initialized.',
+      });
+      setLoading(false);
+      return;
+    }
     try {
-      await initiateEmailSignUp(auth, email, password);
+      const userCredential: UserCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const user: User = userCredential.user;
+
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const finalRole = isMember ? role : 'admin';
+      
+      const userData = {
+        fullName: user.email,
+        role: finalRole,
+        createdAt: serverTimestamp(),
+      };
+      
+      await setDoc(userDocRef, userData);
+
       toast({
         title: 'Sign up successful!',
         description: 'You can now sign in with your credentials.',
@@ -188,6 +235,34 @@ export function AuthCard() {
                     placeholder="••••••••"
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Role</Label>
+                  <Tabs
+                    defaultValue="member"
+                    onValueChange={value => setIsMember(value === 'member')}
+                  >
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="member">Member</TabsTrigger>
+                      <TabsTrigger value="admin">Admin</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+
+                {isMember && (
+                  <div className="space-y-2">
+                    <Label htmlFor="team-select">Team</Label>
+                    <Select value={role} onValueChange={setRole}>
+                      <SelectTrigger id="team-select">
+                        <SelectValue placeholder="Select team" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="frontend">Frontend</SelectItem>
+                        <SelectItem value="backend">Backend</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <Button onClick={signup} disabled={loading} className="w-full">
                   <UserPlus className="mr-2" />
                   {loading ? 'Signing up...' : 'Sign up'}

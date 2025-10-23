@@ -3,7 +3,7 @@
 import { Clock, LogIn, LogOut } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { useFirebase } from "@/firebase";
+import { useFirebase, useMemoFirebase } from "@/firebase";
 import { useMutations } from "@/hooks/use-mutations";
 import { collection, query, where, limit, serverTimestamp } from "firebase/firestore";
 import { useCollection } from "@/firebase";
@@ -14,10 +14,13 @@ export default function Attendance() {
   const { user, firestore } = useFirebase();
   const { addDoc, updateDoc } = useMutations();
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
 
-  const attendanceQuery = useMemo(() => {
+  const attendanceQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
         collection(firestore, 'attendance'),

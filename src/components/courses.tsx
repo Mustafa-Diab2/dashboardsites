@@ -4,8 +4,8 @@ import { Book, Plus, Play, StopCircle, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, serverTimestamp } from "firebase/firestore";
+import { useFirebase, useCollection, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, query, where, serverTimestamp, doc } from "firebase/firestore";
 import { useMutations } from "@/hooks/use-mutations";
 import { useState } from "react";
 import CourseForm from "./course-form";
@@ -16,11 +16,11 @@ export default function Courses() {
   const [isCourseFormOpen, setCourseFormOpen] = useState(false);
 
   const userDocRef = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, 'users'), where('__name__', '==', user.uid)) : null),
+    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
     [firestore, user]
   );
-  const { data: userData } = useCollection(userDocRef);
-  const userRole = userData?.[0]?.role;
+  const { data: userData } = useDoc(userDocRef);
+  const userRole = (userData as any)?.role;
 
 
   const coursesQuery = useMemoFirebase(() => {

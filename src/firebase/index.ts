@@ -19,17 +19,8 @@ function getSdks(firebaseApp: FirebaseApp): { firebaseApp: FirebaseApp; auth: Au
 // This function is the single source of truth for Firebase initialization.
 export function initializeFirebase(): { firebaseApp: FirebaseApp; auth: Auth; firestore: Firestore } {
   if (!getApps().length) {
-    let firebaseApp;
-    try {
-      // This will automatically use the FIREBASE_CONFIG environment variable if it exists.
-      firebaseApp = initializeApp();
-    } catch (e) {
-      if (process.env.NODE_ENV === 'production') {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-      }
-      // If automatic initialization fails, fall back to the config file.
-      firebaseApp = initializeApp(firebaseConfig);
-    }
+    // If automatic initialization fails, fall back to the config file.
+    const firebaseApp = initializeApp(firebaseConfig);
     return getSdks(firebaseApp);
   }
 

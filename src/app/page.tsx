@@ -1,19 +1,27 @@
 'use client';
 
 import ReportsDashboard from '@/components/reports-dashboard';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, doc } from 'firebase/firestore';
 import { AuthCard } from '@/components/auth-card';
 import { mockTasks } from '@/lib/data';
 
 export default function Home() {
   const { firestore, user, isUserLoading } = useFirebase();
 
+  const userDocRef = useMemoFirebase(
+    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user]
+  );
+  const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
+
   const tasksQuery = useMemoFirebase(
     () => (firestore && user ? query(collection(firestore, 'tasks')) : null),
     [firestore, user]
   );
   const { data: tasks, isLoading: isTasksLoading } = useCollection(tasksQuery);
+
+  const isLoading = isUserLoading || isUserDocLoading || (user && isTasksLoading);
 
   if (isUserLoading) {
     return (
@@ -27,15 +35,17 @@ export default function Home() {
     return <AuthCard />;
   }
   
-  if (tasks === null && isTasksLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <p>Loading Tasks...</p>
+        <p>Loading Dashboard...</p>
       </div>
     );
   }
 
   const taskData = tasks || [];
+  const userRole = (userData as any)?.role || 'frontend';
+
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -50,7 +60,7 @@ export default function Home() {
         </div>
       </header>
       <main>
-        <ReportsDashboard tasks={taskData} />
+        <ReportsDashboard tasks={taskData} userRole={userRole} />
       </main>
     </div>
   );

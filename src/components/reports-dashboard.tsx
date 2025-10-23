@@ -1,18 +1,20 @@
 'use client';
 
 import type { Task } from '@/lib/data';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { MEMBERS } from '@/lib/data';
 import { utils, writeFile } from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Button } from './ui/button';
-import { FileDown } from 'lucide-react';
+import { FileDown, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MemberTasksBarChart } from './charts/member-tasks-bar-chart';
 import { CompletionRatioPieChart } from './charts/completion-ratio-pie-chart';
 import { DetailedBreakdownTable } from './detailed-breakdown-table';
 import AIInsights from './ai-insights';
+import { TaskForm } from './task-form';
+
 
 export type UserReport = {
   name: string;
@@ -23,7 +25,8 @@ export type UserReport = {
   done: number;
 };
 
-export default function ReportsDashboard({ tasks }: { tasks: Task[] }) {
+export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string }) {
+  const [isTaskFormOpen, setTaskFormOpen] = useState(false);
   const byUser = useMemo(() => {
     const nameOf = (uid?: string) => {
       if (!uid) return 'Unassigned';
@@ -61,48 +64,56 @@ export default function ReportsDashboard({ tasks }: { tasks: Task[] }) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 pb-10 space-y-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-semibold text-2xl font-headline">Team Analytics</h2>
-          <p className="text-muted-foreground">Analyze your team's workload and productivity.</p>
+    <>
+      <TaskForm isOpen={isTaskFormOpen} onOpenChange={setTaskFormOpen} />
+      <div className="max-w-7xl mx-auto px-4 pb-10 space-y-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="font-semibold text-2xl font-headline">Team Analytics</h2>
+            <p className="text-muted-foreground">Analyze your team's workload and productivity.</p>
+          </div>
+          <div className="flex gap-2">
+            {userRole === 'admin' && (
+              <Button onClick={() => setTaskFormOpen(true)}>
+                <Plus /> Add Task
+              </Button>
+            )}
+            <Button variant="outline" onClick={exportCSV}><FileDown /> CSV</Button>
+            <Button variant="outline" onClick={exportPDF}><FileDown /> PDF</Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={exportCSV}><FileDown /> CSV</Button>
-          <Button variant="outline" onClick={exportPDF}><FileDown /> PDF</Button>
-        </div>
-      </div>
 
-      <AIInsights byUser={byUser} />
-      
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline">Tasks by Member</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <MemberTasksBarChart data={byUser} />
-          </CardContent>
-        </Card>
+        <AIInsights byUser={byUser} />
         
+        <div className="grid md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-headline">Tasks by Member</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <MemberTasksBarChart data={byUser} />
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-headline">Tasks Completion Ratio</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CompletionRatioPieChart data={byUser} />
+            </CardContent>
+          </Card>
+        </div>
+
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline">Tasks Completion Ratio</CardTitle>
+            <CardTitle className="font-headline">Detailed Member Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
-            <CompletionRatioPieChart data={byUser} />
+            <DetailedBreakdownTable data={byUser} />
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-headline">Detailed Member Breakdown</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DetailedBreakdownTable data={byUser} />
-        </CardContent>
-      </Card>
-    </div>
+    </>
   );
 }

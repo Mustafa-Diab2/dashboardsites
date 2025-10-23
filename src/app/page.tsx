@@ -1,9 +1,34 @@
+'use client';
+
 import ReportsDashboard from '@/components/reports-dashboard';
+import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { collection, query } from 'firebase/firestore';
+import { AuthCard } from '@/components/auth-card';
 import { mockTasks } from '@/lib/data';
 
 export default function Home() {
+  const { firestore, user, isUserLoading } = useFirebase();
+
+  const tasksQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, 'tasks')) : null),
+    [firestore]
+  );
+  const { data: tasks, isLoading: isTasksLoading } = useCollection(tasksQuery);
+
+  if (isUserLoading || (tasks === null && isTasksLoading)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthCard />;
+  }
+  
   // In a real app, you would fetch this data from a database like Firestore.
-  const tasks = mockTasks;
+  const taskData = tasks || mockTasks;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -18,7 +43,7 @@ export default function Home() {
         </div>
       </header>
       <main>
-        <ReportsDashboard tasks={tasks} />
+        <ReportsDashboard tasks={taskData} />
       </main>
     </div>
   );

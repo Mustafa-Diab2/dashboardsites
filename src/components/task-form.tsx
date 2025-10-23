@@ -212,14 +212,13 @@ export function TaskForm({
             <Select
               value={form.assigneeId || ''}
               onValueChange={value =>
-                handleFieldChange('assigneeId', value)
+                handleFieldChange('assigneeId', value || undefined)
               }
             >
               <SelectTrigger id="assignee">
-                <SelectValue placeholder="Select assignee" />
+                <SelectValue placeholder="Unassigned" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Unassigned</SelectItem>
                 {MEMBERS.map(member => (
                   <SelectItem key={member.id} value={member.id}>
                     {member.name} ({member.role})

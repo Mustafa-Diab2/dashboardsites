@@ -10,12 +10,12 @@ export default function Home() {
   const { firestore, user, isUserLoading } = useFirebase();
 
   const tasksQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'tasks')) : null),
-    [firestore]
+    () => (firestore && user ? query(collection(firestore, 'tasks')) : null),
+    [firestore, user]
   );
   const { data: tasks, isLoading: isTasksLoading } = useCollection(tasksQuery);
 
-  if (isUserLoading || (tasks === null && isTasksLoading)) {
+  if (isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <p>Loading...</p>
@@ -27,8 +27,15 @@ export default function Home() {
     return <AuthCard />;
   }
   
-  // In a real app, you would fetch this data from a database like Firestore.
-  const taskData = tasks || mockTasks;
+  if (tasks === null && isTasksLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <p>Loading Tasks...</p>
+      </div>
+    );
+  }
+
+  const taskData = tasks || [];
 
   return (
     <div className="min-h-screen bg-background text-foreground">

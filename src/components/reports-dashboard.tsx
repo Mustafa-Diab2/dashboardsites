@@ -7,13 +7,15 @@ import { utils, writeFile } from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Button } from './ui/button';
-import { FileDown, Plus } from 'lucide-react';
+import { FileDown, Plus, LogOut } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MemberTasksBarChart } from './charts/member-tasks-bar-chart';
 import { CompletionRatioPieChart } from './charts/completion-ratio-pie-chart';
 import { DetailedBreakdownTable } from './detailed-breakdown-table';
 import AIInsights from './ai-insights';
 import { TaskForm } from './task-form';
+import { useFirebase } from '@/firebase';
+import { signOut } from 'firebase/auth';
 
 
 export type UserReport = {
@@ -27,6 +29,8 @@ export type UserReport = {
 
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
+  const { auth } = useFirebase();
+
   const byUser = useMemo(() => {
     const nameOf = (uid?: string) => {
       if (!uid) return 'Unassigned';
@@ -63,6 +67,12 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
     doc.save('TeamReport.pdf');
   };
 
+  const handleSignOut = async () => {
+    if (auth) {
+      await signOut(auth);
+    }
+  };
+
   return (
     <>
       <TaskForm isOpen={isTaskFormOpen} onOpenChange={setTaskFormOpen} />
@@ -80,6 +90,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
             )}
             <Button variant="outline" onClick={exportCSV}><FileDown /> CSV</Button>
             <Button variant="outline" onClick={exportPDF}><FileDown /> PDF</Button>
+            <Button variant="outline" onClick={handleSignOut}><LogOut /> Sign Out</Button>
           </div>
         </div>
 

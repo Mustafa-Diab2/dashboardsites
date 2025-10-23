@@ -16,6 +16,8 @@ import { TaskForm } from './task-form';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { collection, query } from 'firebase/firestore';
+import Attendance from './attendance';
+import Courses from './courses';
 
 
 export type UserReport = {
@@ -42,7 +44,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
     const nameOf = (uid?: string) => {
       if (!uid) return 'Unassigned';
       const found = users?.find(m => m.id === uid);
-      return found ? `${found.fullName} (${found.role})` : uid;
+      return found ? `${(found as any).fullName} (${(found as any).role})` : uid;
     };
     const map = new Map<string, UserReport>();
     tasks.forEach(t => {
@@ -99,6 +101,11 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
             <Button variant="outline" onClick={exportPDF}><FileDown /> PDF</Button>
             <Button variant="outline" onClick={handleSignOut}><LogOut /> Sign Out</Button>
           </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          <Attendance />
+          <Courses />
         </div>
 
         <AIInsights byUser={byUser} />

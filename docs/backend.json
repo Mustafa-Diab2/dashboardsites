@@ -161,6 +161,70 @@
         "url",
         "uploadedAt"
       ]
+    },
+    "Attendance": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Attendance",
+      "type": "object",
+      "description": "Represents a single attendance record for a user.",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user."
+        },
+        "clockIn": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the user clocked in."
+        },
+        "clockOut": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the user clocked out."
+        }
+      },
+      "required": ["userId", "clockIn"]
+    },
+    "Course": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Course",
+      "type": "object",
+      "description": "Represents a course assigned to a user.",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user this course is assigned to."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the course."
+        },
+        "link": {
+          "type": "string",
+          "format": "uri",
+          "description": "A URL to the course material."
+        },
+        "duration": {
+          "type": "string",
+          "description": "The expected duration of the course (e.g., '2 hours', '3 weeks')."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["not_started", "in_progress", "completed"],
+          "description": "The current status of the course."
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the course was started."
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the course was completed."
+        }
+      },
+      "required": ["userId", "name", "link", "duration", "status"]
     }
   },
   "auth": {
@@ -178,13 +242,7 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user information, including role and creation timestamp.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            }
-          ]
+          "description": "Stores user information, including role and creation timestamp."
         }
       },
       {
@@ -194,13 +252,7 @@
           "schema": {
             "$ref": "#/backend/entities/Task"
           },
-          "description": "Stores task details, including assignee, status, team, and timestamps.",
-          "params": [
-            {
-              "name": "taskId",
-              "description": "The unique identifier for the task."
-            }
-          ]
+          "description": "Stores task details, including assignee, status, team, and timestamps."
         }
       },
       {
@@ -210,20 +262,29 @@
           "schema": {
             "$ref": "#/backend/entities/File"
           },
-          "description": "Stores file metadata associated with a task.",
-          "params": [
-            {
-              "name": "taskId",
-              "description": "The unique identifier for the task."
-            },
-            {
-              "name": "fileId",
-              "description": "The unique identifier for the file."
-            }
-          ]
+          "description": "Stores file metadata associated with a task."
+        }
+      },
+      {
+        "path": "/attendance/{attendanceId}",
+        "definition": {
+          "entityName": "Attendance",
+          "schema": {
+            "$ref": "#/backend/entities/Attendance"
+          },
+          "description": "Stores attendance records for users."
+        }
+      },
+      {
+        "path": "/courses/{courseId}",
+        "definition": {
+          "entityName": "Course",
+          "schema": {
+            "$ref": "#/backend/entities/Course"
+          },
+          "description": "Stores courses assigned to users."
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to support a team task dashboard with reporting and file management capabilities. It prioritizes authorization independence and simplifies security rules.\n\n*   `/users/{userId}`: Stores user information, including their role. The `role` field is crucial for determining user privileges.\n*   `/tasks/{taskId}`: Stores task details, including the assignee, status, and team. The `assigneeId` allows filtering tasks assigned to a specific user.  The `createdBy` field captures task ownership. For authorization independence, the task documents themselves should be small, and authorization should primarily rely on the user's role and `assigneeId` without needing to read other data. This enables atomic operations.\n*   `/tasks/{taskId}/files/{fileId}`: Stores metadata about files uploaded for a specific task. This subcollection is directly linked to the task, maintaining a clear hierarchy.\n\n**Authorization Independence:**\nThe structure achieves authorization independence by relying on the user's role stored in the `/users/{userId}` document and the `assigneeId` field within the `/tasks/{taskId}` document. Rules can verify user roles and task assignments without needing to perform complex `get()` operations to check parent document attributes. While the rules provided in the prompt use `get()` calls, it is recommended that you denormalize roles into tasks to avoid these calls.\n\n**QAPs (Query-based Access Patterns):**\n\n*   **List Tasks for a User:** The `/tasks/{taskId}` collection with the `assigneeId` field enables efficient listing of tasks assigned to a specific user. A query `where('assigneeId', '==', request.auth.uid)` can be used to retrieve these tasks. Composite indexes are suggested to optimize these queries.\n*   **List Tasks by Team:** Similarly, the `forTeam` field enables listing tasks for a specific team.\n*   **Secure File Access:** The `/tasks/{taskId}/files/{fileId}` subcollection ensures that file metadata is only accessible to authorized users (admins or the user who uploaded the file).\n\n**Denormalization Recommendation**:\nTo improve security rule efficiency and remove the dependency on `get()` calls in security rules (DBAC), denormalize the user's `role` into the `task` documents. This means copying the `role` field from the user's document to each task document when the task is created. This allows security rules to check the user's role directly on the task document without needing to perform a `get()` operation on the user's document. Consider using Firebase Functions triggered on user creation/update to maintain data consistency.\n\n**Example of denormalized Task document**:\n{\n  \"title\": \"string\",\n  \"description\": \"string\",\n  \"forTeam\": \"backend|frontend\",\n  \"assigneeId\": \"uid|null\",\n  \"status\": \"backlog|in_progress|review|done\",\n  \"priority\": \"low|medium|high\",\n  \"due\": \"YYYY-MM-DD|null\",\n  \"tags\": [\"auth\",\"api\"],\n  \"createdBy\": \"uid\",\n  \"createdAt\": serverTimestamp,\n  \"updatedAt\": serverTimestamp,\n  \"userRole\": \"admin|backend|frontend\" //Denormalized role from user document\n}"
+    ]
   }
 }

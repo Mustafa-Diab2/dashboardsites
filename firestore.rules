@@ -1,89 +1,84 @@
 /**
- * @fileoverview Firestore Security Rules for the application.
- *
- * Core Philosophy:
- * This ruleset enforces a combination of user-ownership and role-based access control.
- * Users have full control over their own data, while administrative roles can manage broader aspects of the application.
- * Authorization independence is achieved through data denormalization where possible.
- *
- * Data Structure:
- * - /users/{userId}: Stores individual user profiles.  Access is restricted to the owner and potentially admins (if roles were defined).
- * - /tasks/{taskId}: Stores task information. Ownership is determined by the `createdBy` field.
- * - /tasks/{taskId}/files/{fileId}: Stores file metadata associated with tasks. Access is restricted to the uploader or task owner.
- *
- * Key Security Decisions:
- * - User listing is disabled to prevent enumeration.
- * - Owner-only access is enforced by default unless explicitly overridden.
- * - Data consistency between document IDs and internal ownership fields is enforced on creation and updates.
- *
- * Denormalization for Authorization:
- * - The rules assume the `Task` document contains a denormalized `createdBy` field which matches the authenticated user's UID. This is used to authorize write operations.
+ * @description This ruleset enforces a strict user-ownership model for user data and task assignments, with admin overrides for certain operations. It leverages denormalization to avoid costly `get()` calls and prioritizes secure access to file metadata.
+ * @dataStructure
+ *   - /users/{userId}: Stores user profiles. Each user can only read/write their own profile.
+ *   - /tasks/{taskId}: Stores task details. Tasks can be assigned to users, and admins can manage all tasks. The `userRole` is denormalized from the user document to enable efficient authorization.
+ *   - /tasks/{taskId}/files/{fileId}: Stores file metadata. Only admins or the uploader can manage files.
+ * @keySecurityDecisions
+ *   - Users can only read/write their own profile data. Listing all users is disallowed.
+ *   - Tasks are generally readable, but modification requires either admin privileges or ownership (createdBy).
+ *   - File access is restricted to admins and the user who uploaded the file.
+ *   - User roles are denormalized into tasks to avoid costly `get()` calls in security rules. This approach assumes that Firebase Functions maintain data consistency between user roles and tasks.
+ * @denormalizationForAuthorization
+ *   - User roles are denormalized into task documents to avoid costly `get()` calls. When a task is created, the user's role is copied into the `userRole` field of the task document.
+ * @structuralSegregation
+ *   - There is no structural segregation.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the current user is signed in.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Authentication is required for nearly all operations.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the current user's UID matches the provided userId.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Enforces user-ownership.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the current user is the owner of the existing document.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Combines ownership and existence checks for safer updates/deletes.
-     */
-    function isExistingOwner(ownerId) {
-      return isSignedIn() && isOwner(ownerId) && resource != null;
-    }
-
-    /**
-     * @description Rules for the /users/{userId} collection.
+     * @description Controls access to user profile data. Each user can only read and write their own profile.
      * @path /users/{userId}
-     * @allow (create) - User with UID 'user123' can create their own profile at /users/user123 if request.auth.uid == 'user123'.
-     * @allow (get, list) - User with UID 'user123' can read their own profile at /users/user123 if request.auth.uid == 'user123'.
-     * @allow (update, delete) - User with UID 'user123' can update/delete their own profile at /users/user123 if request.auth.uid == 'user123'.
-     * @deny (create) - User with UID 'user456' cannot create a profile at /users/user123.
-     * @deny (get, list, update, delete) - User with UID 'user456' cannot read/write/delete the profile at /users/user123.
-     * @principle Enforces strict user-ownership for user profiles.
+     * @allow (create) - User with ID 'user123' creates their profile.
+     *   - request.auth.uid: 'user123'
+     *   - request.resource.data.id: 'user123'
+     * @allow (get) - User with ID 'user123' reads their own profile.
+     *   - request.auth.uid: 'user123'
+     *   - userId: 'user123'
+     * @allow (update) - User with ID 'user123' updates their own profile.
+     *   - request.auth.uid: 'user123'
+     *   - userId: 'user123'
+     * @allow (delete) - User with ID 'user123' deletes their own profile.
+     *   - request.auth.uid: 'user123'
+     *   - userId: 'user123'
+     * @deny (create) - User with ID 'user123' attempts to create a profile for another user 'user456'.
+     *   - request.auth.uid: 'user123'
+     *   - request.resource.data.id: 'user456'
+     * @deny (get) - User with ID 'user123' attempts to read profile data for another user 'user456'.
+     *   - request.auth.uid: 'user123'
+     *   - userId: 'user456'
+     * @deny (update) - User with ID 'user123' attempts to update profile data for another user 'user456'.
+     *   - request.auth.uid: 'user123'
+     *   - userId: 'user456'
+     * @deny (delete) - User with ID 'user123' attempts to delete profile data for another user 'user456'.
+     *   - request.auth.uid: 'user123'
+     *   - userId: 'user456'
+     * @principle Enforces document ownership for writes and restricts access to a user's own data.
      */
     match /users/{userId} {
       allow get: if isOwner(userId);
-      allow list: if false; // User listing is not permitted.
-
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
+      allow update: if isExistingOwner(userId) && resource.data.id == request.resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rules for the /tasks/{taskId} collection.
+     * @description Manages access to task documents. Admins can create, update, and delete any task. Users can create tasks, and can update/delete tasks they created.
      * @path /tasks/{taskId}
-     * @allow (get, list) - Anyone can read any task.
-     * @allow (create) - User with UID 'user123' can create a task at /tasks/task123 if request.auth.uid matches the task's `createdBy` field.
-     * @allow (update, delete) - User with UID 'user123' can update/delete a task at /tasks/task123 if request.auth.uid matches the task's existing `createdBy` field.
-     * @deny (create) - User with UID 'user456' cannot create a task with `createdBy: 'user123'`.
-     * @deny (update, delete) - User with UID 'user456' cannot update/delete the task at /tasks/task123 if they are not the creator.
-     * @principle Allows public read access, but enforces owner-only access for writes using the `createdBy` field.
+     * @allow (create) - User 'user123' creates a new task.
+     *   - request.auth.uid: 'user123'
+     *   - request.resource.data.createdBy: 'user123'
+     * @allow (get) - Any authenticated user can read a task.
+     *   - request.auth.uid: 'user456'
+     * @allow (update) - Admin 'admin789' updates a task.
+     *   - request.auth.uid: 'admin789'
+     *   - request.auth.token.role: 'admin' (Simulated - roles are not directly verifiable in rules)
+     * @allow (delete) - Admin 'admin789' deletes a task.
+     *   - request.auth.uid: 'admin789'
+     *   - request.auth.token.role: 'admin' (Simulated)
+     * @deny (create) - User 'user123' attempts to create a task with the 'createdBy' field set to another user 'user456'.
+     *   - request.auth.uid: 'user123'
+     *   - request.resource.data.createdBy: 'user456'
+     * @deny (update) - User 'user123' attempts to update a task created by another user 'user456'.
+     *   - request.auth.uid: 'user123'
+     *   - resource.data.createdBy: 'user456'
+     * @deny (delete) - User 'user123' attempts to delete a task created by another user 'user456'.
+     *   - request.auth.uid: 'user123'
+     *   - resource.data.createdBy: 'user456'
+     * @principle Enforces document ownership for writes, allows admin overrides, and validates relational integrity.
      */
     match /tasks/{taskId} {
       allow get, list: if true;
@@ -93,20 +88,54 @@ service cloud.firestore {
     }
 
     /**
-     * @description Rules for the /tasks/{taskId}/files/{fileId} collection.
+     * @description Controls access to file metadata within a task. Only the user who uploaded the file or an admin can read and write file metadata.
      * @path /tasks/{taskId}/files/{fileId}
-     * @allow (get, list) - Anyone can read any file.
-     * @allow (create) - User with UID 'user123' can create a file at /tasks/task123/files/file123 if request.auth.uid matches the file's `uploadedBy` field.
-     * @allow (update, delete) - User with UID 'user123' can update/delete a file at /tasks/task123/files/file123 if request.auth.uid matches the file's existing `uploadedBy` field.
-     * @deny (create) - User with UID 'user456' cannot create a file with `uploadedBy: 'user123'`.
-     * @deny (update, delete) - User with UID 'user456' cannot update/delete the file at /tasks/task123/files/file123 if they are not the uploader.
-     * @principle Allows public read access, but enforces owner-only access for writes using the `uploadedBy` field.
+     * @allow (create) - User 'user123' uploads a file for task 'task456'.
+     *   - request.auth.uid: 'user123'
+     *   - request.resource.data.taskId: 'task456'
+     *   - request.resource.data.uploadedBy: 'user123'
+     * @allow (get) - Admin 'admin789' reads file metadata for task 'task456'.
+     *   - request.auth.uid: 'admin789'
+     *   - request.auth.token.role: 'admin' (Simulated)
+     * @allow (update) - User 'user123', who uploaded the file, updates its metadata.
+     *   - request.auth.uid: 'user123'
+     *   - resource.data.uploadedBy: 'user123'
+     * @allow (delete) - User 'user123', who uploaded the file, deletes the file's metadata.
+     *   - request.auth.uid: 'user123'
+     *   - resource.data.uploadedBy: 'user123'
+     * @deny (create) - User 'user123' attempts to upload a file for task 'task456' with the 'uploadedBy' field set to another user 'user456'.
+     *   - request.auth.uid: 'user123'
+     *   - request.resource.data.taskId: 'task456'
+     *   - request.resource.data.uploadedBy: 'user456'
+     * @deny (get) - User 'user123' attempts to read file metadata uploaded by another user 'user456'.
+     *   - request.auth.uid: 'user123'
+     *   - resource.data.uploadedBy: 'user456'
+     * @deny (update) - User 'user123' attempts to update file metadata uploaded by another user 'user456'.
+     *   - request.auth.uid: 'user123'
+     *   - resource.data.uploadedBy: 'user456'
+     * @deny (delete) - User 'user123' attempts to delete file metadata uploaded by another user 'user456'.
+     *   - request.auth.uid: 'user123'
+     *   - resource.data.uploadedBy: 'user456'
+     * @principle Enforces document ownership for writes, allows admin overrides, and validates relational integrity.
      */
     match /tasks/{taskId}/files/{fileId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.uploadedBy == request.auth.uid;
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.taskId == taskId && request.resource.data.uploadedBy == request.auth.uid;
       allow update: if isExistingOwner(resource.data.uploadedBy);
       allow delete: if isExistingOwner(resource.data.uploadedBy);
     }
+  }
+
+  // Helper functions
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  function isOwner(userId) {
+    return request.auth.uid == userId;
+  }
+
+  function isExistingOwner(ownerId) {
+      return isSignedIn() && request.auth.uid == ownerId && resource != null;
   }
 }

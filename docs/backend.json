@@ -1,0 +1,229 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user within the application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user.",
+          "format": "uuid"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user (e.g., admin, backend, frontend)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "fullName",
+        "role",
+        "createdAt"
+      ]
+    },
+    "Task": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Task",
+      "type": "object",
+      "description": "Represents a task within the application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the task.",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the task."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the task."
+        },
+        "forTeam": {
+          "type": "string",
+          "description": "The team the task is assigned to (e.g., backend, frontend)."
+        },
+        "assigneeId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Task).  The ID of the user assigned to the task.",
+          "format": "uuid"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the task (e.g., backlog, in_progress, review, done)."
+        },
+        "priority": {
+          "type": "string",
+          "description": "The priority of the task (e.g., low, medium, high)."
+        },
+        "due": {
+          "type": "string",
+          "description": "The due date of the task.",
+          "format": "date"
+        },
+        "tags": {
+          "type": "array",
+          "description": "An array of tags associated with the task.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Task). The ID of the user who created the task.",
+          "format": "uuid"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the task was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the task was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "forTeam",
+        "status",
+        "priority",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "File": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "File",
+      "type": "object",
+      "description": "Represents a file uploaded for a task.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the file.",
+          "format": "uuid"
+        },
+        "taskId": {
+          "type": "string",
+          "description": "Reference to Task. (Relationship: Task 1:N File). The ID of the task the file is associated with.",
+          "format": "uuid"
+        },
+        "uploadedBy": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N File).  The ID of the user who uploaded the file.",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the file."
+        },
+        "size": {
+          "type": "number",
+          "description": "The size of the file in bytes."
+        },
+        "type": {
+          "type": "string",
+          "description": "The MIME type of the file."
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL of the file stored in Firebase Storage.",
+          "format": "uri"
+        },
+        "uploadedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the file was uploaded.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "taskId",
+        "uploadedBy",
+        "name",
+        "size",
+        "type",
+        "url",
+        "uploadedAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user information, including role and creation timestamp.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tasks/{taskId}",
+        "definition": {
+          "entityName": "Task",
+          "schema": {
+            "$ref": "#/backend/entities/Task"
+          },
+          "description": "Stores task details, including assignee, status, team, and timestamps.",
+          "params": [
+            {
+              "name": "taskId",
+              "description": "The unique identifier for the task."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tasks/{taskId}/files/{fileId}",
+        "definition": {
+          "entityName": "File",
+          "schema": {
+            "$ref": "#/backend/entities/File"
+          },
+          "description": "Stores file metadata associated with a task.",
+          "params": [
+            {
+              "name": "taskId",
+              "description": "The unique identifier for the task."
+            },
+            {
+              "name": "fileId",
+              "description": "The unique identifier for the file."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support a team task dashboard with reporting and file management capabilities. It prioritizes authorization independence and simplifies security rules.\n\n*   `/users/{userId}`: Stores user information, including their role. The `role` field is crucial for determining user privileges.\n*   `/tasks/{taskId}`: Stores task details, including the assignee, status, and team. The `assigneeId` allows filtering tasks assigned to a specific user.  The `createdBy` field captures task ownership. For authorization independence, the task documents themselves should be small, and authorization should primarily rely on the user's role and `assigneeId` without needing to read other data. This enables atomic operations.\n*   `/tasks/{taskId}/files/{fileId}`: Stores metadata about files uploaded for a specific task. This subcollection is directly linked to the task, maintaining a clear hierarchy.\n\n**Authorization Independence:**\nThe structure achieves authorization independence by relying on the user's role stored in the `/users/{userId}` document and the `assigneeId` field within the `/tasks/{taskId}` document. Rules can verify user roles and task assignments without needing to perform complex `get()` operations to check parent document attributes. While the rules provided in the prompt use `get()` calls, it is recommended that you denormalize roles into tasks to avoid these calls.\n\n**QAPs (Query-based Access Patterns):**\n\n*   **List Tasks for a User:** The `/tasks/{taskId}` collection with the `assigneeId` field enables efficient listing of tasks assigned to a specific user. A query `where('assigneeId', '==', request.auth.uid)` can be used to retrieve these tasks. Composite indexes are suggested to optimize these queries.\n*   **List Tasks by Team:** Similarly, the `forTeam` field enables listing tasks for a specific team.\n*   **Secure File Access:** The `/tasks/{taskId}/files/{fileId}` subcollection ensures that file metadata is only accessible to authorized users (admins or the user who uploaded the file).\n\n**Denormalization Recommendation**:\nTo improve security rule efficiency and remove the dependency on `get()` calls in security rules (DBAC), denormalize the user's `role` into the `task` documents. This means copying the `role` field from the user's document to each task document when the task is created. This allows security rules to check the user's role directly on the task document without needing to perform a `get()` operation on the user's document. Consider using Firebase Functions triggered on user creation/update to maintain data consistency.\n\n**Example of denormalized Task document**:\n{\n  \"title\": \"string\",\n  \"description\": \"string\",\n  \"forTeam\": \"backend|frontend\",\n  \"assigneeId\": \"uid|null\",\n  \"status\": \"backlog|in_progress|review|done\",\n  \"priority\": \"low|medium|high\",\n  \"due\": \"YYYY-MM-DD|null\",\n  \"tags\": [\"auth\",\"api\"],\n  \"createdBy\": \"uid\",\n  \"createdAt\": serverTimestamp,\n  \"updatedAt\": serverTimestamp,\n  \"userRole\": \"admin|backend|frontend\" //Denormalized role from user document\n}"
+  }
+}

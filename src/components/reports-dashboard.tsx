@@ -2,7 +2,6 @@
 
 import type { Task } from '@/lib/data';
 import { useMemo, useState } from 'react';
-import { MEMBERS } from '@/lib/data';
 import { utils, writeFile } from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -14,8 +13,9 @@ import { CompletionRatioPieChart } from './charts/completion-ratio-pie-chart';
 import { DetailedBreakdownTable } from './detailed-breakdown-table';
 import AIInsights from './ai-insights';
 import { TaskForm } from './task-form';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
+import { collection, query } from 'firebase/firestore';
 
 
 export type UserReport = {
@@ -29,13 +29,20 @@ export type UserReport = {
 
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
-  const { auth } = useFirebase();
+  const { auth, firestore } = useFirebase();
+
+  const usersQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, 'users')) : null),
+    [firestore]
+  );
+  const { data: users } = useCollection(usersQuery);
+
 
   const byUser = useMemo(() => {
     const nameOf = (uid?: string) => {
       if (!uid) return 'Unassigned';
-      const found = MEMBERS.find(m => m.id === uid);
-      return found ? `${found.name} (${found.role})` : uid;
+      const found = users?.find(m => m.id === uid);
+      return found ? `${found.fullName} (${found.role})` : uid;
     };
     const map = new Map<string, UserReport>();
     tasks.forEach(t => {
@@ -46,7 +53,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
       (rec as any)[t.status]++;
     });
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
-  }, [tasks]);
+  }, [tasks, users]);
 
   const exportCSV = () => {
     const ws = utils.json_to_sheet(byUser);

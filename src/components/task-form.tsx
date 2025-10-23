@@ -20,10 +20,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { MEMBERS, type Task } from '@/lib/data';
-import { useFirebase } from '@/firebase';
+import { type Task } from '@/lib/data';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, serverTimestamp } from 'firebase/firestore';
+import { collection, serverTimestamp, query } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>;
@@ -51,6 +51,12 @@ export function TaskForm({
   const { firestore, user } = useFirebase();
   const { toast } = useToast();
   const [form, setForm] = useState<TaskFormData>(INITIAL_FORM_STATE);
+
+  const usersQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, 'users')) : null),
+    [firestore]
+  );
+  const { data: users } = useCollection(usersQuery);
 
   useEffect(() => {
     if (task) {
@@ -219,9 +225,9 @@ export function TaskForm({
                 <SelectValue placeholder="Unassigned" />
               </SelectTrigger>
               <SelectContent>
-                {MEMBERS.map(member => (
+                {users?.map(member => (
                   <SelectItem key={member.id} value={member.id}>
-                    {member.name} ({member.role})
+                    {member.fullName} ({member.role})
                   </SelectItem>
                 ))}
               </SelectContent>

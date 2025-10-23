@@ -22,9 +22,9 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { type Task } from '@/lib/data';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, serverTimestamp, query, where } from 'firebase/firestore';
+import { collection, serverTimestamp, query, where, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { useMutations } from '@/hooks/use-mutations';
 
 type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>;
 
@@ -49,6 +49,7 @@ export function TaskForm({
   task?: Task;
 }) {
   const { firestore, user } = useFirebase();
+  const { addDoc: addTask } = useMutations();
   const { toast } = useToast();
   const [form, setForm] = useState<TaskFormData>(INITIAL_FORM_STATE);
 
@@ -95,7 +96,6 @@ export function TaskForm({
     }
 
     try {
-      const tasksCollection = collection(firestore, 'tasks');
       const taskData: Omit<Task, 'id'> = {
         ...form,
         createdBy: user.uid,
@@ -103,7 +103,7 @@ export function TaskForm({
         updatedAt: serverTimestamp(),
       };
       
-      addDocumentNonBlocking(tasksCollection, taskData);
+      addTask('tasks', taskData);
       
       toast({
         title: 'Task Created',

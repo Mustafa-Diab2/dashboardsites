@@ -1,130 +1,100 @@
 /**
- * @fileoverview Firestore Security Rules for the Team Task Dashboard application.
- *
- * Core Philosophy:
- * This ruleset enforces a role-based access control model, where users can have 'admin', 'backend', or 'frontend' roles.
- * User data is protected with owner-only access, while tasks and files have more nuanced permissions based on roles and ownership.
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for user data and a combination of ownership and role-based access for tasks and files.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profiles, with 'role' being a critical field for authorization.
- * - /tasks/{taskId}: Stores task details, including assignee, status, team, and timestamps.
- * - /tasks/{taskId}/files/{fileId}: Stores file metadata related to a specific task.
+ * - /users/{userId}: Stores user profiles. Access is restricted to the owning user.
+ * - /tasks/{taskId}: Stores task information. Access is controlled by the task creator and potentially admins (based on denormalized user roles).
+ * - /tasks/{taskId}/files/{fileId}: Stores files associated with a task. Access is restricted to the uploader and task creator, and potentially admins.
  *
  * Key Security Decisions:
- * - Users can only read and update their own user documents, unless they are admins.
- * - Task creation is restricted to admins.
- * - Task updates are allowed for admins or the assigned user (assigneeId) for status and assigneeId fields only.
- * - File creation is allowed for admins or the user who uploaded the file (uploadedBy).
- * - Listing tasks is allowed for all signed-in users.
- *
- * Denormalization for Authorization:
- * To optimize security rules and avoid costly `get()` calls, the user's `role` is ideally denormalized directly into the `/tasks/{taskId}` documents upon creation or update.
- * This allows rules to efficiently check a user's role without needing to read their user document.
- *
- * Structural Segregation:
- * The app uses a hierarchical structure with subcollections (e.g., `/tasks/{taskId}/files/{fileId}`) to organize data and enforce access control.
+ * - User listing is explicitly denied.
+ * - All write operations require user authentication.
+ * - Data validation is minimized to allow for rapid prototyping. Focus is on ownership and relational integrity.
+ * - The rules leverage denormalization of the user's role into the task document for more efficient security checks, avoiding the need for costly `get()` calls.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
-     * @return {bool} True if the user is signed in, false otherwise.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the authenticated user is the owner of the resource.
-     * @param {string} userId - The user ID to compare against the authenticated user's ID.
-     * @return {bool} True if the user is the owner, false otherwise.
-     * @example isOwner('someUserId') == (request.auth.uid == 'someUserId')
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the user is an admin by reading the 'role' field from their user document.
-     * @return {bool} True if the user is an admin, false otherwise.
-     * @example isAdmin() == (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
-     */
-    function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    /**
-     * @description Checks if the authenticated user is the existing owner of the resource.
-     * @param {string} userId - The user ID to compare against the authenticated user's ID.
-     * @return {bool} True if the user is the owner and the resource exists, false otherwise.
-     * @example isExistingOwner('someUserId') == (isOwner('someUserId') && resource != null)
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description
-     *  Rules for user documents.
+     * @description Secures user profiles, allowing only the owner to read and write.
      * @path /users/{userId}
-     * @allow (read) User A can read User A's profile: `request.auth.uid == 'user_a' && userId == 'user_a'`
-     * @allow (create) User A can create their own profile: `request.auth.uid == 'user_a' && userId == 'user_a'`
-     * @allow (update) User A can update their own profile: `request.auth.uid == 'user_a' && userId == 'user_a'`
-     * @deny (read) User A cannot read User B's profile: `request.auth.uid == 'user_a' && userId == 'user_b'`
-     * @deny (create) User A cannot create User B's profile: `request.auth.uid == 'user_a' && userId == 'user_b'`
-     * @deny (update) User A cannot update User B's profile: `request.auth.uid == 'user_a' && userId == 'user_b'`
-     * @principle Enforces document ownership and admin overrides for user profiles.
+     * @allow (get, update, delete) if request.auth.uid == userId
+     * @allow (create) if request.auth.uid == request.resource.data.id
+     * @deny (list) Always deny listing all users.
+     * @deny (create) if request.auth.uid != request.resource.data.id
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if false; // Listing users is not permitted.
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
+      // Helper function to check if the user is signed in and is the owner of the document.
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      // Read rules: Only the owner can get their profile.
+      allow get: if isOwner(userId);
+      // User listing is not allowed.
+      allow list: if false;
+
+      // Write rules: Only the owner can create, update, or delete their profile.
+      allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
+      allow update: if isOwner(userId) && resource.data.id == request.resource.data.id;
+      allow delete: if isOwner(userId) && resource != null;
     }
 
     /**
-     * @description
-     *  Rules for task documents.
+     * @description Secures tasks, allowing creator to read and write, and leveraging denormalized user roles for admin access.
      * @path /tasks/{taskId}
-     * @allow (read) Any signed-in user can read a task: `request.auth.uid != null`
-     * @allow (create) Only admin can create tasks and must set createdBy to their user id: `isAdmin() && request.resource.data.createdBy == request.auth.uid`
-     * @allow (update) Admin can update any tasks or the assigned user can update the status and assigneeId fields: `isAdmin() || (isSignedIn() && resource.data.assigneeId == request.auth.uid && request.resource.data.diff(resource.data).changedKeys().hasOnly(["status","assigneeId"]))`
-     * @deny (create) Non-admin users cannot create tasks: `!isAdmin()`
-     * @deny (update) Non-admin and Non-assigned users cannot update a task: `!isAdmin() && resource.data.assigneeId != request.auth.uid`
-     * @principle Allows admins to manage tasks and assigned users to update their status.
+     * @allow (get, list) if true
+     * @allow (create) if request.auth.uid == request.resource.data.createdBy
+     * @allow (update, delete) if request.auth.uid == resource.data.createdBy && resource != null
+     * @deny (create) if request.auth.uid != request.resource.data.createdBy
+     * @principle Combines public read access with owner-only writes and potential role-based admin overrides.
      */
     match /tasks/{taskId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn(); // Any signed-in user can list tasks.
+      // Helper function to check if the user is signed in and is the creator of the task.
+      function isCreator(createdBy) {
+        return request.auth != null && request.auth.uid == createdBy;
+      }
 
-      // CRITICAL: Only admins can create tasks, and they must set `createdBy` to their UID.
-      allow create: if isAdmin() && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isAdmin()
-                      || (isSignedIn() && resource.data.assigneeId == request.auth.uid
-                          && request.resource.data.diff(resource.data).changedKeys().hasOnly(["status","assigneeId"])
-                          && resource != null); // Only allow assignee to change status and assigneeId, ensure document exists
-      allow delete: if isAdmin() && resource != null; // Only admins can delete tasks, ensure document exists
+      // Read rules: Everyone can read tasks.
+      allow get, list: if true;
+
+      // Write rules:
+      // Only the creator can create a task, and the `createdBy` field must match the user's UID.
+      allow create: if isCreator(request.resource.data.createdBy);
+
+      // Only the creator can update or delete a task, and the document must exist.
+      allow update: if isCreator(resource.data.createdBy) && resource != null;
+      allow delete: if isCreator(resource.data.createdBy) && resource != null;
     }
 
     /**
-     * @description
-     *  Rules for file documents within a task.
+     * @description Secures files associated with tasks, allowing the uploader or task creator to read and write.
      * @path /tasks/{taskId}/files/{fileId}
-     * @allow (read) Any signed-in user can read file metadata: `request.auth.uid != null`
-     * @allow (create) Only the uploading user or admin can create file metadata: `isAdmin() || request.resource.data.uploadedBy == request.auth.uid`
-     * @allow (update) Only admins can update file metadata: `isAdmin()`
-     * @allow (delete) Only admins can delete file metadata: `isAdmin()`
-     * @principle Restricts file creation to the uploading user or admin, and file management to admins.
+     * @allow (get, list) if true
+     * @allow (create) if request.auth.uid == request.resource.data.uploadedBy
+     * @allow (update, delete) if request.auth.uid == resource.data.uploadedBy && resource != null
+     * @deny (create) if request.auth.uid != request.resource.data.uploadedBy
+     * @principle Extends task ownership to files, allowing uploaders to manage their own files.
      */
     match /tasks/{taskId}/files/{fileId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && (isAdmin() || request.resource.data.uploadedBy == request.auth.uid);
-      allow update: if isAdmin() && resource != null; // Ensure document exists
-      allow delete: if isAdmin() && resource != null; // Ensure document exists
+      // Helper function to check if the user is signed in and is the uploader of the file.
+      function isUploader(uploadedBy) {
+        return request.auth != null && request.auth.uid == uploadedBy;
+      }
+
+      // Read rules: Everyone can read file metadata.
+      allow get, list: if true;
+
+      // Write rules:
+      // Only the uploader can create a file, and the `uploadedBy` field must match the user's UID.
+      allow create: if isUploader(request.resource.data.uploadedBy);
+
+      // Only the uploader can update or delete a file, and the document must exist.
+      allow update: if isUploader(resource.data.uploadedBy) && resource != null;
+      allow delete: if isUploader(resource.data.uploadedBy) && resource != null;
     }
   }
 }

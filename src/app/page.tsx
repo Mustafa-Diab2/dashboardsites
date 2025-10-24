@@ -20,12 +20,14 @@ export default function Home() {
   const tasksQuery = useMemoFirebase(
     () => {
       if (!firestore || !user) return null;
-      // Admins see all tasks, users only see their own.
-      // This is a duplication of logic from the dashboard, but simplifies the query logic here.
-      // We will refine this later if needed. The dashboard will do the final filtering.
-      return query(collection(firestore, 'tasks'));
+      // Admins see all tasks. The dashboard will handle the view logic.
+      if ((userData as any)?.role === 'admin') {
+        return query(collection(firestore, 'tasks'));
+      }
+      // Regular users only query for their own tasks.
+      return query(collection(firestore, 'tasks'), where('assigneeId', '==', user.uid));
     },
-    [firestore, user, userRole]
+    [firestore, user, userData]
   );
 
   const { data: tasks, isLoading: isTasksLoading } = useCollection(tasksQuery);

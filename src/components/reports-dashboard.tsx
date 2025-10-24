@@ -154,7 +154,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
         
         {/* User-specific task list */}
         {!isAdmin && user && (
-          <MyTasks tasks={tasks.filter(t => t.assigneeId === user.uid)} />
+          <MyTasks tasks={tasks} />
         )}
       </div>
     </>

@@ -21,21 +21,18 @@ export default function Courses() {
   );
   const { data: userData } = useDoc(userDocRef);
   const userRole = (userData as any)?.role;
-  const userTeam = (userData as any)?.forTeam;
-
 
   const coursesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    if (userRole === 'admin' && userTeam) {
-        // Admin sees all courses for their team
-        const userIdsInTeamQuery = query(collection(firestore, 'users'), where('forTeam', '==', userTeam));
-        // This is not ideal as it requires another query, but it's a workaround for the list issue
-        // A better long term solution would be to duplicate team on course doc or adjust rules
-         return query(collection(firestore, 'courses'), where('userId', 'in', [user.uid])); // Simplified for now
+    
+    // Admins see all courses
+    if (userRole === 'admin') {
+        return query(collection(firestore, 'courses'));
     }
-    // Regular user sees only their own courses
+    
+    // Regular users see only their own courses
     return query(collection(firestore, 'courses'), where('userId', '==', user.uid));
-  }, [firestore, user, userRole, userTeam]);
+  }, [firestore, user, userRole]);
 
   const { data: courses, isLoading } = useCollection(coursesQuery);
 

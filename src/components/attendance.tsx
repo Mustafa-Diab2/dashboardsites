@@ -5,10 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { useFirebase, useMemoFirebase } from "@/firebase";
 import { useMutations } from "@/hooks/use-mutations";
-import { collection, query, where, limit, serverTimestamp, orderBy, Timestamp } from "firebase/firestore";
+import { collection, query, where, limit, serverTimestamp, orderBy, Timestamp, and } from "firebase/firestore";
 import { useCollection } from "@/firebase";
 import { useMemo } from "react";
-import { format, subDays } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import {
   Table,
   TableBody,
@@ -22,24 +22,37 @@ export default function Attendance() {
   const { user, firestore } = useFirebase();
   const { addDoc, updateDoc } = useMutations();
 
-  const today = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
-
+  const todayStart = useMemo(() => startOfDay(new Date()), []);
+  const todayEnd = useMemo(() => endOfDay(new Date()), []);
   const sevenDaysAgo = useMemo(() => subDays(new Date(), 7), []);
 
-  // Query for today's attendance
+  // Query for today's attendance record
   const todayAttendanceQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
         collection(firestore, 'attendance'),
         where('userId', '==', user.uid),
-        where('clockIn', '>=', today),
+        where('clockIn', '>=', todayStart),
+        where('clockIn', '<=', todayEnd),
         limit(1)
     );
-  }, [firestore, user, today]);
+  }, [firestore, user, todayStart, todayEnd]);
+  
+  const { data: attendanceData, isLoading } = useCollection(todayAttendanceQuery);
+
+  // Query for open attendance records from previous days (in case user forgot to clock out)
+  const openAttendanceQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(
+      collection(firestore, "attendance"),
+      and(
+        where("userId", "==", user.uid),
+        where("clockOut", "==", null)
+      )
+    );
+  }, [firestore, user]);
+
+  const { data: openAttendanceData } = useCollection(openAttendanceQuery);
 
   // Query for last 7 days history
   const historyQuery = useMemoFirebase(() => {
@@ -53,15 +66,23 @@ export default function Attendance() {
     );
   }, [firestore, user, sevenDaysAgo]);
 
-  const { data: attendanceData, isLoading } = useCollection(todayAttendanceQuery);
+  
   const { data: historyData } = useCollection(historyQuery);
 
-  const latestAttendance = useMemo(() => {
+  const todaysAttendance = useMemo(() => {
     if (attendanceData && attendanceData.length > 0) {
       return attendanceData[0];
     }
     return null;
   }, [attendanceData]);
+  
+  const openAttendance = useMemo(() => {
+    if (openAttendanceData && openAttendanceData.length > 0) {
+        // Find the one that isn't today's
+        return openAttendanceData.find(doc => doc.id !== todaysAttendance?.id);
+    }
+    return null;
+  }, [openAttendanceData, todaysAttendance]);
 
   const handleClockIn = () => {
     if (!firestore || !user) return;
@@ -73,14 +94,16 @@ export default function Attendance() {
   };
 
   const handleClockOut = () => {
-    if (!firestore || !latestAttendance) return;
-    updateDoc('attendance', latestAttendance.id, {
+    if (!firestore || !todaysAttendance) return;
+    updateDoc('attendance', todaysAttendance.id, {
       clockOut: serverTimestamp(),
     });
   };
   
-  const hasClockedInToday = !!latestAttendance;
-  const hasClockedOutToday = !!latestAttendance?.clockOut;
+  const hasClockedInToday = !!todaysAttendance;
+  const hasClockedOutToday = !!todaysAttendance?.clockOut;
+  const canClockIn = !hasClockedInToday && !openAttendance;
+  const canClockOut = hasClockedInToday && !hasClockedOutToday;
   
   const formatTime = (timestamp: any) => {
     if (!timestamp) return 'N/A';
@@ -110,6 +133,12 @@ export default function Attendance() {
 
     return `${hours}h ${minutes}m`;
   };
+  
+  let statusText = 'Not Clocked In';
+  if (hasClockedInToday && !hasClockedOutToday) statusText = 'Clocked In';
+  if (hasClockedOutToday) statusText = 'Clocked Out for the Day';
+  if (openAttendance) statusText = 'Forgot to Clock Out';
+
 
   return (
     <div className="space-y-4">
@@ -127,19 +156,24 @@ export default function Attendance() {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-lg bg-muted/50">
               <div className="text-center sm:text-left">
                   <p className="font-medium">
-                    Status: {hasClockedInToday && !hasClockedOutToday ? 'Clocked In' : (hasClockedOutToday ? 'Clocked Out' : 'Not Clocked In')}
+                    Status: {statusText}
                   </p>
-                  {latestAttendance && (
+                  {todaysAttendance && (
                       <p className="text-sm text-muted-foreground">
-                          In: {formatTime(latestAttendance.clockIn)} | Out: {formatTime(latestAttendance.clockOut)}
+                          In: {formatTime(todaysAttendance.clockIn)} | Out: {formatTime(todaysAttendance.clockOut)}
                       </p>
+                  )}
+                  {openAttendance && (
+                    <p className="text-sm text-destructive">
+                      Please clock out from {formatDate(openAttendance.clockIn)} before clocking in again.
+                    </p>
                   )}
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
-                <Button onClick={handleClockIn} disabled={hasClockedInToday} className="flex-1">
+                <Button onClick={handleClockIn} disabled={!canClockIn} variant={canClockIn ? 'default' : 'secondary'}>
                   <LogIn className="mr-2" /> Clock In
                 </Button>
-                <Button onClick={handleClockOut} disabled={!hasClockedInToday || hasClockedOutToday} variant="outline" className="flex-1">
+                <Button onClick={handleClockOut} disabled={!canClockOut} variant={canClockOut ? 'default' : 'outline'}>
                   <LogOut className="mr-2" /> Clock Out
                 </Button>
               </div>

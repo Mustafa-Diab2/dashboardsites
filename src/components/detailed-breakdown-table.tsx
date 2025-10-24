@@ -8,19 +8,21 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { UserReport } from './reports-dashboard';
+import { useLanguage } from "@/context/language-context";
 
 export function DetailedBreakdownTable({ data }: { data: UserReport[] }) {
+  const { t } = useLanguage();
   return (
     <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[250px]">Member</TableHead>
-            <TableHead className="text-center">Total</TableHead>
-            <TableHead className="text-center">Backlog</TableHead>
-            <TableHead className="text-center">In Progress</TableHead>
-            <TableHead className="text-center">Review</TableHead>
-            <TableHead className="text-center">Done</TableHead>
+            <TableHead className="w-[250px]">{t('member')}</TableHead>
+            <TableHead className="text-center">{t('total')}</TableHead>
+            <TableHead className="text-center">{t('backlog')}</TableHead>
+            <TableHead className="text-center">{t('in_progress')}</TableHead>
+            <TableHead className="text-center">{t('review')}</TableHead>
+            <TableHead className="text-center">{t('done')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -37,7 +39,7 @@ export function DetailedBreakdownTable({ data }: { data: UserReport[] }) {
            {data.length === 0 && (
             <TableRow>
               <TableCell colSpan={6} className="h-24 text-center">
-                No data available.
+                {t('no_data_available')}
               </TableCell>
             </TableRow>
           )}

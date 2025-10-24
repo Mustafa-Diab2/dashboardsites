@@ -20,6 +20,9 @@ import Attendance from './attendance';
 import AttendanceAdmin from './attendance-admin';
 import Courses from './courses';
 import MyTasks from './my-tasks';
+import { useLanguage } from '@/context/language-context';
+import { LanguageSwitcher } from './language-switcher';
+import { ThemeSwitcher } from './theme-switcher';
 
 
 export type UserReport = {
@@ -34,6 +37,7 @@ export type UserReport = {
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
   const { auth, firestore, user } = useFirebase();
+  const { t } = useLanguage();
 
   // Query all users for filter
   const usersQuery = useMemoFirebase(
@@ -95,18 +99,20 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
       <div className="max-w-7xl mx-auto px-4 pb-10 space-y-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h2 className="font-semibold text-2xl font-headline">{isAdmin ? 'Team Analytics' : 'My Dashboard'}</h2>
-            <p className="text-muted-foreground">{isAdmin ? "Analyze your team's workload and productivity." : "An overview of your courses and tasks."}</p>
+            <h2 className="font-semibold text-2xl font-headline">{isAdmin ? t('team_analytics') : t('my_dashboard')}</h2>
+            <p className="text-muted-foreground">{isAdmin ? t('team_analytics_desc') : t('my_dashboard_desc')}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             {isAdmin && (
               <Button onClick={() => setTaskFormOpen(true)}>
-                <Plus /> Add Task
+                <Plus /> {t('add_task')}
               </Button>
             )}
-            {isAdmin && <Button variant="outline" onClick={exportCSV}><FileDown /> CSV</Button>}
-            {isAdmin && <Button variant="outline" onClick={exportPDF}><FileDown /> PDF</Button>}
-            <Button variant="outline" onClick={handleSignOut}><LogOut /> Sign Out</Button>
+            {isAdmin && <Button variant="outline" onClick={exportCSV}><FileDown /> {t('csv')}</Button>}
+            {isAdmin && <Button variant="outline" onClick={exportPDF}><FileDown /> {t('pdf')}</Button>}
+            <LanguageSwitcher />
+            <ThemeSwitcher />
+            <Button variant="outline" onClick={handleSignOut}><LogOut /> {t('sign_out')}</Button>
           </div>
         </div>
 
@@ -124,7 +130,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
             <div className="grid md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="font-headline">Tasks by Member</CardTitle>
+                  <CardTitle className="font-headline">{t('tasks_by_member')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <MemberTasksBarChart data={byUser} />
@@ -133,7 +139,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
               
               <Card>
                 <CardHeader>
-                  <CardTitle className="font-headline">Tasks Completion Ratio</CardTitle>
+                  <CardTitle className="font-headline">{t('tasks_completion_ratio')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <CompletionRatioPieChart data={byUser} />
@@ -143,7 +149,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
 
             <Card>
               <CardHeader>
-                <CardTitle className="font-headline">Detailed Member Breakdown</CardTitle>
+                <CardTitle className="font-headline">{t('detailed_member_breakdown')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <DetailedBreakdownTable data={byUser} />

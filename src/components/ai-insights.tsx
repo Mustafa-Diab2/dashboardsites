@@ -8,11 +8,13 @@ import { generateTeamInsights } from '@/lib/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { UserReport } from './reports-dashboard';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { useLanguage } from '@/context/language-context';
 
 export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
   const [insights, setInsights] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useLanguage();
 
   const handleGenerateInsights = async () => {
     setIsLoading(true);
@@ -24,7 +26,7 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     if (result.insights) {
       setInsights(result.insights);
     } else {
-      setError("Failed to generate insights. Please try again.");
+      setError(t('failed_to_generate_insights'));
     }
     setIsLoading(false);
   };
@@ -35,20 +37,20 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
         <div>
           <CardTitle className="font-headline flex items-center gap-2">
             <Sparkles className="text-primary" />
-            AI-Powered Insights
+            {t('ai_powered_insights')}
           </CardTitle>
-          <CardDescription>Analyze team performance and get recommendations.</CardDescription>
+          <CardDescription>{t('ai_powered_insights_desc')}</CardDescription>
         </div>
         <Button onClick={handleGenerateInsights} disabled={isLoading} className="w-full sm:w-auto">
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generating...
+              {t('generating')}...
             </>
           ) : (
             <>
               <Sparkles className="mr-2 h-4 w-4" />
-              Generate Insights
+              {t('generate_insights')}
             </>
           )}
         </Button>
@@ -65,12 +67,12 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
               {isLoading && (
                 <div className="flex items-center gap-4 text-muted-foreground p-4 rounded-lg bg-muted/50">
                   <Loader2 className="animate-spin" />
-                  <p>Our AI is analyzing your team's data... This may take a moment.</p>
+                  <p>{t('ai_analyzing_data')}</p>
                 </div>
               )}
               {error && (
                 <Alert variant="destructive">
-                  <AlertTitle>Error</AlertTitle>
+                  <AlertTitle>{t('error')}</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}

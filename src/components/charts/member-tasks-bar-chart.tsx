@@ -3,15 +3,18 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import type { UserReport } from '../reports-dashboard';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
-
-const chartConfig = {
-  backlog: { label: "Backlog", color: "hsl(var(--chart-1))" },
-  in_progress: { label: "In Progress", color: "hsl(var(--chart-2))" },
-  review: { label: "Review", color: "hsl(var(--chart-3))" },
-  done: { label: "Done", color: "hsl(var(--chart-4))" },
-};
+import { useLanguage } from '@/context/language-context';
 
 export function MemberTasksBarChart({ data }: { data: UserReport[] }) {
+  const { t } = useLanguage();
+  
+  const chartConfig = {
+    backlog: { label: t("backlog"), color: "hsl(var(--chart-1))" },
+    in_progress: { label: t("in_progress"), color: "hsl(var(--chart-2))" },
+    review: { label: t("review"), color: "hsl(var(--chart-3))" },
+    done: { label: t("done"), color: "hsl(var(--chart-4))" },
+  };
+
   return (
     <ChartContainer config={chartConfig} className="w-full h-[300px]">
       <BarChart data={data} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}>

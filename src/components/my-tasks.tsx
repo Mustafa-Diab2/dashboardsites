@@ -15,33 +15,35 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { TaskDetailsDialog } from './task-details-dialog';
 import type { Task } from '@/lib/data';
+import { useLanguage } from '@/context/language-context';
 
 export default function MyTasks({ tasks }: { tasks: Task[] }) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const { t } = useLanguage();
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case 'high':
-        return <Badge variant="destructive">High</Badge>;
+        return <Badge variant="destructive">{t('high')}</Badge>;
       case 'medium':
-        return <Badge variant="secondary">Medium</Badge>;
+        return <Badge variant="secondary">{t('medium')}</Badge>;
       case 'low':
       default:
-        return <Badge variant="outline">Low</Badge>;
+        return <Badge variant="outline">{t('low')}</Badge>;
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'done':
-        return <Badge><CheckSquare className="mr-1 h-3 w-3" />Done</Badge>;
+        return <Badge><CheckSquare className="mr-1 h-3 w-3" />{t('done')}</Badge>;
       case 'review':
-        return <Badge variant="secondary">In Review</Badge>;
+        return <Badge variant="secondary">{t('review')}</Badge>;
       case 'in_progress':
-        return <Badge variant="secondary">In Progress</Badge>;
+        return <Badge variant="secondary">{t('in_progress')}</Badge>;
       case 'backlog':
       default:
-        return <Badge variant="outline">Backlog</Badge>;
+        return <Badge variant="outline">{t('backlog')}</Badge>;
     }
   };
 
@@ -58,7 +60,7 @@ export default function MyTasks({ tasks }: { tasks: Task[] }) {
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <ListTodo />
-            My Tasks
+            {t('my_tasks')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -66,11 +68,11 @@ export default function MyTasks({ tasks }: { tasks: Task[] }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('title')}</TableHead>
+                  <TableHead>{t('status')}</TableHead>
+                  <TableHead>{t('priority')}</TableHead>
+                  <TableHead>{t('due_date')}</TableHead>
+                  <TableHead className="text-right">{t('actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -88,7 +90,7 @@ export default function MyTasks({ tasks }: { tasks: Task[] }) {
                           onClick={() => setSelectedTask(task)}
                         >
                           <Eye className="mr-2 h-4 w-4" />
-                          View / Manage
+                          {t('view_manage')}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -96,7 +98,7 @@ export default function MyTasks({ tasks }: { tasks: Task[] }) {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center">
-                      You have no tasks assigned. Great job!
+                      {t('no_tasks_assigned')}
                     </TableCell>
                   </TableRow>
                 )}

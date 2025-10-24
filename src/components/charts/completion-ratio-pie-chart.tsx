@@ -3,14 +3,15 @@
 import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import type { UserReport } from '../reports-dashboard';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
-
-const chartConfig = {
-  done: {
-    label: 'Done',
-  },
-};
+import { useLanguage } from '@/context/language-context';
 
 export function CompletionRatioPieChart({ data }: { data: UserReport[] }) {
+    const { t } = useLanguage();
+    const chartConfig = {
+      done: {
+        label: t('done'),
+      },
+    };
     const chartData = data.filter(d => d.total > 0);
 
   return (

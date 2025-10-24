@@ -22,9 +22,10 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { type Task } from '@/lib/data';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, serverTimestamp, query, where, addDoc } from 'firebase/firestore';
+import { collection, serverTimestamp, query } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useMutations } from '@/hooks/use-mutations';
+import { useLanguage } from '@/context/language-context';
 
 type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>;
 
@@ -51,6 +52,7 @@ export function TaskForm({
   const { firestore, user } = useFirebase();
   const { addDoc: addTask } = useMutations();
   const { toast } = useToast();
+  const { t, language } = useLanguage();
   const [form, setForm] = useState<TaskFormData>(INITIAL_FORM_STATE);
 
   const usersQuery = useMemoFirebase(
@@ -79,7 +81,7 @@ export function TaskForm({
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'You must be logged in to create a task.',
+        description: t('must_be_logged_in_to_create_task'),
       });
       return;
     }
@@ -87,7 +89,7 @@ export function TaskForm({
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Task title is required.',
+        description: t('task_title_required'),
       });
       return;
     }
@@ -103,16 +105,16 @@ export function TaskForm({
       addTask('tasks', taskData);
       
       toast({
-        title: 'Task Created',
-        description: `Task "${form.title}" has been successfully created.`,
+        title: t('task_created_title'),
+        description: `${t('task_created_desc')} "${form.title}"`,
       });
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating task:', error);
       toast({
         variant: 'destructive',
-        title: 'Uh oh! Something went wrong.',
-        description: 'There was a problem with your request.',
+        title: t('error_title'),
+        description: t('error_desc'),
       });
     }
   };
@@ -121,18 +123,18 @@ export function TaskForm({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" dir={language === 'ar' ? 'rtl' : 'ltr'}>
         <DialogHeader>
-          <DialogTitle>{task ? 'Edit Task' : 'Create Task'}</DialogTitle>
+          <DialogTitle>{task ? t('edit_task') : t('create_task')}</DialogTitle>
           <DialogDescription>
             {task
-              ? 'Edit the details of the task.'
-              : 'Fill in the details to create a new task.'}
+              ? t('edit_task_desc')
+              : t('create_task_desc')}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title">{t('title')}</Label>
             <Input
               id="title"
               value={form.title}
@@ -140,7 +142,7 @@ export function TaskForm({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">{t('description')}</Label>
             <Textarea
               id="description"
               value={form.description || ''}
@@ -149,63 +151,66 @@ export function TaskForm({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status">{t('status')}</Label>
               <Select
                 value={form.status}
                 onValueChange={value =>
                   handleFieldChange('status', value)
                 }
+                dir={language === 'ar' ? 'rtl' : 'ltr'}
               >
                 <SelectTrigger id="status">
-                  <SelectValue placeholder="Select status" />
+                  <SelectValue placeholder={t('select_status')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="backlog">Backlog</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="review">Review</SelectItem>
-                  <SelectItem value="done">Done</SelectItem>
+                  <SelectItem value="backlog">{t('backlog')}</SelectItem>
+                  <SelectItem value="in_progress">{t('in_progress')}</SelectItem>
+                  <SelectItem value="review">{t('review')}</SelectItem>
+                  <SelectItem value="done">{t('done')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
              <div className="grid gap-2">
-              <Label htmlFor="team">Team</Label>
+              <Label htmlFor="team">{t('team')}</Label>
               <Select
                 value={form.forTeam}
                 onValueChange={value =>
                   handleFieldChange('forTeam', value)
                 }
+                dir={language === 'ar' ? 'rtl' : 'ltr'}
               >
                 <SelectTrigger id="team">
-                  <SelectValue placeholder="Select team" />
+                  <SelectValue placeholder={t('select_team')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="frontend">Frontend</SelectItem>
-                  <SelectItem value="backend">Backend</SelectItem>
+                  <SelectItem value="frontend">{t('frontend')}</SelectItem>
+                  <SelectItem value="backend">{t('backend')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
            <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="priority">Priority</Label>
+              <Label htmlFor="priority">{t('priority')}</Label>
               <Select
                 value={form.priority}
                 onValueChange={value =>
                   handleFieldChange('priority', value)
                 }
+                dir={language === 'ar' ? 'rtl' : 'ltr'}
               >
                 <SelectTrigger id="priority">
-                  <SelectValue placeholder="Select priority" />
+                  <SelectValue placeholder={t('select_priority')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="low">{t('low')}</SelectItem>
+                  <SelectItem value="medium">{t('medium')}</SelectItem>
+                  <SelectItem value="high">{t('high')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
              <div className="grid gap-2">
-                <Label htmlFor="due-date">Due Date</Label>
+                <Label htmlFor="due-date">{t('due_date')}</Label>
                 <Input
                   id="due-date"
                   type="date"
@@ -216,20 +221,21 @@ export function TaskForm({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="assignee">Assignee</Label>
+            <Label htmlFor="assignee">{t('assignee')}</Label>
             <Select
               value={form.assigneeId || ''}
               onValueChange={value =>
                 handleFieldChange('assigneeId', value || undefined)
               }
+              dir={language === 'ar' ? 'rtl' : 'ltr'}
             >
               <SelectTrigger id="assignee">
-                <SelectValue placeholder="Unassigned" />
+                <SelectValue placeholder={t('unassigned')} />
               </SelectTrigger>
               <SelectContent>
                 {teamMembers?.map(member => (
                   <SelectItem key={member.id} value={member.id}>
-                    {member.fullName}
+                    {(member as any).fullName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -238,9 +244,9 @@ export function TaskForm({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('cancel')}
           </Button>
-          <Button onClick={handleSubmit}>Save Task</Button>
+          <Button onClick={handleSubmit}>{t('save_task')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

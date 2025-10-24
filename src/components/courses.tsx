@@ -9,11 +9,13 @@ import { collection, query, where, serverTimestamp, doc } from "firebase/firesto
 import { useMutations } from "@/hooks/use-mutations";
 import { useState } from "react";
 import CourseForm from "./course-form";
+import { useLanguage } from "@/context/language-context";
 
 export default function Courses() {
   const { user, firestore } = useFirebase();
   const { updateDoc } = useMutations();
   const [isCourseFormOpen, setCourseFormOpen] = useState(false);
+  const { t } = useLanguage();
 
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
@@ -25,12 +27,10 @@ export default function Courses() {
   const coursesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     
-    // Admins see all courses
     if (userRole === 'admin') {
         return query(collection(firestore, 'courses'));
     }
     
-    // Regular users see only their own courses
     return query(collection(firestore, 'courses'), where('userId', '==', user.uid));
   }, [firestore, user, userRole]);
 
@@ -47,12 +47,12 @@ export default function Courses() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'in_progress':
-        return <Badge variant="secondary">In Progress</Badge>;
+        return <Badge variant="secondary">{t('in_progress')}</Badge>;
       case 'completed':
-        return <Badge>Completed</Badge>;
+        return <Badge>{t('completed')}</Badge>;
       case 'not_started':
       default:
-        return <Badge variant="outline">Not Started</Badge>;
+        return <Badge variant="outline">{t('not_started')}</Badge>;
     }
   };
 
@@ -64,17 +64,17 @@ export default function Courses() {
           <div>
             <CardTitle className="font-headline flex items-center gap-2">
               <Book />
-              My Courses
+              {t('my_courses')}
             </CardTitle>
-            <CardDescription>Courses assigned to you and your team.</CardDescription>
+            <CardDescription>{t('my_courses_desc')}</CardDescription>
           </div>
           {userRole === 'admin' && (
-            <Button onClick={() => setCourseFormOpen(true)}><Plus/> Add Course</Button>
+            <Button onClick={() => setCourseFormOpen(true)}><Plus/> {t('add_course')}</Button>
           )}
         </CardHeader>
         <CardContent className="space-y-4">
           {isLoading ? (
-            <p>Loading courses...</p>
+            <p>{t('loading_courses')}</p>
           ) : courses && courses.length > 0 ? (
             courses.map((course) => (
               <div key={course.id} className="p-4 rounded-lg bg-muted/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -83,9 +83,9 @@ export default function Courses() {
                      <h4 className="font-semibold">{course.name}</h4>
                      {getStatusBadge(course.status)}
                   </div>
-                  <p className="text-sm text-muted-foreground">Duration: {course.duration}</p>
+                  <p className="text-sm text-muted-foreground">{t('duration')}: {course.duration}</p>
                    <a href={course.link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
-                    Go to course <ExternalLink className="w-4 h-4" />
+                    {t('go_to_course')} <ExternalLink className="w-4 h-4" />
                   </a>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
@@ -94,7 +94,7 @@ export default function Courses() {
                     onClick={() => handleStartCourse(course.id)}
                     disabled={course.status !== 'not_started'}
                   >
-                    <Play className="mr-2" /> Start
+                    <Play className="mr-2" /> {t('start')}
                   </Button>
                   <Button
                     size="sm"
@@ -102,13 +102,13 @@ export default function Courses() {
                     onClick={() => handleEndCourse(course.id)}
                     disabled={course.status !== 'in_progress'}
                   >
-                    <StopCircle className="mr-2" /> End
+                    <StopCircle className="mr-2" /> {t('end')}
                   </Button>
                 </div>
               </div>
             ))
           ) : (
-            <p className="text-muted-foreground p-4 text-center">No courses assigned yet.</p>
+            <p className="text-muted-foreground p-4 text-center">{t('no_courses_assigned')}</p>
           )}
         </CardContent>
       </Card>

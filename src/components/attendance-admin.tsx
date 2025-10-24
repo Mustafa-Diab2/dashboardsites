@@ -23,14 +23,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { utils, writeFile } from 'xlsx';
+import { useLanguage } from "@/context/language-context";
 
 export default function AttendanceAdmin() {
   const { firestore, user } = useFirebase();
+  const { t, language } = useLanguage();
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedUserId, setSelectedUserId] = useState<string>("all");
 
-  // Get date range for selected month
+  const usersQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, 'users')) : null),
+    [firestore]
+  );
+  const { data: users } = useCollection(usersQuery);
+
   const dateRange = useMemo(() => {
     const date = new Date(selectedYear, selectedMonth, 1);
     return {
@@ -39,14 +46,6 @@ export default function AttendanceAdmin() {
     };
   }, [selectedMonth, selectedYear]);
 
-  // Query all users for filter
-  const usersQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'users')) : null),
-    [firestore]
-  );
-  const { data: users } = useCollection(usersQuery);
-
-  // Query attendance records
   const attendanceQuery = useMemoFirebase(() => {
     if (!firestore) return null;
 
@@ -65,7 +64,6 @@ export default function AttendanceAdmin() {
 
   const { data: attendanceRecords, isLoading } = useCollection(attendanceQuery);
 
-  // Format records with user names
   const formattedRecords = useMemo(() => {
     if (!attendanceRecords || !users) return [];
 
@@ -73,13 +71,12 @@ export default function AttendanceAdmin() {
       const userInfo = users.find(u => u.id === record.userId);
       return {
         ...record,
-        userName: userInfo ? `${(userInfo as any).fullName}` : 'Unknown',
-        userRole: userInfo ? `${(userInfo as any).role}` : 'N/A',
+        userName: userInfo ? `${(userInfo as any).fullName}` : t('unknown_user'),
+        userRole: userInfo ? `${(userInfo as any).role}` : t('n_a'),
       };
     });
-  }, [attendanceRecords, users]);
+  }, [attendanceRecords, users, t]);
 
-  // Calculate statistics
   const statistics = useMemo(() => {
     const stats = new Map<string, {
       name: string;
@@ -90,7 +87,7 @@ export default function AttendanceAdmin() {
     }>();
 
     formattedRecords.forEach(record => {
-      if (!record.clockOut) return; // Skip incomplete records
+      if (!record.clockOut) return;
 
       const key = record.userId;
       if (!stats.has(key)) {
@@ -117,16 +114,16 @@ export default function AttendanceAdmin() {
   }, [formattedRecords]);
 
   const formatDateTime = (timestamp: any) => {
-    if (!timestamp) return 'N/A';
+    if (!timestamp) return t('n_a');
     if (timestamp.toDate) {
       return format(timestamp.toDate(), 'dd/MM/yyyy hh:mm a');
     }
-    return 'Pending...';
+    return t('pending');
   };
 
   const formatDuration = (clockIn: any, clockOut: any) => {
-    if (!clockIn || !clockOut) return 'N/A';
-    if (!clockIn.toDate || !clockOut.toDate) return 'Calculating...';
+    if (!clockIn || !clockOut) return t('n_a');
+    if (!clockIn.toDate || !clockOut.toDate) return t('calculating');
 
     const start = clockIn.toDate();
     const end = clockOut.toDate();
@@ -134,16 +131,16 @@ export default function AttendanceAdmin() {
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
-    return `${hours}h ${minutes}m`;
+    return `${hours}${t('hours_short')} ${minutes}${t('minutes_short')}`;
   };
 
   const exportToExcel = () => {
     const data = formattedRecords.map(record => ({
-      'اسم الموظف': record.userName,
-      'الدور': record.userRole,
-      'تاريخ الحضور': formatDateTime(record.clockIn),
-      'تاريخ الانصراف': formatDateTime(record.clockOut),
-      'مدة العمل': formatDuration(record.clockIn, record.clockOut),
+      [t('employee_name')]: record.userName,
+      [t('role')]: record.userRole,
+      [t('clock_in_date')]: formatDateTime(record.clockIn),
+      [t('clock_out_date')]: formatDateTime(record.clockOut),
+      [t('work_duration')]: formatDuration(record.clockIn, record.clockOut),
     }));
 
     const ws = utils.json_to_sheet(data);
@@ -154,30 +151,29 @@ export default function AttendanceAdmin() {
     writeFile(wb, fileName);
   };
 
-  const months = [
-    'يناير', 'فبراير', 'مارس', 'إبريل', 'مايو', 'يونيو',
-    'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-  ];
+  const months = language === 'ar' 
+    ? ['يناير', 'فبراير', 'مارس', 'إبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
+    : ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
   return (
     <div className="space-y-6">
-      {/* Filters */}
       <Card>
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <Calendar />
-            تقرير الحضور والانصراف
+            {t('attendance_report_title')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">الشهر</label>
+              <label className="text-sm font-medium mb-2 block">{t('month')}</label>
               <Select
                 value={selectedMonth.toString()}
                 onValueChange={(v) => setSelectedMonth(parseInt(v))}
+                dir={language === 'ar' ? 'rtl' : 'ltr'}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -193,10 +189,11 @@ export default function AttendanceAdmin() {
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">السنة</label>
+              <label className="text-sm font-medium mb-2 block">{t('year')}</label>
               <Select
                 value={selectedYear.toString()}
                 onValueChange={(v) => setSelectedYear(parseInt(v))}
+                dir={language === 'ar' ? 'rtl' : 'ltr'}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -212,13 +209,13 @@ export default function AttendanceAdmin() {
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">الموظف</label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <label className="text-sm font-medium mb-2 block">{t('employee')}</label>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId} dir={language === 'ar' ? 'rtl' : 'ltr'}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">الكل</SelectItem>
+                  <SelectItem value="all">{t('all')}</SelectItem>
                   {users?.map(user => (
                     <SelectItem key={user.id} value={user.id}>
                       {(user as any).fullName}
@@ -231,14 +228,13 @@ export default function AttendanceAdmin() {
             <div className="flex items-end">
               <Button onClick={exportToExcel} className="w-full">
                 <Download className="mr-2" />
-                تصدير Excel
+                {t('export_excel')}
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Statistics Cards */}
       {statistics.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {statistics.map(stat => (
@@ -253,15 +249,15 @@ export default function AttendanceAdmin() {
               <CardContent>
                 <div className="space-y-1">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">أيام الحضور:</span>
+                    <span className="text-muted-foreground">{t('attendance_days')}:</span>
                     <span className="font-medium">{stat.totalDays}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">إجمالي الساعات:</span>
+                    <span className="text-muted-foreground">{t('total_hours')}:</span>
                     <span className="font-medium">{stat.totalHours.toFixed(1)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">متوسط الساعات/يوم:</span>
+                    <span className="text-muted-foreground">{t('avg_hours_day')}:</span>
                     <span className="font-medium">{stat.avgHoursPerDay.toFixed(1)}</span>
                   </div>
                 </div>
@@ -271,29 +267,28 @@ export default function AttendanceAdmin() {
         </div>
       )}
 
-      {/* Attendance Records Table */}
       <Card>
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <Clock />
-            سجل الحضور التفصيلي
+            {t('detailed_attendance_log')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-center py-8">جاري التحميل...</p>
+            <p className="text-center py-8">{t('loading')}</p>
           ) : formattedRecords.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">لا توجد سجلات للفترة المحددة</p>
+            <p className="text-center py-8 text-muted-foreground">{t('no_records_found')}</p>
           ) : (
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>اسم الموظف</TableHead>
-                    <TableHead>الدور</TableHead>
-                    <TableHead>تاريخ الحضور</TableHead>
-                    <TableHead>تاريخ الانصراف</TableHead>
-                    <TableHead>مدة العمل</TableHead>
+                    <TableHead>{t('employee_name')}</TableHead>
+                    <TableHead>{t('role')}</TableHead>
+                    <TableHead>{t('clock_in_date')}</TableHead>
+                    <TableHead>{t('clock_out_date')}</TableHead>
+                    <TableHead>{t('work_duration')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -304,7 +299,7 @@ export default function AttendanceAdmin() {
                       <TableCell>{formatDateTime(record.clockIn)}</TableCell>
                       <TableCell>
                         {record.clockOut ? formatDateTime(record.clockOut) : (
-                          <span className="text-yellow-600">لا يزال في العمل</span>
+                          <span className="text-yellow-600">{t('still_at_work')}</span>
                         )}
                       </TableCell>
                       <TableCell>{formatDuration(record.clockIn, record.clockOut)}</TableCell>

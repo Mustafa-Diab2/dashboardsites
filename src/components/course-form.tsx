@@ -23,6 +23,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useMutations } from '@/hooks/use-mutations';
 import { collection, query } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/context/language-context';
 
 const INITIAL_FORM_STATE = {
   name: '',
@@ -41,6 +42,7 @@ export default function CourseForm({
   const { firestore, user } = useFirebase();
   const { toast } = useToast();
   const { addDoc } = useMutations();
+  const { t, language } = useLanguage();
   const [form, setForm] = useState(INITIAL_FORM_STATE);
 
   const usersQuery = useMemoFirebase(
@@ -64,7 +66,7 @@ export default function CourseForm({
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'You must be logged in to create a course.',
+        description: t('must_be_logged_in_to_create_course'),
       });
       return;
     }
@@ -72,7 +74,7 @@ export default function CourseForm({
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Please fill out all fields.',
+        description: t('please_fill_all_fields'),
       });
       return;
     }
@@ -82,23 +84,22 @@ export default function CourseForm({
       status: 'not_started',
     });
 
-    // Reset form and close dialog
     setForm(INITIAL_FORM_STATE);
     onOpenChange(false);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" dir={language === 'ar' ? 'rtl' : 'ltr'}>
         <DialogHeader>
-          <DialogTitle>Create Course</DialogTitle>
+          <DialogTitle>{t('create_course')}</DialogTitle>
           <DialogDescription>
-            Fill in the details to assign a new course.
+            {t('create_course_desc')}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">Course Name</Label>
+            <Label htmlFor="name">{t('course_name')}</Label>
             <Input
               id="name"
               value={form.name}
@@ -106,7 +107,7 @@ export default function CourseForm({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="link">Course Link</Label>
+            <Label htmlFor="link">{t('course_link')}</Label>
             <Input
               id="link"
               type="url"
@@ -115,7 +116,7 @@ export default function CourseForm({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="duration">Duration (e.g., 2 hours)</Label>
+            <Label htmlFor="duration">{t('duration_placeholder')}</Label>
             <Input
               id="duration"
               value={form.duration}
@@ -123,15 +124,16 @@ export default function CourseForm({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="assignee">Assign to</Label>
+            <Label htmlFor="assignee">{t('assign_to')}</Label>
             <Select
               value={form.userId}
               onValueChange={value =>
                 handleFieldChange('userId', value)
               }
+              dir={language === 'ar' ? 'rtl' : 'ltr'}
             >
               <SelectTrigger id="assignee">
-                <SelectValue placeholder="Select a user" />
+                <SelectValue placeholder={t('select_user')} />
               </SelectTrigger>
               <SelectContent>
                 {users?.map(member => (
@@ -145,9 +147,9 @@ export default function CourseForm({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('cancel')}
           </Button>
-          <Button onClick={handleSubmit}>Create Course</Button>
+          <Button onClick={handleSubmit}>{t('create_course')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

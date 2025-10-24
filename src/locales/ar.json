@@ -17,7 +17,7 @@
     "review": "مراجعة",
     "done": "تم",
     "no_data_available": "لا توجد بيانات متاحة.",
-    "attendance": "الحضور",
+    "attendance": "الحاضرين",
     "status": "الحالة",
     "not_clocked_in": "لم يتم تسجيل الحضور",
     "not_clocked_in_desc": "لم تقم بتسجيل الحضور اليوم.",
@@ -154,5 +154,6 @@
     "generate_insights": "إنشاء رؤى",
     "ai_analyzing_data": "يقوم الذكاء الاصطناعي لدينا بتحليل بيانات فريقك ... قد يستغرق هذا بعض الوقت.",
     "failed_to_generate_insights": "فشل في إنشاء رؤى. يرجى المحاولة مرة أخرى.",
-    "error": "خطأ"
+    "error": "خطأ",
+    "home_page_description": "نظرة عامة على أداء فريقك وتوزيع المهام."
 }

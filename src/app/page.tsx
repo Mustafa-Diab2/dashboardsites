@@ -5,9 +5,11 @@ import { useCollection, useFirebase, useMemoFirebase, useDoc } from '@/firebase'
 import { collection, query, doc, where } from 'firebase/firestore';
 import { AuthCard } from '@/components/auth-card';
 import type { Task } from '@/lib/data';
+import { useLanguage } from '@/context/language-context';
 
 export default function Home() {
   const { firestore, user, isUserLoading } = useFirebase();
+  const { t } = useLanguage();
 
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
@@ -64,7 +66,7 @@ export default function Home() {
             Xfuse Sites
           </h1>
           <p className="mt-2 text-lg text-muted-foreground">
-            An overview of your team's performance and task distribution.
+            {t('home_page_description')}
           </p>
         </div>
       </header>

@@ -155,5 +155,6 @@
     "generate_insights": "Generate Insights",
     "ai_analyzing_data": "Our AI is analyzing your team's data... This may take a moment.",
     "failed_to_generate_insights": "Failed to generate insights. Please try again.",
-    "error": "Error"
+    "error": "Error",
+    "home_page_description": "An overview of your team's performance and task distribution."
 }

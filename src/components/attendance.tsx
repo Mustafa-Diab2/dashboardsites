@@ -79,8 +79,8 @@ export default function Attendance() {
     });
   };
   
-  const isClockedIn = latestAttendance && !latestAttendance.clockOut;
-  const isClockedOut = latestAttendance && latestAttendance.clockOut;
+  const hasClockedInToday = !!latestAttendance;
+  const hasClockedOutToday = !!latestAttendance?.clockOut;
   
   const formatTime = (timestamp: any) => {
     if (!timestamp) return 'N/A';
@@ -127,7 +127,7 @@ export default function Attendance() {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-lg bg-muted/50">
               <div className="text-center sm:text-left">
                   <p className="font-medium">
-                    Status: {isClockedIn ? 'Clocked In' : (isClockedOut ? 'Clocked Out' : 'Not Clocked In')}
+                    Status: {hasClockedInToday && !hasClockedOutToday ? 'Clocked In' : (hasClockedOutToday ? 'Clocked Out' : 'Not Clocked In')}
                   </p>
                   {latestAttendance && (
                       <p className="text-sm text-muted-foreground">
@@ -136,10 +136,10 @@ export default function Attendance() {
                   )}
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
-                <Button onClick={handleClockIn} disabled={isClockedIn || isClockedOut} className="flex-1">
+                <Button onClick={handleClockIn} disabled={hasClockedInToday} className="flex-1">
                   <LogIn className="mr-2" /> Clock In
                 </Button>
-                <Button onClick={handleClockOut} disabled={!isClockedIn} variant="outline" className="flex-1">
+                <Button onClick={handleClockOut} disabled={!hasClockedInToday || hasClockedOutToday} variant="outline" className="flex-1">
                   <LogOut className="mr-2" /> Clock Out
                 </Button>
               </div>

@@ -6,7 +6,7 @@ import { LanguageProvider } from '@/context/language-context';
 import { ThemeProvider } from '@/context/theme-context';
 
 export const metadata: Metadata = {
-  title: 'TaskWise Reports',
+  title: 'Xfuse Sites',
   description: 'Team task reports and charts',
 };
 

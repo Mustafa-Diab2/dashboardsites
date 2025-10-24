@@ -61,7 +61,7 @@ export default function Home() {
       <header className="py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-4xl font-headline font-bold tracking-tight">
-            TaskWise Reports
+            Xfuse Sites
           </h1>
           <p className="mt-2 text-lg text-muted-foreground">
             An overview of your team's performance and task distribution.

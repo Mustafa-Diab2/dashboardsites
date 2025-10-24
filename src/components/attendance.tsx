@@ -26,33 +26,35 @@ export default function Attendance() {
   const todayEnd = useMemo(() => endOfDay(new Date()), []);
   const sevenDaysAgo = useMemo(() => subDays(new Date(), 7), []);
 
-  // Query for today's attendance record
-  const todayAttendanceQuery = useMemoFirebase(() => {
+  // Query for an attendance record created today that has NOT been clocked out.
+  const openAttendanceQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
         collection(firestore, 'attendance'),
         where('userId', '==', user.uid),
         where('clockIn', '>=', todayStart),
         where('clockIn', '<=', todayEnd),
+        where('clockOut', '==', null),
         limit(1)
     );
   }, [firestore, user, todayStart, todayEnd]);
-  
-  const { data: attendanceData, isLoading } = useCollection(todayAttendanceQuery);
 
-  // Query for open attendance records from previous days (in case user forgot to clock out)
-  const openAttendanceQuery = useMemoFirebase(() => {
+  // Query for an attendance record created today that HAS been clocked out.
+  const completedAttendanceQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
       collection(firestore, "attendance"),
-      and(
-        where("userId", "==", user.uid),
-        where("clockOut", "==", null)
-      )
+      where("userId", "==", user.uid),
+      where("clockIn", ">=", todayStart),
+      where("clockIn", "<=", todayEnd),
+      where("clockOut", "!=", null),
+      limit(1)
     );
-  }, [firestore, user]);
+  }, [firestore, user, todayStart, todayEnd]);
 
-  const { data: openAttendanceData } = useCollection(openAttendanceQuery);
+
+  const { data: openAttendanceData, isLoading: isLoadingOpen } = useCollection(openAttendanceQuery);
+  const { data: completedAttendanceData, isLoading: isLoadingCompleted } = useCollection(completedAttendanceQuery);
 
   // Query for last 7 days history
   const historyQuery = useMemoFirebase(() => {
@@ -66,23 +68,23 @@ export default function Attendance() {
     );
   }, [firestore, user, sevenDaysAgo]);
 
-  
   const { data: historyData } = useCollection(historyQuery);
-
-  const todaysAttendance = useMemo(() => {
-    if (attendanceData && attendanceData.length > 0) {
-      return attendanceData[0];
-    }
-    return null;
-  }, [attendanceData]);
   
+  const isLoading = isLoadingOpen || isLoadingCompleted;
+
   const openAttendance = useMemo(() => {
     if (openAttendanceData && openAttendanceData.length > 0) {
-        // Find the one that isn't today's
-        return openAttendanceData.find(doc => doc.id !== todaysAttendance?.id);
+      return openAttendanceData[0];
     }
     return null;
-  }, [openAttendanceData, todaysAttendance]);
+  }, [openAttendanceData]);
+  
+  const completedAttendance = useMemo(() => {
+    if (completedAttendanceData && completedAttendanceData.length > 0) {
+      return completedAttendanceData[0];
+    }
+    return null;
+  }, [completedAttendanceData]);
 
   const handleClockIn = () => {
     if (!firestore || !user) return;
@@ -94,16 +96,14 @@ export default function Attendance() {
   };
 
   const handleClockOut = () => {
-    if (!firestore || !todaysAttendance) return;
-    updateDoc('attendance', todaysAttendance.id, {
+    if (!firestore || !openAttendance) return;
+    updateDoc('attendance', openAttendance.id, {
       clockOut: serverTimestamp(),
     });
   };
   
-  const hasClockedInToday = !!todaysAttendance;
-  const hasClockedOutToday = !!todaysAttendance?.clockOut;
-  const canClockIn = !hasClockedInToday && !openAttendance;
-  const canClockOut = hasClockedInToday && !hasClockedOutToday;
+  const canClockIn = !openAttendance && !completedAttendance;
+  const canClockOut = !!openAttendance;
   
   const formatTime = (timestamp: any) => {
     if (!timestamp) return 'N/A';
@@ -135,9 +135,15 @@ export default function Attendance() {
   };
   
   let statusText = 'Not Clocked In';
-  if (hasClockedInToday && !hasClockedOutToday) statusText = 'Clocked In';
-  if (hasClockedOutToday) statusText = 'Clocked Out for the Day';
-  if (openAttendance) statusText = 'Forgot to Clock Out';
+  let statusDetails = null;
+
+  if (openAttendance) {
+    statusText = 'Clocked In';
+    statusDetails = `In: ${formatTime(openAttendance.clockIn)} | Out: Pending...`;
+  } else if (completedAttendance) {
+    statusText = 'Clocked Out for the Day';
+    statusDetails = `In: ${formatTime(completedAttendance.clockIn)} | Out: ${formatTime(completedAttendance.clockOut)}`;
+  }
 
 
   return (
@@ -158,15 +164,10 @@ export default function Attendance() {
                   <p className="font-medium">
                     Status: {statusText}
                   </p>
-                  {todaysAttendance && (
+                  {statusDetails && (
                       <p className="text-sm text-muted-foreground">
-                          In: {formatTime(todaysAttendance.clockIn)} | Out: {formatTime(todaysAttendance.clockOut)}
+                          {statusDetails}
                       </p>
-                  )}
-                  {openAttendance && (
-                    <p className="text-sm text-destructive">
-                      Please clock out from {formatDate(openAttendance.clockIn)} before clocking in again.
-                    </p>
                   )}
               </div>
               <div className="flex gap-2 w-full sm:w-auto">

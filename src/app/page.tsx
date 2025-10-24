@@ -2,9 +2,9 @@
 
 import ReportsDashboard from '@/components/reports-dashboard';
 import { useCollection, useFirebase, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, doc } from 'firebase/firestore';
+import { collection, query, doc, where } from 'firebase/firestore';
 import { AuthCard } from '@/components/auth-card';
-import { mockTasks } from '@/lib/data';
+import type { Task } from '@/lib/data';
 
 export default function Home() {
   const { firestore, user, isUserLoading } = useFirebase();
@@ -14,11 +14,20 @@ export default function Home() {
     [firestore, user]
   );
   const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
+  const userRole = (userData as any)?.role || 'frontend';
+
 
   const tasksQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, 'tasks')) : null),
-    [firestore, user]
+    () => {
+      if (!firestore || !user) return null;
+      // Admins see all tasks, users only see their own.
+      // This is a duplication of logic from the dashboard, but simplifies the query logic here.
+      // We will refine this later if needed. The dashboard will do the final filtering.
+      return query(collection(firestore, 'tasks'));
+    },
+    [firestore, user, userRole]
   );
+
   const { data: tasks, isLoading: isTasksLoading } = useCollection(tasksQuery);
 
   const isLoading = isUserLoading || isUserDocLoading || (user && isTasksLoading);
@@ -43,10 +52,8 @@ export default function Home() {
     );
   }
 
-  const taskData = tasks || [];
-  const userRole = (userData as any)?.role || 'frontend';
-
-
+  const taskData: Task[] = (tasks as Task[]) || [];
+  
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="py-8 px-4 sm:px-6 lg:px-8">

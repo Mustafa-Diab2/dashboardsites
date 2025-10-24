@@ -19,6 +19,7 @@ import { collection, query } from 'firebase/firestore';
 import Attendance from './attendance';
 import AttendanceAdmin from './attendance-admin';
 import Courses from './courses';
+import MyTasks from './my-tasks';
 
 
 export type UserReport = {
@@ -94,8 +95,8 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
       <div className="max-w-7xl mx-auto px-4 pb-10 space-y-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h2 className="font-semibold text-2xl font-headline">Team Analytics</h2>
-            <p className="text-muted-foreground">Analyze your team's workload and productivity.</p>
+            <h2 className="font-semibold text-2xl font-headline">{isAdmin ? 'Team Analytics' : 'My Dashboard'}</h2>
+            <p className="text-muted-foreground">{isAdmin ? "Analyze your team's workload and productivity." : "An overview of your courses and tasks."}</p>
           </div>
           <div className="flex gap-2">
             {isAdmin && (
@@ -103,8 +104,8 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                 <Plus /> Add Task
               </Button>
             )}
-            <Button variant="outline" onClick={exportCSV}><FileDown /> CSV</Button>
-            <Button variant="outline" onClick={exportPDF}><FileDown /> PDF</Button>
+            {isAdmin && <Button variant="outline" onClick={exportCSV}><FileDown /> CSV</Button>}
+            {isAdmin && <Button variant="outline" onClick={exportPDF}><FileDown /> PDF</Button>}
             <Button variant="outline" onClick={handleSignOut}><LogOut /> Sign Out</Button>
           </div>
         </div>
@@ -114,39 +115,47 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
           <Courses />
         </div>
 
-        {/* Attendance Report for Admin */}
-        {isAdmin && <AttendanceAdmin />}
+        {/* Admin-only sections */}
+        {isAdmin && (
+          <>
+            <AttendanceAdmin />
+            <AIInsights byUser={byUser} />
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="font-headline">Tasks by Member</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <MemberTasksBarChart data={byUser} />
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="font-headline">Tasks Completion Ratio</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CompletionRatioPieChart data={byUser} />
+                </CardContent>
+              </Card>
+            </div>
 
-        {isAdmin && <AIInsights byUser={byUser} />}
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-headline">Detailed Member Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DetailedBreakdownTable data={byUser} />
+              </CardContent>
+            </Card>
+          </>
+        )}
         
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-headline">Tasks by Member</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <MemberTasksBarChart data={byUser} />
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-headline">Tasks Completion Ratio</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CompletionRatioPieChart data={byUser} />
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline">Detailed Member Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DetailedBreakdownTable data={byUser} />
-          </CardContent>
-        </Card>
+        {/* User-specific task list */}
+        {!isAdmin && user && (
+          <MyTasks tasks={tasks.filter(t => t.assigneeId === user.uid)} />
+        )}
       </div>
     </>
   );

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -26,6 +27,7 @@ import { collection, serverTimestamp, query } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useMutations } from '@/hooks/use-mutations';
 import { useLanguage } from '@/context/language-context';
+import { useUsers } from '@/hooks/use-users';
 
 type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>;
 
@@ -54,12 +56,9 @@ export function TaskForm({
   const { toast } = useToast();
   const { t, language } = useLanguage();
   const [form, setForm] = useState<TaskFormData>(INITIAL_FORM_STATE);
-
-  const usersQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'users')) : null),
-    [firestore]
-  );
-  const { data: users } = useCollection(usersQuery);
+  
+  // We can assume if this form is open, the user is an admin.
+  const users = useUsers('admin');
 
   useEffect(() => {
     if (task) {
@@ -119,7 +118,7 @@ export function TaskForm({
     }
   };
 
-  const teamMembers = users?.filter(u => u.role === form.forTeam || u.role === 'admin');
+  const teamMembers = users?.filter(u => (u as any).role === form.forTeam || (u as any).role === 'admin');
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Task } from '@/lib/data';
@@ -23,6 +24,7 @@ import MyTasks from './my-tasks';
 import { useLanguage } from '@/context/language-context';
 import { LanguageSwitcher } from './language-switcher';
 import { ThemeSwitcher } from './theme-switcher';
+import { useUsers } from '@/hooks/use-users';
 
 
 export type UserReport = {
@@ -38,13 +40,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
   const { auth, firestore, user } = useFirebase();
   const { t } = useLanguage();
-
-  // Query all users for filter
-  const usersQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'users')) : null),
-    [firestore]
-  );
-  const { data: users } = useCollection(usersQuery);
+  const users = useUsers(userRole);
 
 
   const byUser = useMemo(() => {

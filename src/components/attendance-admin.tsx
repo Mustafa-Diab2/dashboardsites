@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from "react";
@@ -24,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import { utils, writeFile } from 'xlsx';
 import { useLanguage } from "@/context/language-context";
+import { useUsers } from "@/hooks/use-users";
 
 export default function AttendanceAdmin() {
   const { firestore, user } = useFirebase();
@@ -32,11 +34,7 @@ export default function AttendanceAdmin() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedUserId, setSelectedUserId] = useState<string>("all");
 
-  const usersQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'users')) : null),
-    [firestore]
-  );
-  const { data: users } = useCollection(usersQuery);
+  const users = useUsers('admin');
 
   const dateRange = useMemo(() => {
     const date = new Date(selectedYear, selectedMonth, 1);

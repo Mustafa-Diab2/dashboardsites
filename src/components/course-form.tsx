@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -19,11 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { useMutations } from '@/hooks/use-mutations';
-import { collection, query } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/context/language-context';
+import { useUsers } from '@/hooks/use-users';
 
 const INITIAL_FORM_STATE = {
   name: '',
@@ -45,11 +46,8 @@ export default function CourseForm({
   const { t, language } = useLanguage();
   const [form, setForm] = useState(INITIAL_FORM_STATE);
 
-  const usersQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'users')) : null),
-    [firestore]
-  );
-  const { data: users } = useCollection(usersQuery);
+  // We can assume if this form is open, the user is an admin.
+  const users = useUsers('admin');
 
   useEffect(() => {
     if (!isOpen) {

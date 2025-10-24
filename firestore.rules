@@ -1,179 +1,173 @@
 /**
- * @description
- * هذا الـ ruleset يفرض نموذج ملكية صارم لبيانات المستخدم وحضور الموظف والمهام،
- * مع إمكانية "أدمن" اختيارية عبر Custom Claims. يدعم مرفقات لكل مهمة (Firestore + Storage)،
- * ويعتمد على التحقق من ملكية الوثيقة لكل عملية قراءة/كتابة.
- *
- * @dataStructure
- *  - /users/{userId}:
- *      ملف المستخدم. المستخدم يقرأ/يكتب ملفه فقط (مع خيار list للمصادّقين لدعم القوائم).
- *  - /attendance/{attendanceId}:
- *      سجل الحضور. المستخدم يقرأ/ينشئ/يحدّث/يحذف سجلاته فقط.
- *  - /tasks/{taskId}:
- *      المهام. كل المصادّقين يقرأوا. الإنشاء/التحديث/الحذف لمالك المهمة (createdBy)،
- *      أو للأدمن (لو مفعّل claims).
- *  - /tasks/{taskId}/files/{fileId}:
- *      ميتاداتا المرفقات. القراءة للمصادّقين، والإنشاء/التعديل/الحذف للرافع فقط
- *      (أو للأدمن لو موجود).
- *
- * @keySecurityDecisions
- *  - users: ملكية ذاتية؛ (اختياري) السماح بالـ list للمصادّقين لدعم Dropdowns.
- *  - attendance: كل قراءة/استعلام يجب أن تكون لسجلات نفس المستخدم (userId == uid).
- *  - tasks: القراءة عامة للمصادّقين؛ الكتابة للـ createdBy أو للأدمن (claims).
- *  - files: الرافع فقط يدير ملفاته؛ القراءة عامة للمصادّقين.
- *
- * @denormalizationForAuthorization
- *  - لا نعتمد على get() داخل القواعد (لتكلفة الأداء)؛ إن لزم "أدمن"، نفضل Custom Claims:
- *    request.auth.token.role == "admin". (تُعيّن عبر Admin SDK).
- *
- * @structuralSegregation
- *  - لا يوجد فصل هيكلي إضافي.
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for user data and allows public read access to tasks and courses.
+ * Data Structure:
+ * - /users/{userId}: Stores individual user profiles. Access is restricted to the owning user.
+ * - /tasks/{taskId}: Stores task data. Public read access, but only authenticated users can create, update, or delete tasks, requiring creator ownership.
+ * - /tasks/{taskId}/files/{fileId}: Stores file metadata related to tasks.  Write access requires creator ownership.
+ * - /attendance/{attendanceId}: Stores attendance records. Public read access, but authenticated users can manage attendance, requiring owner.
+ * - /courses/{courseId}: Stores courses assigned to users. Public read access, but authenticated users can manage courses, requiring owner.
+ * Key Security Decisions:
+ * - Users collection listing is explicitly denied.
+ * - Public read access is granted to the Tasks, Attendance, and Courses collections to facilitate open access patterns while maintaining control through ownership for writes.
+ * Denormalization for Authorization:
+ * - Tasks, Attendance, and Courses documents must contain an `ownerId` or `authorId` field to enforce ownership during create, update, and delete operations.
+ * Structural Segregation:
+ * - No explicit structural segregation is used. All data is stored in top-level collections.
  */
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /* ============================
-     * Helper Functions
-     * ============================ */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    // اختياري: دعم "أدمن" عبر Custom Claims (role = "admin")
-    function isAdmin() {
-      return isSignedIn() && (request.auth.token.role == "admin");
-    }
-
-    /* ============================
-     * Users
-     * ============================ */
     /**
-     * @description
-     * المستخدم يقرأ/ينشئ/يحدّث/يحذف ملفه فقط. (اختياري) السماح بالـ list لكل المصادّقين
-     * لدعم الواجهات (Dropdowns/Reports).
-     *
+     * @description Restricts access to the /users collection to owner-only access.
      * @path /users/{userId}
-     * @allow (create) user123 ينشئ ملفه:
-     *   - request.auth.uid: 'user123'
-     *   - request.resource.data.id == 'user123'
-     * @allow (get/update/delete) لنفس المالك فقط
-     * @allow (list) مصادّق فقط (اختياري)
+     * @allow (create) User with ID 'user123' can create their own user document.
+     * @deny (create) User with ID 'user456' cannot create a user document for 'user123'.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
-      // القراءة الفردية: المالك يقرأ ملفه، أو الأدمن يقرأ أي ملف
-      allow get:   if isOwner(userId) || isAdmin();
+      // Verify identity
+      function isSignedIn() {
+        return request.auth != null;
+      }
 
-      // قراءة القائمة: فقط الأدمن يمكنه رؤية قائمة كل المستخدمين
-      allow list:  if isAdmin();
+      // Verify ownership
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
 
-      allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
-      allow update: if isOwner(userId) && resource.data.id == request.resource.data.id;
-      allow delete: if isOwner(userId);
+      // Check existence with ownership
+      function isExistingOwner(userId) {
+        return (isOwner(userId) && resource != null);
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false; // Listing users is not permitted.
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == request.auth.uid;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == request.auth.uid;
+      allow delete: if isExistingOwner(userId);
     }
 
-    /* ============================
-     * Attendance
-     * ============================ */
     /**
-     * @description
-     * المستخدم يقرأ/ينشئ/يحدّث/يحذف سجلات حضوره فقط.
-     * ملاحظة: أي Query (list) لازم يكون مفلتر بـ where("userId","==", uid)،
-     * والقواعد ستضمن أن كل وثيقة في النتيجة تخص نفس المستخدم وإلا سترفض.
-     *
+     * @description Allows public read access to tasks but restricts write access to authenticated users.
+     * @path /tasks/{taskId}
+     * @allow (get, list) Any user can read tasks.
+     * @allow (create) Authenticated user can create tasks with matching `createdBy` field.
+     * @deny (create) Authenticated user cannot create tasks without matching `createdBy` field.
+     * @principle Allows public read with owner-only writes.
+     */
+    match /tasks/{taskId} {
+      // Verify identity
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Verify ownership
+      function isOwner(ownerId) {
+          return request.auth.uid == ownerId;
+      }
+
+      // Check existence with ownership
+      function isExistingOwner(ownerId) {
+        return (isOwner(ownerId) && resource != null);
+      }
+
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isSignedIn() && request.resource.data.createdBy == request.auth.uid && resource.data.createdBy == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
+    }
+
+     /**
+      * @description Restricts access to files under a task to authenticated users and owners.
+      * @path /tasks/{taskId}/files/{fileId}
+      * @allow (create) Authenticated user can create file with matching `uploadedBy` and Task `createdBy` fields.
+      * @deny (create) Authenticated user cannot create file without matching `uploadedBy` and Task `createdBy` fields.
+      * @principle Enforces document ownership for writes.
+      */
+    match /tasks/{taskId}/files/{fileId} {
+      // Verify identity
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Verify ownership
+      function isOwner(ownerId) {
+        return request.auth.uid == ownerId;
+      }
+
+      // Check existence with ownership
+      function isExistingOwner(ownerId) {
+        return (isOwner(ownerId) && resource != null);
+      }
+     // Check if the user is the owner of the parent task
+
+     function isTaskOwner(taskId, userId) {
+      return get(/databases/$(database)/documents/tasks/$(taskId)).data.createdBy == userId;
+     }
+
+      allow get: if isSignedIn() && isTaskOwner(taskId, request.auth.uid);
+      allow list: if isSignedIn() && isTaskOwner(taskId, request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.uploadedBy == request.auth.uid && isTaskOwner(taskId, request.auth.uid);
+      allow update: if isSignedIn() && request.resource.data.uploadedBy == request.auth.uid && isTaskOwner(taskId, request.auth.uid);
+      allow delete: if isSignedIn() && request.resource.data.uploadedBy == request.auth.uid && isTaskOwner(taskId, request.auth.uid);
+    }
+
+    /**
+     * @description Allows public read access to attendance but restricts write access to authenticated users.
      * @path /attendance/{attendanceId}
-     * @allow (read)
-     *   - resource.data.userId == request.auth.uid
-     * @allow (create)
-     *   - request.resource.data.userId == request.auth.uid
-     * @allow (update/delete)
-     *   - resource.data.userId == request.auth.uid
+     * @allow (get, list) Any user can read attendance records.
+     * @allow (create) Authenticated user can create attendance records with matching `userId` field.
+     * @deny (create) Authenticated user cannot create attendance records without matching `userId` field.
+     * @principle Allows public read with owner-only writes.
      */
     match /attendance/{attendanceId} {
-      // القراءة الفردية: فقط سجلات المستخدم نفسه أو الأدمن
-      allow get:    if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      // Verify identity
+      function isSignedIn() {
+        return request.auth != null;
+      }
 
-      // قراءة القائمة: نسمح لكل مصادق، لكن التطبيق يجب أن يستخدم where('userId', '==', uid)
-      // القواعد ستمنع قراءة أي وثيقة لا تخص المستخدم في get operation
-      allow list:   if isSignedIn();
+      // Verify ownership
+      function isOwner(ownerId) {
+          return request.auth.uid == ownerId;
+      }
 
+      // Check existence with ownership
+      function isExistingOwner(ownerId) {
+        return (isOwner(ownerId) && resource != null);
+      }
+      allow get, list: if true;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
-    /* ============================
-     * Tasks
-     * ============================ */
     /**
-     * @description
-     * القراءة مسموحة لكل المصادّقين. الإنشاء/التحديث/الحذف للمالك (createdBy)،
-     * أو للأدمن (لو مفعّل claims).
-     *
-     * @path /tasks/{taskId}
-     * @allow (create)
-     *   - request.resource.data.createdBy == request.auth.uid
-     * @allow (read)
-     *   - isSignedIn()
-     * @allow (update/delete)
-     *   - (resource.data.createdBy == request.auth.uid) || isAdmin()
-     */
-    match /tasks/{taskId} {
-      allow read:   if isSignedIn(); // تغطي get + list
-      allow create: if isSignedIn()
-                    && request.resource.data.createdBy == request.auth.uid;
-
-      allow update: if isSignedIn()
-                    && (resource.data.createdBy == request.auth.uid || isAdmin());
-
-      allow delete: if isSignedIn()
-                    && (resource.data.createdBy == request.auth.uid || isAdmin());
-
-      /**
-       * @description
-       * ميتاداتا المرفقات لكل مهمة.
-       * القراءة: للمصادّقين.
-       * الإنشاء: للرافع فقط (uploadedBy == uid) + تطابق taskId داخل الوثيقة (سلامة مرجعية).
-       * التعديل/الحذف: للرافع أو الأدمن.
-       *
-       * @path /tasks/{taskId}/files/{fileId}
-       */
-      match /files/{fileId} {
-        allow read:   if isSignedIn(); // تغطي get + list
-
-        allow create: if isSignedIn()
-                      && request.resource.data.uploadedBy == request.auth.uid
-                      && request.resource.data.taskId == taskId;
-
-        allow update: if isSignedIn()
-                      && (resource.data.uploadedBy == request.auth.uid || isAdmin());
-
-        allow delete: if isSignedIn()
-                      && (resource.data.uploadedBy == request.auth.uid || isAdmin());
-      }
-    }
-
-    /* ============================
-     * Courses (اختياري—حسب نموذجك السابق)
-     * ============================ */
-    /**
-     * @description
-     * المستخدم يقرأ/يحدّث/يحذف دوراته الخاصة فقط. الإنشاء لأي مصادّق بشرط وجود userId.
-     *
+     * @description Allows public read access to courses but restricts write access to authenticated users.
      * @path /courses/{courseId}
+     * @allow (get, list) Any user can read courses.
+     * @allow (create) Authenticated user can create courses with matching `userId` field.
+     * @deny (create) Authenticated user cannot create courses without matching `userId` field.
+     * @principle Allows public read with owner-only writes.
      */
     match /courses/{courseId} {
-      // القراءة الفردية: فقط دورات المستخدم نفسه أو الأدمن
-      allow get:    if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      // Verify identity
+      function isSignedIn() {
+        return request.auth != null;
+      }
 
-      // قراءة القائمة: نسمح لكل مصادق، لكن التطبيق يجب أن يستخدم where('userId', '==', uid)
-      allow list:   if isSignedIn();
+      // Verify ownership
+      function isOwner(ownerId) {
+          return request.auth.uid == ownerId;
+      }
 
+      // Check existence with ownership
+      function isExistingOwner(ownerId) {
+        return (isOwner(ownerId) && resource != null);
+      }
+
+      allow get, list: if true;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;

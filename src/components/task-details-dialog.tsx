@@ -66,7 +66,7 @@ export function TaskDetailsDialog({
   };
 
   const getStatusText = (status: Task['status']) => {
-    return t(status.replace('_', ' '));
+    return t(status.replace(/_/g, ' '));
   }
 
   return (

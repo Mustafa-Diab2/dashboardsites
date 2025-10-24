@@ -102,8 +102,8 @@ export default function Attendance() {
     });
   };
   
-  const canClockIn = !openAttendance && !completedAttendance;
-  const canClockOut = !!openAttendance;
+  const canClockIn = !isLoading && !openAttendance && !completedAttendance;
+  const canClockOut = !isLoading && !!openAttendance;
   
   const formatTime = (timestamp: any) => {
     if (!timestamp) return 'N/A';
@@ -135,13 +135,13 @@ export default function Attendance() {
   };
   
   let statusText = 'Not Clocked In';
-  let statusDetails = null;
+  let statusDetails = "You have not clocked in today.";
 
   if (openAttendance) {
     statusText = 'Clocked In';
     statusDetails = `In: ${formatTime(openAttendance.clockIn)} | Out: Pending...`;
   } else if (completedAttendance) {
-    statusText = 'Clocked Out for the Day';
+    statusText = 'Clocked Out';
     statusDetails = `In: ${formatTime(completedAttendance.clockIn)} | Out: ${formatTime(completedAttendance.clockOut)}`;
   }
 
@@ -164,11 +164,9 @@ export default function Attendance() {
                   <p className="font-medium">
                     Status: {statusText}
                   </p>
-                  {statusDetails && (
-                      <p className="text-sm text-muted-foreground">
-                          {statusDetails}
-                      </p>
-                  )}
+                  <p className="text-sm text-muted-foreground">
+                      {statusDetails}
+                  </p>
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
                 <Button onClick={handleClockIn} disabled={!canClockIn} variant={canClockIn ? 'default' : 'secondary'}>

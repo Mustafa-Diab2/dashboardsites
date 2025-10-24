@@ -33,9 +33,10 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
   const { auth, firestore } = useFirebase();
 
+  // فقط الأدمن يمكنه قراءة قائمة كل المستخدمين
   const usersQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'users')) : null),
-    [firestore]
+    () => (firestore && userRole === 'admin' ? query(collection(firestore, 'users')) : null),
+    [firestore, userRole]
   );
   const { data: users } = useCollection(usersQuery);
 

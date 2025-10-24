@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description: Manages user profile data, ensuring only the owning user can read or write their own profile.
+     * @path: /users/{userId}
+     * @allow: (create) User with ID 'user_abc' can create their own profile at /users/user_abc. (auth.uid == 'user_abc')
+     * @deny: (create) User with ID 'user_xyz' cannot create a profile at /users/user_abc. (auth.uid != 'user_abc')
+     * @principle: Enforces strict user-ownership for profile data.
+     */
+    match /users/{userId} {
+      // Verifies that the user is signed in
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false; // User listing is disallowed.
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
+    }
+
+    /**
+     * @description: Manages tasks. All users can read tasks, but only the creator can modify or delete them.
+     * @path: /tasks/{taskId}
+     * @allow: (get) Any user can read a task.
+     * @allow: (create) User 'user_abc' can create a task with createdBy: 'user_abc'. (auth.uid == 'user_abc' && request.resource.data.createdBy == 'user_abc')
+     * @deny: (update) User 'user_xyz' cannot update a task created by 'user_abc'. (auth.uid != 'user_abc' && resource.data.createdBy == 'user_abc')
+     * @principle: Allows public read access with owner-only writes, enforcing document ownership for modifications.
+     */
+    match /tasks/{taskId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isSignedIn() && get(/databases/$(database)/documents/tasks/$(taskId)).data.createdBy == request.auth.uid;
+      allow delete: if isSignedIn() && get(/databases/$(database)/documents/tasks/$(taskId)).data.createdBy == request.auth.uid;
+    }
+
+    /**
+     * @description: Manages files associated with tasks. Only the user who uploaded the file can modify or delete it.
+     * @path: /tasks/{taskId}/files/{fileId}
+     * @allow: (get) Any user can read a file's metadata.
+     * @allow: (create) User 'user_abc' can create a file with uploadedBy: 'user_abc'. (auth.uid == 'user_abc' && request.resource.data.uploadedBy == 'user_abc')
+     * @deny: (update) User 'user_xyz' cannot update a file uploaded by 'user_abc'. (auth.uid != 'user_abc' && resource.data.uploadedBy == 'user_abc')
+     * @principle: Enforces ownership for file modifications, restricting access to the uploader.
+     */
+    match /tasks/{taskId}/files/{fileId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.uploadedBy == request.auth.uid;
+      allow update: if isSignedIn() && get(/databases/$(database)/documents/tasks/$(taskId)/files/$(fileId)).data.uploadedBy == request.auth.uid;
+      allow delete: if isSignedIn() && get(/databases/$(database)/documents/tasks/$(taskId)/files/$(fileId)).data.uploadedBy == request.auth.uid;
+    }
+
+        /**
+     * @description: Manages attendance records. All users can read attendance, but only the record creator can modify or delete.
+     * @path: /attendance/{attendanceId}
+     * @allow: (get) Any user can read an attendance record.
+     * @allow: (create) User 'user_abc' can create an attendance record with userId: 'user_abc'. (auth.uid == 'user_abc' && request.resource.data.userId == 'user_abc')
+     * @deny: (update) User 'user_xyz' cannot update an attendance record created by 'user_abc'. (auth.uid != 'user_abc' && resource.data.userId == 'user_abc')
+     * @principle: Allows public read access with owner-only writes, enforcing document ownership for modifications.
+     */
+    match /attendance/{attendanceId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && get(/databases/$(database)/documents/attendance/$(attendanceId)).data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && get(/databases/$(database)/documents/attendance/$(attendanceId)).data.userId == request.auth.uid;
+    }
+
+    /**
+     * @description: Manages courses assigned to users. All users can read courses, but only the creator can modify or delete.
+     * @path: /courses/{courseId}
+     * @allow: (get) Any user can read a course.
+     * @allow: (create) User 'user_abc' can create a course with userId: 'user_abc'. (auth.uid == 'user_abc' && request.resource.data.userId == 'user_abc')
+     * @deny: (update) User 'user_xyz' cannot update a course created by 'user_abc'. (auth.uid != 'user_abc' && resource.data.userId == 'user_abc')
+     * @principle: Allows public read access with owner-only writes, enforcing document ownership for modifications.
+     */
+    match /courses/{courseId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && get(/databases/$(database)/documents/courses/$(courseId)).data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && get(/databases/$(database)/documents/courses/$(courseId)).data.userId == request.auth.uid;
+    }
+  }
+
+  // --- Helper Functions ---
+
+  // Checks if the user is signed in.
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  // Checks if the authenticated user is the owner of the resource.
+  function isOwner(userId) {
+    return request.auth.uid == userId;
+  }
+
+  // Checks if the authenticated user is the owner of the resource and if the resource exists.
+  function isExistingOwner(userId) {
+    return request.auth.uid == userId;
+  }
+}

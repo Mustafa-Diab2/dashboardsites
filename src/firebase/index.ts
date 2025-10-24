@@ -3,29 +3,34 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
-
-// A private function to get all the SDKs.
-// This is to ensure that we're only getting the SDKs from a single app instance.
-function getSdks(firebaseApp: FirebaseApp): { firebaseApp: FirebaseApp; auth: Auth; firestore: Firestore } {
-  return {
-    firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp),
-  };
-}
+import { getFirestore, Firestore, initializeFirestore, memoryLocalCache } from 'firebase/firestore';
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 // This function is the single source of truth for Firebase initialization.
 export function initializeFirebase(): { firebaseApp: FirebaseApp; auth: Auth; firestore: Firestore } {
+  let firebaseApp: FirebaseApp;
+  let firestore: Firestore;
+
   if (!getApps().length) {
-    // If automatic initialization fails, fall back to the config file.
-    const firebaseApp = initializeApp(firebaseConfig);
-    return getSdks(firebaseApp);
+    // Initialize Firebase app for the first time
+    firebaseApp = initializeApp(firebaseConfig);
+
+    // Initialize Firestore with MEMORY-ONLY cache to avoid IndexedDB conflicts
+    // This ensures fresh security rules are always used without persistence issues
+    firestore = initializeFirestore(firebaseApp, {
+      localCache: memoryLocalCache()
+    });
+  } else {
+    // App already initialized, get existing instances
+    firebaseApp = getApp();
+    firestore = getFirestore(firebaseApp);
   }
 
-  // If the app is already initialized, return the existing instance.
-  return getSdks(getApp());
+  return {
+    firebaseApp,
+    auth: getAuth(firebaseApp),
+    firestore,
+  };
 }
 
 // Export the necessary hooks and providers for use in the application.

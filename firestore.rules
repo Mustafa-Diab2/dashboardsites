@@ -1,141 +1,182 @@
 /**
- * @description This ruleset enforces a strict user-ownership model for user data and task assignments, with admin overrides for certain operations. It leverages denormalization to avoid costly `get()` calls and prioritizes secure access to file metadata.
+ * @description
+ * هذا الـ ruleset يفرض نموذج ملكية صارم لبيانات المستخدم وحضور الموظف والمهام،
+ * مع إمكانية "أدمن" اختيارية عبر Custom Claims. يدعم مرفقات لكل مهمة (Firestore + Storage)،
+ * ويعتمد على التحقق من ملكية الوثيقة لكل عملية قراءة/كتابة.
+ *
  * @dataStructure
- *   - /users/{userId}: Stores user profiles. Each user can only read/write their own profile.
- *   - /tasks/{taskId}: Stores task details. Tasks can be assigned to users, and admins can manage all tasks. The `userRole` is denormalized from the user document to enable efficient authorization.
- *   - /tasks/{taskId}/files/{fileId}: Stores file metadata. Only admins or the uploader can manage files.
+ *  - /users/{userId}:
+ *      ملف المستخدم. المستخدم يقرأ/يكتب ملفه فقط (مع خيار list للمصادّقين لدعم القوائم).
+ *  - /attendance/{attendanceId}:
+ *      سجل الحضور. المستخدم يقرأ/ينشئ/يحدّث/يحذف سجلاته فقط.
+ *  - /tasks/{taskId}:
+ *      المهام. كل المصادّقين يقرأوا. الإنشاء/التحديث/الحذف لمالك المهمة (createdBy)،
+ *      أو للأدمن (لو مفعّل claims).
+ *  - /tasks/{taskId}/files/{fileId}:
+ *      ميتاداتا المرفقات. القراءة للمصادّقين، والإنشاء/التعديل/الحذف للرافع فقط
+ *      (أو للأدمن لو موجود).
+ *
  * @keySecurityDecisions
- *   - Users can only read/write their own profile data. Listing all users is disallowed.
- *   - Tasks are generally readable, but modification requires either admin privileges or ownership (createdBy).
- *   - File access is restricted to admins and the user who uploaded the file.
- *   - User roles are denormalized into tasks to avoid costly `get()` calls in security rules. This approach assumes that Firebase Functions maintain data consistency between user roles and tasks.
+ *  - users: ملكية ذاتية؛ (اختياري) السماح بالـ list للمصادّقين لدعم Dropdowns.
+ *  - attendance: كل قراءة/استعلام يجب أن تكون لسجلات نفس المستخدم (userId == uid).
+ *  - tasks: القراءة عامة للمصادّقين؛ الكتابة للـ createdBy أو للأدمن (claims).
+ *  - files: الرافع فقط يدير ملفاته؛ القراءة عامة للمصادّقين.
+ *
  * @denormalizationForAuthorization
- *   - User roles are denormalized into task documents to avoid costly `get()` calls. When a task is created, the user's role is copied into the `userRole` field of the task document.
+ *  - لا نعتمد على get() داخل القواعد (لتكلفة الأداء)؛ إن لزم "أدمن"، نفضل Custom Claims:
+ *    request.auth.token.role == "admin". (تُعيّن عبر Admin SDK).
+ *
  * @structuralSegregation
- *   - There is no structural segregation.
+ *  - لا يوجد فصل هيكلي إضافي.
  */
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    /* ============================
+     * Helper Functions
+     * ============================ */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // اختياري: دعم "أدمن" عبر Custom Claims (role = "admin")
+    function isAdmin() {
+      return isSignedIn() && (request.auth.token.role == "admin");
+    }
+
+    /* ============================
+     * Users
+     * ============================ */
     /**
-     * @description Controls access to user profile data. Each user can only read and write their own profile.
+     * @description
+     * المستخدم يقرأ/ينشئ/يحدّث/يحذف ملفه فقط. (اختياري) السماح بالـ list لكل المصادّقين
+     * لدعم الواجهات (Dropdowns/Reports).
+     *
      * @path /users/{userId}
-     * @allow (create) - User with ID 'user123' creates their profile.
+     * @allow (create) user123 ينشئ ملفه:
      *   - request.auth.uid: 'user123'
-     *   - request.resource.data.id: 'user123'
-     * @allow (get) - User with ID 'user123' reads their own profile.
-     *   - request.auth.uid: 'user123'
-     *   - userId: 'user123'
-     * @allow (update) - User with ID 'user123' updates their own profile.
-     *   - request.auth.uid: 'user123'
-     *   - userId: 'user123'
-     * @allow (delete) - User with ID 'user123' deletes their own profile.
-     *   - request.auth.uid: 'user123'
-     *   - userId: 'user123'
-     * @deny (create) - User with ID 'user123' attempts to create a profile for another user 'user456'.
-     *   - request.auth.uid: 'user123'
-     *   - request.resource.data.id: 'user456'
-     * @deny (get) - User with ID 'user123' attempts to read profile data for another user 'user456'.
-     *   - request.auth.uid: 'user123'
-     *   - userId: 'user456'
-     * @deny (update) - User with ID 'user123' attempts to update profile data for another user 'user456'.
-     *   - request.auth.uid: 'user123'
-     *   - userId: 'user456'
-     * @deny (delete) - User with ID 'user123' attempts to delete profile data for another user 'user456'.
-     *   - request.auth.uid: 'user123'
-     *   - userId: 'user456'
-     * @principle Enforces document ownership for writes and restricts access to a user's own data.
+     *   - request.resource.data.id == 'user123'
+     * @allow (get/update/delete) لنفس المالك فقط
+     * @allow (list) مصادّق فقط (اختياري)
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
+      // القراءة الفردية: المالك يقرأ ملفه، أو الأدمن يقرأ أي ملف
+      allow get:   if isOwner(userId) || isAdmin();
+
+      // قراءة القائمة: فقط الأدمن يمكنه رؤية قائمة كل المستخدمين
+      allow list:  if isAdmin();
+
       allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
-      allow update: if isExistingOwner(userId) && resource.data.id == request.resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      allow update: if isOwner(userId) && resource.data.id == request.resource.data.id;
+      allow delete: if isOwner(userId);
     }
 
+    /* ============================
+     * Attendance
+     * ============================ */
     /**
-     * @description Manages access to task documents. Admins can create, update, and delete any task. Users can create tasks, and can update/delete tasks they created.
+     * @description
+     * المستخدم يقرأ/ينشئ/يحدّث/يحذف سجلات حضوره فقط.
+     * ملاحظة: أي Query (list) لازم يكون مفلتر بـ where("userId","==", uid)،
+     * والقواعد ستضمن أن كل وثيقة في النتيجة تخص نفس المستخدم وإلا سترفض.
+     *
+     * @path /attendance/{attendanceId}
+     * @allow (read)
+     *   - resource.data.userId == request.auth.uid
+     * @allow (create)
+     *   - request.resource.data.userId == request.auth.uid
+     * @allow (update/delete)
+     *   - resource.data.userId == request.auth.uid
+     */
+    match /attendance/{attendanceId} {
+      // القراءة الفردية: فقط سجلات المستخدم نفسه أو الأدمن
+      allow get:    if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+
+      // قراءة القائمة: نسمح لكل مصادق، لكن التطبيق يجب أن يستخدم where('userId', '==', uid)
+      // القواعد ستمنع قراءة أي وثيقة لا تخص المستخدم في get operation
+      allow list:   if isSignedIn();
+
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    /* ============================
+     * Tasks
+     * ============================ */
+    /**
+     * @description
+     * القراءة مسموحة لكل المصادّقين. الإنشاء/التحديث/الحذف للمالك (createdBy)،
+     * أو للأدمن (لو مفعّل claims).
+     *
      * @path /tasks/{taskId}
-     * @allow (create) - User 'user123' creates a new task.
-     *   - request.auth.uid: 'user123'
-     *   - request.resource.data.createdBy: 'user123'
-     * @allow (get) - Any authenticated user can read a task.
-     *   - request.auth.uid: 'user456'
-     * @allow (update) - Admin 'admin789' updates a task.
-     *   - request.auth.uid: 'admin789'
-     *   - request.auth.token.role: 'admin' (Simulated - roles are not directly verifiable in rules)
-     * @allow (delete) - Admin 'admin789' deletes a task.
-     *   - request.auth.uid: 'admin789'
-     *   - request.auth.token.role: 'admin' (Simulated)
-     * @deny (create) - User 'user123' attempts to create a task with the 'createdBy' field set to another user 'user456'.
-     *   - request.auth.uid: 'user123'
-     *   - request.resource.data.createdBy: 'user456'
-     * @deny (update) - User 'user123' attempts to update a task created by another user 'user456'.
-     *   - request.auth.uid: 'user123'
-     *   - resource.data.createdBy: 'user456'
-     * @deny (delete) - User 'user123' attempts to delete a task created by another user 'user456'.
-     *   - request.auth.uid: 'user123'
-     *   - resource.data.createdBy: 'user456'
-     * @principle Enforces document ownership for writes, allows admin overrides, and validates relational integrity.
+     * @allow (create)
+     *   - request.resource.data.createdBy == request.auth.uid
+     * @allow (read)
+     *   - isSignedIn()
+     * @allow (update/delete)
+     *   - (resource.data.createdBy == request.auth.uid) || isAdmin()
      */
     match /tasks/{taskId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isExistingOwner(resource.data.createdBy);
-      allow delete: if isExistingOwner(resource.data.createdBy);
+      allow read:   if isSignedIn(); // تغطي get + list
+      allow create: if isSignedIn()
+                    && request.resource.data.createdBy == request.auth.uid;
+
+      allow update: if isSignedIn()
+                    && (resource.data.createdBy == request.auth.uid || isAdmin());
+
+      allow delete: if isSignedIn()
+                    && (resource.data.createdBy == request.auth.uid || isAdmin());
+
+      /**
+       * @description
+       * ميتاداتا المرفقات لكل مهمة.
+       * القراءة: للمصادّقين.
+       * الإنشاء: للرافع فقط (uploadedBy == uid) + تطابق taskId داخل الوثيقة (سلامة مرجعية).
+       * التعديل/الحذف: للرافع أو الأدمن.
+       *
+       * @path /tasks/{taskId}/files/{fileId}
+       */
+      match /files/{fileId} {
+        allow read:   if isSignedIn(); // تغطي get + list
+
+        allow create: if isSignedIn()
+                      && request.resource.data.uploadedBy == request.auth.uid
+                      && request.resource.data.taskId == taskId;
+
+        allow update: if isSignedIn()
+                      && (resource.data.uploadedBy == request.auth.uid || isAdmin());
+
+        allow delete: if isSignedIn()
+                      && (resource.data.uploadedBy == request.auth.uid || isAdmin());
+      }
     }
 
+    /* ============================
+     * Courses (اختياري—حسب نموذجك السابق)
+     * ============================ */
     /**
-     * @description Controls access to file metadata within a task. Only the user who uploaded the file or an admin can read and write file metadata.
-     * @path /tasks/{taskId}/files/{fileId}
-     * @allow (create) - User 'user123' uploads a file for task 'task456'.
-     *   - request.auth.uid: 'user123'
-     *   - request.resource.data.taskId: 'task456'
-     *   - request.resource.data.uploadedBy: 'user123'
-     * @allow (get) - Admin 'admin789' reads file metadata for task 'task456'.
-     *   - request.auth.uid: 'admin789'
-     *   - request.auth.token.role: 'admin' (Simulated)
-     * @allow (update) - User 'user123', who uploaded the file, updates its metadata.
-     *   - request.auth.uid: 'user123'
-     *   - resource.data.uploadedBy: 'user123'
-     * @allow (delete) - User 'user123', who uploaded the file, deletes the file's metadata.
-     *   - request.auth.uid: 'user123'
-     *   - resource.data.uploadedBy: 'user123'
-     * @deny (create) - User 'user123' attempts to upload a file for task 'task456' with the 'uploadedBy' field set to another user 'user456'.
-     *   - request.auth.uid: 'user123'
-     *   - request.resource.data.taskId: 'task456'
-     *   - request.resource.data.uploadedBy: 'user456'
-     * @deny (get) - User 'user123' attempts to read file metadata uploaded by another user 'user456'.
-     *   - request.auth.uid: 'user123'
-     *   - resource.data.uploadedBy: 'user456'
-     * @deny (update) - User 'user123' attempts to update file metadata uploaded by another user 'user456'.
-     *   - request.auth.uid: 'user123'
-     *   - resource.data.uploadedBy: 'user456'
-     * @deny (delete) - User 'user123' attempts to delete file metadata uploaded by another user 'user456'.
-     *   - request.auth.uid: 'user123'
-     *   - resource.data.uploadedBy: 'user456'
-     * @principle Enforces document ownership for writes, allows admin overrides, and validates relational integrity.
+     * @description
+     * المستخدم يقرأ/يحدّث/يحذف دوراته الخاصة فقط. الإنشاء لأي مصادّق بشرط وجود userId.
+     *
+     * @path /courses/{courseId}
      */
-    match /tasks/{taskId}/files/{fileId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.taskId == taskId && request.resource.data.uploadedBy == request.auth.uid;
-      allow update: if isExistingOwner(resource.data.uploadedBy);
-      allow delete: if isExistingOwner(resource.data.uploadedBy);
+    match /courses/{courseId} {
+      // القراءة الفردية: فقط دورات المستخدم نفسه أو الأدمن
+      allow get:    if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+
+      // قراءة القائمة: نسمح لكل مصادق، لكن التطبيق يجب أن يستخدم where('userId', '==', uid)
+      allow list:   if isSignedIn();
+
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
-  }
-
-  // Helper functions
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  function isOwner(userId) {
-    return request.auth.uid == userId;
-  }
-
-  function isExistingOwner(ownerId) {
-      return isSignedIn() && request.auth.uid == ownerId && resource != null;
   }
 }

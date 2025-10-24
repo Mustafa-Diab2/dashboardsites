@@ -2,10 +2,9 @@
 import { useState } from 'react';
 import { LogIn, UserPlus } from 'lucide-react';
 import {
-  initiateEmailSignIn,
-  initiateEmailSignUp,
-} from '@/firebase/non-blocking-login';
-import { useAuth, useFirestore, addDocumentNonBlocking } from '@/firebase';
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
+import { useAuth, useFirestore } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -97,7 +96,7 @@ export function AuthCard() {
     setLoading(true);
     try {
       if (!auth) throw new Error('Auth service not available');
-      await initiateEmailSignIn(auth, email, password);
+      await signInWithEmailAndPassword(auth, email, password);
     } catch (e: any) {
       handleAuthError(e);
     } finally {
@@ -128,6 +127,7 @@ export function AuthCard() {
       const finalRole = isMember ? role : 'admin';
       
       const userData = {
+        id: user.uid,
         fullName: user.email,
         role: finalRole,
         createdAt: serverTimestamp(),

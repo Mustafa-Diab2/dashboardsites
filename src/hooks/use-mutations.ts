@@ -35,14 +35,13 @@ export function useMutations() {
         toast({ title: 'Success', description: 'Document added successfully.' });
       })
       .catch((error) => {
-        console.error(`Error adding document to ${collectionName}:`, error);
         const permError = new FirestorePermissionError({
             path: collRef.path,
             operation: 'create',
             requestResourceData: data,
         });
         errorEmitter.emit('permission-error', permError);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not add document.' });
+        // We no longer show a generic toast here, the global listener will handle it.
       });
   };
 
@@ -53,14 +52,12 @@ export function useMutations() {
         toast({ title: 'Success', description: 'Document updated successfully.' });
       })
       .catch((error) => {
-        console.error(`Error updating document in ${collectionName}:`, error);
          const permError = new FirestorePermissionError({
             path: docRef.path,
             operation: 'update',
             requestResourceData: data,
         });
         errorEmitter.emit('permission-error', permError);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not update document.' });
       });
   };
 
@@ -71,13 +68,11 @@ export function useMutations() {
         toast({ title: 'Success', description: 'Document deleted successfully.' });
       })
       .catch((error) => {
-        console.error(`Error deleting document from ${collectionName}:`, error);
         const permError = new FirestorePermissionError({
             path: docRef.path,
             operation: 'delete',
         });
         errorEmitter.emit('permission-error', permError);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not delete document.' });
       });
   };
 

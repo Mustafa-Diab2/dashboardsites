@@ -1,114 +1,148 @@
 /**
- * @description
- * Firestore Security Rules - نظام صلاحيات آمن وشامل
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-centric security model, with ownership-based access control for user-specific data and public read access for certain collections.
  *
- * هيكل البيانات:
- *  - /users/{userId}: بيانات المستخدمين
- *  - /attendance/{attendanceId}: سجلات الحضور
- *  - /tasks/{taskId}: المهام
- *  - /tasks/{taskId}/files/{fileId}: مرفقات المهام
- *  - /courses/{courseId}: الدورات التدريبية
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles. Only the authenticated user can read/write their own profile.
+ * - /tasks/{taskId}: Stores task information. Accessible to any authenticated user.
+ * - /tasks/{taskId}/files/{fileId}: Stores files associated with a task. Accessible to any authenticated user.
+ * - /attendance/{attendanceId}: Stores user attendance records. Accessible to any authenticated user.
+ * - /courses/{courseId}: Stores courses assigned to users. Accessible to any authenticated user.
  *
- * قرارات الأمان:
- *  - users: الأدمن فقط يرى القائمة الكاملة
- *  - attendance/courses: المستخدم يرى بياناته فقط (مع where clause)
- *  - tasks: الجميع يقرأ، المالك/الأدمن يكتب
+ * Key Security Decisions:
+ * - User data is strictly private, accessible only to the authenticated user.
+ * - Data validation is limited to ownership checks and relational integrity, with flexible data shapes for prototyping.
+ * - Public read access is granted to some collections but write access is restricted to validated owners.
+ * - Listing of user documents is disallowed to protect user privacy.
  *
- * Custom Claims:
- *  - role: "admin" - يُعطى صلاحيات إضافية عبر Admin SDK
+ * Denormalization for Authorization:
+ * - The 'Course' entity includes a 'userId' field, which is used to enforce ownership.  Rules will ensure that only the user specified by 'userId' can modify that Course.  The same applies to Tasks, Files, and Attendance.
+ *
+ * Structural Segregation:
+ * - There are no public/private variations that require structural segregation.
  */
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /* ============================
-     * Helper Functions (Global)
-     * ============================ */
+    /**
+     * @description Defines a global function to check if a user is signed in.
+     * @returns {boolean} True if the user is signed in, false otherwise.
+     */
     function isSignedIn() {
       return request.auth != null;
     }
 
+    /**
+     * @description Defines a global function to check if the authenticated user is the owner of a document, based on the provided userId.
+     * @param {string} userId - The user ID to compare against the authenticated user's ID.
+     * @returns {boolean} True if the user is the owner, false otherwise.
+     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // دعم الأدمن عبر Custom Claims
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.role == "admin";
+    /**
+     * @description Defines a function that checks if the user is the owner and if the document exists.
+     * @param {string} userId - The user ID to compare against the authenticated user's ID.
+     * @returns {boolean} True if the user is the owner and the document exists, false otherwise.
+     */
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
     }
 
-    /* ============================
-     * Users Collection
-     * ============================ */
+    /**
+     * @description Enforces that a specific field within the document is immutable, and cannot be changed after the document has been created.
+     * @param {string} field - The name of the field that must remain unchanged.
+     * @returns {boolean} True if the field is absent in the request or if its value is identical to the existing resource's value.
+     */
+    function isFieldUnchanged(field) {
+        return !(field in request.resource.data) || request.resource.data[field] == resource.data[field];
+    }
+
+    /**
+     * @description Rules for the /users/{userId} collection.
+     * @path /users/{userId}
+     * @allow (create) - An authenticated user can create their own user document if the userId matches their auth.uid.
+     * @allow (get, update, delete) - An authenticated user can read, update, and delete their own user document if the userId matches their auth.uid.
+     * @deny (create) - An unauthenticated user cannot create a user document.
+     * @deny (get, update, delete) - An unauthenticated user cannot read, update, or delete any user document.
+     * @principle Enforces document ownership for all operations on user documents.
+     */
     match /users/{userId} {
-      // القراءة الفردية: المالك أو الأدمن
-      allow get:   if isOwner(userId) || isAdmin();
-
-      // قراءة القائمة: الأدمن فقط، أو أي مصادق (لدعم Dropdowns مع where clause)
-      // الكود يجب أن يستخدم where() للفلترة
-      allow list:  if isSignedIn();
-
-      allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
-      allow update: if isOwner(userId) && resource.data.id == request.resource.data.id;
-      allow delete: if isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if false; // Explicitly disallow listing users.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && isFieldUnchanged('id');
+      allow delete: if isExistingOwner(userId);
     }
 
-    /* ============================
-     * Attendance Collection
-     * ============================ */
-    match /attendance/{attendanceId} {
-      // القراءة الفردية: المالك أو الأدمن
-      allow get:    if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-
-      // قراءة القائمة: الكود يستخدم where('userId', '==', uid)
-      allow list:   if isSignedIn();
-
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    /* ============================
-     * Tasks Collection
-     * ============================ */
+    /**
+     * @description Rules for the /tasks/{taskId} collection.
+     * @path /tasks/{taskId}
+     * @allow (get, list) - Any authenticated user can read tasks.
+     * @allow (create) - Any authenticated user can create a task, provided they set the 'createdBy' field to their own UID.
+     * @allow (update, delete) - Only the user who created the task can update or delete it.
+     * @deny (create) - An unauthenticated user cannot create a task.
+     * @deny (update, delete) - An unauthenticated user cannot update or delete a task they did not create.
+     * @principle Allows public read access but restricts write access to the task creator.
+     */
     match /tasks/{taskId} {
-      // القراءة: مفتوحة للجميع المصادقين
-      allow read:   if isSignedIn();
-
-      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.createdBy == request.auth.uid || isAdmin());
-      allow delete: if isSignedIn() && (resource.data.createdBy == request.auth.uid || isAdmin());
-
-      /* Files Subcollection */
-      match /files/{fileId} {
-        allow read:   if isSignedIn();
-
-        allow create: if isSignedIn()
-                      && request.resource.data.uploadedBy == request.auth.uid
-                      && request.resource.data.taskId == taskId;
-
-        allow update: if isSignedIn()
-                      && (resource.data.uploadedBy == request.auth.uid || isAdmin());
-
-        allow delete: if isSignedIn()
-                      && (resource.data.uploadedBy == request.auth.uid || isAdmin());
-      }
+        allow get, list: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+        allow update: if isSignedIn() && resource.data.createdBy == request.auth.uid;
+        allow delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
     }
 
-    /* ============================
-     * Courses Collection
-     * ============================ */
+    /**
+     * @description Rules for the /tasks/{taskId}/files/{fileId} subcollection.
+     * @path /tasks/{taskId}/files/{fileId}
+     * @allow (get, list) - Any authenticated user can read files associated with a task.
+     * @allow (create) - Any authenticated user can create a file associated with a task.
+     * @allow (update, delete) - Only the user who uploaded the file can update or delete it.
+     * @deny (create) - An unauthenticated user cannot create a file.
+     * @deny (update, delete) - An unauthenticated user cannot update or delete a file they did not upload.
+     * @principle Allows public read access but restricts write access to the uploader of the file.
+     */
+    match /tasks/{taskId}/files/{fileId} {
+        allow get, list: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.uploadedBy == request.auth.uid;
+        allow update: if isSignedIn() && resource.data.uploadedBy == request.auth.uid;
+        allow delete: if isSignedIn() && resource.data.uploadedBy == request.auth.uid;
+    }
+
+    /**
+     * @description Rules for the /attendance/{attendanceId} collection.
+     * @path /attendance/{attendanceId}
+     * @allow (get, list) - Any authenticated user can read attendance records.
+     * @allow (create) - Any authenticated user can create an attendance record for themselves.
+     * @allow (update, delete) - Only the user whose ID is in the attendance record can update or delete it.
+     * @deny (create) - An unauthenticated user cannot create an attendance record.
+     * @deny (update, delete) - An unauthenticated user cannot update or delete an attendance record that is not their own.
+     * @principle Enforces ownership of attendance records.
+     */
+    match /attendance/{attendanceId} {
+        allow get, list: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    /**
+     * @description Rules for the /courses/{courseId} collection.
+     * @path /courses/{courseId}
+     * @allow (get, list) - Any authenticated user can read course information.
+     * @allow (create) - Any authenticated user can create course and assign to themselves if the userId field matches their auth.uid.
+     * @allow (update, delete) - Only the user assigned to the course (userId field) can update or delete it.
+     * @deny (create) - An unauthenticated user cannot create a course.
+     * @deny (update, delete) - An unauthenticated user cannot update or delete a course they are not assigned to.
+     * @principle Enforces ownership of courses based on the 'userId' field.
+     */
     match /courses/{courseId} {
-      // القراءة الفردية: المالك أو الأدمن
-      allow get:    if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-
-      // قراءة القائمة: الكود يستخدم where('userId', '==', uid)
-      allow list:   if isSignedIn();
-
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow get, list: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
 }

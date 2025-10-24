@@ -28,19 +28,19 @@ export default function Attendance() {
   const todayEnd = useMemo(() => endOfDay(new Date()), []);
   const sevenDaysAgo = useMemo(() => subDays(new Date(), 7), []);
 
+  // Query for an entry today that has been clocked in, but not out.
   const openAttendanceQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
         collection(firestore, 'attendance'),
         where('userId', '==', user.uid),
-        where('clockIn', '>=', todayStart),
-        where('clockIn', '<=', todayEnd),
         where('clockOut', '==', null),
         limit(1)
     );
-  }, [firestore, user, todayStart, todayEnd]);
-
-  const completedAttendanceQuery = useMemoFirebase(() => {
+  }, [firestore, user]);
+  
+  // Query for an entry today that is fully completed (clocked in and out).
+  const completedTodayQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
       collection(firestore, "attendance"),
@@ -53,7 +53,7 @@ export default function Attendance() {
   }, [firestore, user, todayStart, todayEnd]);
 
   const { data: openAttendanceData, isLoading: isLoadingOpen } = useCollection(openAttendanceQuery);
-  const { data: completedAttendanceData, isLoading: isLoadingCompleted } = useCollection(completedAttendanceQuery);
+  const { data: completedTodayData, isLoading: isLoadingCompleted } = useCollection(completedTodayQuery);
 
   const historyQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -70,8 +70,18 @@ export default function Attendance() {
   
   const isLoading = isLoadingOpen || isLoadingCompleted;
 
-  const openAttendance = useMemo(() => (openAttendanceData && openAttendanceData.length > 0) ? openAttendanceData[0] : null, [openAttendanceData]);
-  const completedAttendance = useMemo(() => (completedAttendanceData && completedAttendanceData.length > 0) ? completedAttendanceData[0] : null, [completedAttendanceData]);
+  const openAttendance = useMemo(() => {
+    if (!openAttendanceData || openAttendanceData.length === 0) return null;
+    const record = openAttendanceData[0];
+    const clockInDate = (record.clockIn as Timestamp)?.toDate();
+    // Ensure the open record is from today
+    if (clockInDate && clockInDate >= todayStart && clockInDate <= todayEnd) {
+      return record;
+    }
+    return null;
+  }, [openAttendanceData, todayStart, todayEnd]);
+
+  const completedAttendance = useMemo(() => (completedTodayData && completedTodayData.length > 0) ? completedTodayData[0] : null, [completedTodayData]);
 
   const handleClockIn = () => {
     if (!firestore || !user) return;

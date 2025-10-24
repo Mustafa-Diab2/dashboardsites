@@ -29,12 +29,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { FirebaseError } from 'firebase/app';
-import { User, UserCredential, createUserWithEmailAndPassword } from 'firebase/auth';
+import { User, UserCredential, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { setDoc, doc, serverTimestamp } from 'firebase/firestore';
 
 export function AuthCard() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [role, setRole] = useState('frontend');
   const [isMember, setIsMember] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -105,6 +106,15 @@ export function AuthCard() {
   };
 
   const signup = async () => {
+    if (!fullName) {
+       toast({
+        variant: 'destructive',
+        title: 'Missing Information',
+        description: 'Please enter your full name to sign up.',
+      });
+      return;
+    }
+
     setLoading(true);
     if (!auth || !firestore) {
       toast({
@@ -122,13 +132,17 @@ export function AuthCard() {
         password
       );
       const user: User = userCredential.user;
+      
+      // Also update the user's profile in Firebase Auth
+      await updateProfile(user, { displayName: fullName });
 
       const userDocRef = doc(firestore, 'users', user.uid);
       const finalRole = isMember ? role : 'admin';
       
       const userData = {
         id: user.uid,
-        fullName: user.email,
+        fullName: fullName,
+        email: user.email,
         role: finalRole,
         createdAt: serverTimestamp(),
       };
@@ -213,6 +227,17 @@ export function AuthCard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fullName-signup">Full Name</Label>
+                  <Input
+                    id="fullName-signup"
+                    type="text"
+                    value={fullName}
+                    onChange={e => setFullName(e.target.value)}
+                    placeholder="Your Name"
+                    onKeyDown={e => handleKeyDown(e, 'signup')}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="email-signup">Email</Label>
                   <Input

@@ -88,25 +88,14 @@ export default function CourseForm({
       return;
     }
 
-    try {
-      addDoc(collection(firestore, 'courses'), {
-        ...form,
-        status: 'not_started',
-      });
-      
-      toast({
-        title: 'Course Created',
-        description: `Course "${form.name}" has been successfully created.`,
-      });
-      onOpenChange(false);
-    } catch (error) {
-      console.error('Error creating course:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Uh oh! Something went wrong.',
-        description: 'There was a problem with your request.',
-      });
-    }
+    addDoc('courses', {
+      ...form,
+      status: 'not_started',
+    });
+
+    // Reset form and close dialog
+    setForm(INITIAL_FORM_STATE);
+    onOpenChange(false);
   };
 
   return (

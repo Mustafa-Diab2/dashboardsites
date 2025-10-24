@@ -17,6 +17,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { collection, query } from 'firebase/firestore';
 import Attendance from './attendance';
+import AttendanceAdmin from './attendance-admin';
 import Courses from './courses';
 
 
@@ -31,12 +32,12 @@ export type UserReport = {
 
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
-  const { auth, firestore } = useFirebase();
+  const { auth, firestore, user } = useFirebase();
 
-  // فقط الأدمن يمكنه قراءة قائمة كل المستخدمين
+  // Query all users for filter
   const usersQuery = useMemoFirebase(
-    () => (firestore && userRole === 'admin' ? query(collection(firestore, 'users')) : null),
-    [firestore, userRole]
+    () => (firestore ? query(collection(firestore, 'users')) : null),
+    [firestore]
   );
   const { data: users } = useCollection(usersQuery);
 
@@ -44,8 +45,10 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
   const byUser = useMemo(() => {
     const nameOf = (uid?: string) => {
       if (!uid) return 'Unassigned';
+      // If users aren't loaded yet, just return the ID.
+      if (!users) return uid;
       const found = users?.find(m => m.id === uid);
-      return found ? `${(found as any).fullName} (${(found as any).role})` : uid;
+      return found ? `${(found as any).fullName}` : uid;
     };
     const map = new Map<string, UserReport>();
     tasks.forEach(t => {
@@ -83,6 +86,8 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
     }
   };
 
+  const isAdmin = userRole === 'admin';
+
   return (
     <>
       <TaskForm isOpen={isTaskFormOpen} onOpenChange={setTaskFormOpen} />
@@ -93,7 +98,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
             <p className="text-muted-foreground">Analyze your team's workload and productivity.</p>
           </div>
           <div className="flex gap-2">
-            {userRole === 'admin' && (
+            {isAdmin && (
               <Button onClick={() => setTaskFormOpen(true)}>
                 <Plus /> Add Task
               </Button>
@@ -109,7 +114,10 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
           <Courses />
         </div>
 
-        <AIInsights byUser={byUser} />
+        {/* Attendance Report for Admin */}
+        {isAdmin && <AttendanceAdmin />}
+
+        {isAdmin && <AIInsights byUser={byUser} />}
         
         <div className="grid md:grid-cols-2 gap-6">
           <Card>

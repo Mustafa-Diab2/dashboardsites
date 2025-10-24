@@ -54,11 +54,8 @@ export function TaskForm({
   const [form, setForm] = useState<TaskFormData>(INITIAL_FORM_STATE);
 
   const usersQuery = useMemoFirebase(
-    () => {
-        if (!firestore || !form.forTeam) return null;
-        return query(collection(firestore, 'users'), where('role', '==', form.forTeam));
-    },
-    [firestore, form.forTeam]
+    () => (firestore ? query(collection(firestore, 'users')) : null),
+    [firestore]
   );
   const { data: users } = useCollection(usersQuery);
 
@@ -119,6 +116,8 @@ export function TaskForm({
       });
     }
   };
+
+  const teamMembers = users?.filter(u => u.role === form.forTeam || u.role === 'admin');
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -228,7 +227,7 @@ export function TaskForm({
                 <SelectValue placeholder="Unassigned" />
               </SelectTrigger>
               <SelectContent>
-                {users?.map(member => (
+                {teamMembers?.map(member => (
                   <SelectItem key={member.id} value={member.id}>
                     {member.fullName}
                   </SelectItem>

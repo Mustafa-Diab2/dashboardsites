@@ -15,9 +15,14 @@
           "type": "string",
           "description": "The full name of the user."
         },
+        "email": {
+            "type": "string",
+            "description": "The email of the user."
+        },
         "role": {
           "type": "string",
-          "description": "The role of the user (e.g., admin, backend, frontend)."
+          "enum": ["admin", "backend", "frontend", "trainee"],
+          "description": "The role of the user (e.g., admin, backend, frontend, trainee)."
         },
         "createdAt": {
           "type": "string",
@@ -28,6 +33,7 @@
       "required": [
         "id",
         "fullName",
+        "email",
         "role",
         "createdAt"
       ]
@@ -51,14 +57,32 @@
           "type": "string",
           "description": "A detailed description of the task."
         },
-        "forTeam": {
+        "taskType": {
           "type": "string",
-          "description": "The team the task is assigned to (e.g., backend, frontend)."
+          "enum": ["work", "training"],
+          "description": "The type of the task."
         },
-        "assigneeId": {
+        "assignedTo": {
+            "type": "array",
+            "description": "Reference to User IDs. (Relationship: User M:N Task). IDs of the users assigned to the task.",
+            "items": {
+                "type": "string",
+                "format": "uuid"
+            }
+        },
+        "createdBy": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Task).  The ID of the user assigned to the task.",
+          "description": "Reference to User. (Relationship: User 1:N Task). The ID of the user who created the task.",
           "format": "uuid"
+        },
+        "clientId": {
+            "type": "string",
+            "description": "Reference to Client. (Relationship: Client 1:N Task). The ID of the client for this task.",
+            "format": "uuid"
+        },
+        "progress": {
+            "type": "number",
+            "description": "The completion progress of the task, from 0 to 100."
         },
         "status": {
           "type": "string",
@@ -68,22 +92,53 @@
           "type": "string",
           "description": "The priority of the task (e.g., low, medium, high)."
         },
-        "due": {
+        "startDate": {
+            "type": "string",
+            "description": "The start date of the task.",
+            "format": "date"
+        },
+        "dueDate": {
           "type": "string",
           "description": "The due date of the task.",
           "format": "date"
         },
-        "tags": {
-          "type": "array",
-          "description": "An array of tags associated with the task.",
-          "items": {
-            "type": "string"
-          }
+        "deliverableLocation": {
+            "type": "string",
+            "format": "uri",
+            "description": "A link to the location of the deliverable (e.g., Google Drive folder)."
         },
-        "createdBy": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Task). The ID of the user who created the task.",
-          "format": "uuid"
+        "deliveryMethod": {
+            "type": "string",
+            "enum": ["upload", "in-person", "email"],
+            "description": "The method of delivery for the task."
+        },
+        "deliverableDetails": {
+            "type": "string",
+            "description": "Specific details about the deliverable."
+        },
+        "paymentShare": {
+            "type": "object",
+            "description": "Defines the payment distribution for the task.",
+            "properties": {
+                "backend": {"type": "number", "description": "Percentage share for the backend team."},
+                "frontend": {"type": "number", "description": "Percentage share for the frontend team."}
+            }
+        },
+        "clientPayment": {
+            "type": "number",
+            "description": "The payment amount received from the client for this task."
+        },
+        "backendConditions": {
+            "type": "string",
+            "description": "Specific requirements and conditions for backend development."
+        },
+        "frontendConditions": {
+            "type": "string",
+            "description": "Specific requirements and conditions for frontend development (e.g., color codes, UX)."
+        },
+        "marketResearchId": {
+            "type": "string",
+            "description": "An identifier or link to related market research."
         },
         "createdAt": {
           "type": "string",
@@ -94,44 +149,54 @@
           "type": "string",
           "description": "Timestamp indicating when the task was last updated.",
           "format": "date-time"
-        },
-        "taskType": {
-          "type": "string",
-          "enum": ["work", "training"],
-          "description": "The type of the task."
-        },
-        "commissionRate": {
-          "type": "number",
-          "description": "Commission rate for the task, if applicable."
-        },
-        "clientDetails": {
-          "type": "string",
-          "description": "Details about the client for this task."
-        },
-        "requirements": {
-          "type": "string",
-          "description": "Specific requirements for the task (e.g., color codes, UX guidelines)."
-        },
-        "marketResearchLink": {
-          "type": "string",
-          "format": "uri",
-          "description": "Link to market research documents."
-        },
-        "reviewerId": {
-          "type": "string",
-          "description": "The ID of the user responsible for reviewing the task."
         }
       },
       "required": [
         "id",
         "title",
-        "forTeam",
         "status",
         "priority",
         "createdBy",
         "createdAt",
         "updatedAt"
       ]
+    },
+    "Client": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Client",
+        "type": "object",
+        "description": "Represents a client.",
+        "properties": {
+            "id": {
+                "type": "string",
+                "description": "Unique identifier for the client."
+            },
+            "name": {
+                "type": "string",
+                "description": "The name of the client."
+            },
+            "projectName": {
+                "type": "string",
+                "description": "The name of the project associated with the client."
+            },
+            "totalPayment": {
+                "type": "number",
+                "description": "The total payment agreed upon for the project."
+            },
+            "paidAmount": {
+                "type": "number",
+                "description": "The amount already paid by the client."
+            },
+            "contactInfo": {
+                "type": "string",
+                "description": "Contact information for the client (e.g., email, phone)."
+            },
+            "notes": {
+                "type": "string",
+                "description": "General notes about the client or project."
+            }
+        },
+        "required": ["id", "name", "projectName"]
     },
     "File": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -266,7 +331,7 @@
         "definition": {
           "entityName": "User",
           "schema": {
-            "$ref": "#/backend/entities/User"
+            "$ref": "#/entities/User"
           },
           "description": "Stores user information, including role and creation timestamp."
         }
@@ -276,9 +341,19 @@
         "definition": {
           "entityName": "Task",
           "schema": {
-            "$ref": "#/backend/entities/Task"
+            "$ref": "#/entities/Task"
           },
           "description": "Stores task details, including assignee, status, team, and timestamps."
+        }
+      },
+      {
+        "path": "/clients/{clientId}",
+        "definition": {
+            "entityName": "Client",
+            "schema": {
+                "$ref": "#/entities/Client"
+            },
+            "description": "Stores client information and their associated projects."
         }
       },
       {
@@ -286,7 +361,7 @@
         "definition": {
           "entityName": "File",
           "schema": {
-            "$ref": "#/backend/entities/File"
+            "$ref": "#/entities/File"
           },
           "description": "Stores file metadata associated with a task."
         }
@@ -296,7 +371,7 @@
         "definition": {
           "entityName": "Attendance",
           "schema": {
-            "$ref": "#/backend/entities/Attendance"
+            "$ref": "#/entities/Attendance"
           },
           "description": "Stores attendance records for users."
         }
@@ -306,7 +381,7 @@
         "definition": {
           "entityName": "Course",
           "schema": {
-            "$ref": "#/backend/entities/Course"
+            "$ref": "#/entities/Course"
           },
           "description": "Stores courses assigned to users."
         }
@@ -314,3 +389,5 @@
     ]
   }
 }
+
+    

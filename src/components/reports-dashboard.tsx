@@ -1,6 +1,6 @@
 'use client';
 
-import type { Task } from '@/lib/data';
+import type { Client, Task } from '@/lib/data';
 import { useMemo, useState } from 'react';
 import { utils, writeFile } from 'xlsx';
 import jsPDF from 'jspdf';
@@ -64,13 +64,29 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
       return found ? `${(found as any).fullName}` : uid;
     };
     const map = new Map<string, UserReport>();
-    tasks.forEach(t => {
-      const key = t.assigneeId || 'unassigned';
-      if (!map.has(key)) map.set(key, { name: nameOf(t.assigneeId), total: 0, backlog: 0, in_progress: 0, review: 0, done: 0 });
-      const rec = map.get(key)!;
-      rec.total++;
-      (rec as any)[t.status]++;
+    
+    // Initialize map with all users
+    users?.forEach(user => {
+        map.set(user.id, { name: nameOf(user.id), total: 0, backlog: 0, in_progress: 0, review: 0, done: 0 });
     });
+
+
+    tasks.forEach(t => {
+      if (t.assigned_to && t.assigned_to.length > 0) {
+        t.assigned_to.forEach(assigneeId => {
+          if (!map.has(assigneeId)) map.set(assigneeId, { name: nameOf(assigneeId), total: 0, backlog: 0, in_progress: 0, review: 0, done: 0 });
+          const rec = map.get(assigneeId)!;
+          rec.total++;
+          (rec as any)[t.status]++;
+        });
+      } else {
+         if (!map.has('unassigned')) map.set('unassigned', { name: nameOf(undefined), total: 0, backlog: 0, in_progress: 0, review: 0, done: 0 });
+          const rec = map.get('unassigned')!;
+          rec.total++;
+          (rec as any)[t.status]++;
+      }
+    });
+
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [tasks, users]);
 
@@ -193,6 +209,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
             
             {!isAdmin && (
                <div className="grid grid-cols-1 gap-6">
+                <h2 className="font-semibold text-2xl font-headline">{t('welcome_back')}</h2>
                 <Attendance />
                 <Courses />
               </div>

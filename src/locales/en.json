@@ -1,6 +1,6 @@
 {
     "team_analytics": "Team Analytics",
-    "my_dashboard": "My Dashboard",
+    "my_dashboard": "Dashboard",
     "team_analytics_desc": "Analyze your team's workload and productivity.",
     "my_dashboard_desc": "An overview of your courses and tasks.",
     "add_task": "Add Task",
@@ -156,5 +156,7 @@
     "ai_analyzing_data": "Our AI is analyzing your team's data... This may take a moment.",
     "failed_to_generate_insights": "Failed to generate insights. Please try again.",
     "error": "Error",
-    "home_page_description": "An overview of your team's performance and task distribution."
+    "home_page_description": "An overview of your team's performance and task distribution.",
+    "reports": "Reports",
+    "clients": "Clients"
 }

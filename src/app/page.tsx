@@ -60,19 +60,7 @@ export default function Home() {
   
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-4xl font-headline font-bold tracking-tight">
-            Xfuse Sites
-          </h1>
-          <p className="mt-2 text-lg text-muted-foreground">
-            {t('home_page_description')}
-          </p>
-        </div>
-      </header>
-      <main>
-        <ReportsDashboard tasks={taskData} userRole={userRole} />
-      </main>
+      <ReportsDashboard tasks={taskData} userRole={userRole} />
     </div>
   );
 }

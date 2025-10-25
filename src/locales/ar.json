@@ -1,3 +1,4 @@
+
 {
     "team_analytics": "تحليلات الفريق",
     "my_dashboard": "لوحة التحكم",
@@ -17,7 +18,7 @@
     "review": "مراجعة",
     "done": "تم",
     "no_data_available": "لا توجد بيانات متاحة.",
-    "attendance": "الحاضرين",
+    "attendance": "الحضور",
     "status": "الحالة",
     "not_clocked_in": "لم يتم تسجيل الحضور",
     "not_clocked_in_desc": "لم تقم بتسجيل الحضور اليوم.",
@@ -37,6 +38,7 @@
     "hours_short": "س",
     "minutes_short": "د",
     "my_courses": "دوراتي",
+    "courses": "الدورات",
     "my_courses_desc": "الدورات المخصصة لك ولفريقك.",
     "add_course": "إضافة دورة",
     "loading_courses": "جاري تحميل الدورات ...",
@@ -157,5 +159,7 @@
     "error": "خطأ",
     "home_page_description": "نظرة عامة على أداء فريقك وتوزيع المهام.",
     "reports": "التقارير",
-    "clients": "العملاء"
+    "clients": "العملاء",
+    "welcome_back": "مرحبا بعودتك!",
+    "welcome_back_desc": "فيما يلي نظرة سريعة على مهامك ودوراتك."
 }

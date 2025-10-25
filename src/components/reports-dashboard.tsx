@@ -7,16 +7,15 @@ import { utils, writeFile } from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Button } from './ui/button';
-import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare } from 'lucide-react';
+import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MemberTasksBarChart } from './charts/member-tasks-bar-chart';
 import { CompletionRatioPieChart } from './charts/completion-ratio-pie-chart';
 import { DetailedBreakdownTable } from './detailed-breakdown-table';
 import AIInsights from './ai-insights';
 import { TaskForm } from './task-form';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { collection, query } from 'firebase/firestore';
 import Attendance from './attendance';
 import AttendanceAdmin from './attendance-admin';
 import Courses from './courses';
@@ -47,11 +46,11 @@ export type UserReport = {
   done: number;
 };
 
-type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients';
+type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses';
 
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
-  const { auth, firestore, user } = useFirebase();
+  const { auth } = useFirebase();
   const { t } = useLanguage();
   const users = useUsers(userRole);
   const [activeView, setActiveView] = useState<View>('dashboard');
@@ -121,18 +120,16 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
             <CardContent><p>Client management view coming soon.</p></CardContent>
           </Card>
         );
+      case 'attendance':
+        return isAdmin ? <AttendanceAdmin /> : <Attendance />;
+      case 'courses':
+        return <Courses />;
       case 'dashboard':
       default:
         return (
           <>
-            <div className="grid md:grid-cols-2 gap-6">
-              <Attendance />
-              <Courses />
-            </div>
-
             {isAdmin && (
               <>
-                <AttendanceAdmin />
                 <AIInsights byUser={byUser} />
                 
                 <div className="grid md:grid-cols-2 gap-6">
@@ -166,8 +163,11 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
               </>
             )}
             
-            {!isAdmin && user && (
-              <MyTasks tasks={tasks} />
+            {!isAdmin && (
+              <div className="text-center p-8 bg-muted/50 rounded-lg">
+                <h3 className="text-xl font-semibold">{t('welcome_back')}</h3>
+                <p className="text-muted-foreground">{t('welcome_back_desc')}</p>
+              </div>
             )}
           </>
         )
@@ -200,17 +200,33 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                    </SidebarMenuButton>
                 </SidebarMenuItem>
                  <SidebarMenuItem>
-                   <SidebarMenuButton isActive={activeView === 'reports'} onClick={() => setActiveView('reports')}>
-                    <BarChart />
-                    <span>{t('reports')}</span>
+                   <SidebarMenuButton isActive={activeView === 'attendance'} onClick={() => setActiveView('attendance')}>
+                    <Clock />
+                    <span>{t('attendance')}</span>
                    </SidebarMenuButton>
                 </SidebarMenuItem>
                  <SidebarMenuItem>
-                   <SidebarMenuButton isActive={activeView === 'clients'} onClick={() => setActiveView('clients')}>
-                    <Users />
-                    <span>{t('clients')}</span>
+                   <SidebarMenuButton isActive={activeView === 'courses'} onClick={() => setActiveView('courses')}>
+                    <BookOpen />
+                    <span>{t('courses')}</span>
                    </SidebarMenuButton>
                 </SidebarMenuItem>
+                {isAdmin && (
+                  <>
+                    <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'reports'} onClick={() => setActiveView('reports')}>
+                        <BarChart />
+                        <span>{t('reports')}</span>
+                    </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'clients'} onClick={() => setActiveView('clients')}>
+                        <Users />
+                        <span>{t('clients')}</span>
+                    </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </>
+                )}
               </SidebarMenu>
             </SidebarContent>
             <SidebarFooter>

@@ -1,3 +1,4 @@
+
 {
     "team_analytics": "Team Analytics",
     "my_dashboard": "Dashboard",
@@ -37,6 +38,7 @@
     "hours_short": "h",
     "minutes_short": "m",
     "my_courses": "My Courses",
+    "courses": "Courses",
     "my_courses_desc": "Courses assigned to you and your team.",
     "add_course": "Add Course",
     "loading_courses": "Loading courses...",
@@ -158,5 +160,7 @@
     "error": "Error",
     "home_page_description": "An overview of your team's performance and task distribution.",
     "reports": "Reports",
-    "clients": "Clients"
+    "clients": "Clients",
+    "welcome_back": "Welcome Back!",
+    "welcome_back_desc": "Here is a quick overview of your tasks and courses."
 }

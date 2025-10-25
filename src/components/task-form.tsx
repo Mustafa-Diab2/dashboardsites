@@ -21,8 +21,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { type Task } from '@/lib/data';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, serverTimestamp, query } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, serverTimestamp, query, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useMutations } from '@/hooks/use-mutations';
 import { useLanguage } from '@/context/language-context';
@@ -70,10 +70,23 @@ export function TaskForm({
   const { toast } = useToast();
   const { t, language } = useLanguage();
   const [form, setForm] = useState<TaskFormData>(INITIAL_FORM_STATE);
+
+  const userDocRef = useMemoFirebase(
+    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user]
+  );
+  const { data: userData } = useDoc(userDocRef);
+  const userRole = (userData as any)?.role;
   
-  const users = useUsers('admin');
+  const users = useUsers(userRole);
   
-  const clientsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'clients')) : null, [firestore]);
+  const clientsQuery = useMemoFirebase(() => {
+    // Only fetch clients if the user is an admin
+    if (firestore && userRole === 'admin') {
+      return query(collection(firestore, 'clients'));
+    }
+    return null;
+  }, [firestore, userRole]);
   const { data: clients } = useCollection(clientsQuery);
 
   useEffect(() => {

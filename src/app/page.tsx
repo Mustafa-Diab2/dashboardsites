@@ -9,7 +9,6 @@ import { useLanguage } from '@/context/language-context';
 
 export default function Home() {
   const { firestore, user, isUserLoading } = useFirebase();
-  const { t } = useLanguage();
 
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
@@ -27,7 +26,7 @@ export default function Home() {
         return query(collection(firestore, 'tasks'));
       }
       // Regular users only query for their own tasks.
-      return query(collection(firestore, 'tasks'), where('assigneeId', '==', user.uid));
+      return query(collection(firestore, 'tasks'), where('assigned_to', 'array-contains', user.uid));
     },
     [firestore, user, userData]
   );

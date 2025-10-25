@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ListTodo, CheckSquare, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import {
@@ -11,15 +11,33 @@ import {
   TableHeader,
   TableRow,
 } from './ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { TaskDetailsDialog } from './task-details-dialog';
 import type { Task } from '@/lib/data';
 import { useLanguage } from '@/context/language-context';
+import { Label } from './ui/label';
 
 export default function MyTasks({ tasks }: { tasks: Task[] }) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const { t } = useLanguage();
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const { t, language } = useLanguage();
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => {
+      const statusMatch = statusFilter === 'all' || task.status === statusFilter;
+      const priorityMatch = priorityFilter === 'all' || task.priority === priorityFilter;
+      return statusMatch && priorityMatch;
+    });
+  }, [tasks, statusFilter, priorityFilter]);
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
@@ -63,7 +81,39 @@ export default function MyTasks({ tasks }: { tasks: Task[] }) {
             {t('my_tasks')}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+           <div className="flex flex-col sm:flex-row gap-4">
+            <div className="grid gap-2 w-full">
+              <Label htmlFor="status-filter">{t('status')}</Label>
+               <Select value={statusFilter} onValueChange={setStatusFilter} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                <SelectTrigger id="status-filter">
+                  <SelectValue placeholder={t('all')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('all')}</SelectItem>
+                  <SelectItem value="backlog">{t('backlog')}</SelectItem>
+                  <SelectItem value="in_progress">{t('in_progress')}</SelectItem>
+                  <SelectItem value="review">{t('review')}</SelectItem>
+                  <SelectItem value="done">{t('done')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2 w-full">
+              <Label htmlFor="priority-filter">{t('priority')}</Label>
+               <Select value={priorityFilter} onValueChange={setPriorityFilter} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                <SelectTrigger id="priority-filter">
+                  <SelectValue placeholder={t('all')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('all')}</SelectItem>
+                  <SelectItem value="low">{t('low')}</SelectItem>
+                  <SelectItem value="medium">{t('medium')}</SelectItem>
+                  <SelectItem value="high">{t('high')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="rounded-md border">
             <Table>
               <TableHeader>
@@ -76,8 +126,8 @@ export default function MyTasks({ tasks }: { tasks: Task[] }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tasks.length > 0 ? (
-                  tasks.map((task) => (
+                {filteredTasks.length > 0 ? (
+                  filteredTasks.map((task) => (
                     <TableRow key={task.id}>
                       <TableCell className="font-medium">{task.title}</TableCell>
                       <TableCell>{getStatusBadge(task.status)}</TableCell>

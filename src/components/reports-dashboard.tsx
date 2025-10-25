@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Task } from '@/lib/data';
@@ -110,7 +109,36 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
         return (
           <Card>
             <CardHeader><CardTitle>{t('reports')}</CardTitle></CardHeader>
-            <CardContent><p>Reports view coming soon.</p></CardContent>
+            <CardContent>
+              <div className="grid md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="font-headline">{t('tasks_by_member')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <MemberTasksBarChart data={byUser} />
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="font-headline">{t('tasks_completion_ratio')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <CompletionRatioPieChart data={byUser} />
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle className="font-headline">{t('detailed_member_breakdown')}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <DetailedBreakdownTable data={byUser} />
+                  </CardContent>
+                </Card>
+            </CardContent>
           </Card>
         );
       case 'clients':
@@ -152,7 +180,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                   </Card>
                 </div>
 
-                <Card>
+                <Card className="mt-6">
                   <CardHeader>
                     <CardTitle className="font-headline">{t('detailed_member_breakdown')}</CardTitle>
                   </CardHeader>
@@ -164,9 +192,9 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
             )}
             
             {!isAdmin && (
-              <div className="text-center p-8 bg-muted/50 rounded-lg">
-                <h3 className="text-xl font-semibold">{t('welcome_back')}</h3>
-                <p className="text-muted-foreground">{t('welcome_back_desc')}</p>
+               <div className="grid grid-cols-1 gap-6">
+                <Attendance />
+                <Courses />
               </div>
             )}
           </>
@@ -243,8 +271,17 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                   <div className="flex items-center gap-2">
                     <SidebarTrigger className="md:hidden"/>
                     <div>
-                      <h2 className="font-semibold text-2xl font-headline">{t('team_analytics')}</h2>
-                      <p className="text-muted-foreground">{t('home_page_description')}</p>
+                      <h2 className="font-semibold text-2xl font-headline">
+                         {activeView === 'dashboard' && t('team_analytics')}
+                         {activeView === 'my-tasks' && t('my_tasks')}
+                         {activeView === 'attendance' && t('attendance')}
+                         {activeView === 'courses' && t('my_courses')}
+                         {activeView === 'reports' && t('reports')}
+                         {activeView === 'clients' && t('clients')}
+                      </h2>
+                      <p className="text-muted-foreground">
+                        {isAdmin ? t('home_page_description') : t('welcome_back_desc')}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -253,8 +290,8 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                         <Plus /> {t('add_task')}
                       </Button>
                     )}
-                    {isAdmin && <Button variant="outline" onClick={exportCSV}><FileDown /> {t('csv')}</Button>}
-                    {isAdmin && <Button variant="outline" onClick={exportPDF}><FileDown /> {t('pdf')}</Button>}
+                    {isAdmin && activeView === 'reports' && <Button variant="outline" onClick={exportCSV}><FileDown /> {t('csv')}</Button>}
+                    {isAdmin && activeView === 'reports' && <Button variant="outline" onClick={exportPDF}><FileDown /> {t('pdf')}</Button>}
                   </div>
               </div>
               {renderContent()}

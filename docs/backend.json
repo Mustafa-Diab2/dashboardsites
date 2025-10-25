@@ -94,6 +94,32 @@
           "type": "string",
           "description": "Timestamp indicating when the task was last updated.",
           "format": "date-time"
+        },
+        "taskType": {
+          "type": "string",
+          "enum": ["work", "training"],
+          "description": "The type of the task."
+        },
+        "commissionRate": {
+          "type": "number",
+          "description": "Commission rate for the task, if applicable."
+        },
+        "clientDetails": {
+          "type": "string",
+          "description": "Details about the client for this task."
+        },
+        "requirements": {
+          "type": "string",
+          "description": "Specific requirements for the task (e.g., color codes, UX guidelines)."
+        },
+        "marketResearchLink": {
+          "type": "string",
+          "format": "uri",
+          "description": "Link to market research documents."
+        },
+        "reviewerId": {
+          "type": "string",
+          "description": "The ID of the user responsible for reviewing the task."
         }
       },
       "required": [

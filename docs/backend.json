@@ -8,35 +8,28 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the user.",
-          "format": "uuid"
+          "description": "Unique identifier for the user, same as the Firebase Auth UID."
         },
         "fullName": {
           "type": "string",
           "description": "The full name of the user."
         },
         "email": {
-            "type": "string",
-            "description": "The email of the user."
+          "type": "string",
+          "description": "The email of the user."
         },
         "role": {
           "type": "string",
           "enum": ["admin", "backend", "frontend", "trainee"],
-          "description": "The role of the user (e.g., admin, backend, frontend, trainee)."
+          "description": "The role of the user."
         },
-        "createdAt": {
+        "joined_at": {
           "type": "string",
           "description": "Timestamp indicating when the user was created.",
           "format": "date-time"
         }
       },
-      "required": [
-        "id",
-        "fullName",
-        "email",
-        "role",
-        "createdAt"
-      ]
+      "required": ["id", "fullName", "email", "role", "joined_at"]
     },
     "Task": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -46,8 +39,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the task.",
-          "format": "uuid"
+          "description": "Unique identifier for the task."
         },
         "title": {
           "type": "string",
@@ -57,146 +49,153 @@
           "type": "string",
           "description": "A detailed description of the task."
         },
-        "taskType": {
+        "type": {
           "type": "string",
           "enum": ["work", "training"],
           "description": "The type of the task."
         },
-        "assignedTo": {
-            "type": "array",
-            "description": "Reference to User IDs. (Relationship: User M:N Task). IDs of the users assigned to the task.",
-            "items": {
-                "type": "string",
-                "format": "uuid"
-            }
+        "assigned_to": {
+          "type": "array",
+          "description": "An array of user IDs assigned to the task.",
+          "items": {
+            "type": "string"
+          }
         },
-        "createdBy": {
+        "created_by": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Task). The ID of the user who created the task.",
-          "format": "uuid"
+          "description": "The ID of the user who created the task."
         },
-        "clientId": {
-            "type": "string",
-            "description": "Reference to Client. (Relationship: Client 1:N Task). The ID of the client for this task.",
-            "format": "uuid"
+        "client_id": {
+          "type": "string",
+          "description": "The ID of the client associated with this task."
         },
         "progress": {
-            "type": "number",
-            "description": "The completion progress of the task, from 0 to 100."
+          "type": "number",
+          "description": "The completion progress of the task, from 0 to 100."
         },
         "status": {
           "type": "string",
-          "description": "The current status of the task (e.g., backlog, in_progress, review, done)."
+          "enum": ["backlog", "in_progress", "review", "done"],
+          "description": "The current status of the task."
         },
         "priority": {
           "type": "string",
-          "description": "The priority of the task (e.g., low, medium, high)."
+          "enum": ["low", "medium", "high"],
+          "description": "The priority of the task."
         },
-        "startDate": {
-            "type": "string",
-            "description": "The start date of the task.",
-            "format": "date"
+        "start_date": {
+          "type": "string",
+          "description": "The start date of the task.",
+          "format": "date"
         },
-        "dueDate": {
+        "due_date": {
           "type": "string",
           "description": "The due date of the task.",
           "format": "date"
         },
-        "deliverableLocation": {
+        "deliverable_location": {
+          "type": "string",
+          "description": "A link or address for the deliverable."
+        },
+        "delivery_method": {
+          "type": "string",
+          "enum": ["in_person", "upload", "link"],
+          "description": "The method of delivery for the task."
+        },
+        "deliverable_details": {
+          "type": "string",
+          "description": "Specific details about the deliverable."
+        },
+        "client_payment": {
+          "type": "number",
+          "description": "The payment amount received from the client for this task."
+        },
+        "backend_share_pct": {
+          "type": "number",
+          "description": "Percentage share for the backend team (0-100)."
+        },
+        "frontend_share_pct": {
+          "type": "number",
+          "description": "Percentage share for the frontend team (0-100)."
+        },
+        "payment_schedule": {
+          "type": "string",
+          "description": "Details on when payment will be received."
+        },
+        "backend_conditions": {
+          "type": "string",
+          "description": "Specific requirements and conditions for backend development."
+        },
+        "frontend_conditions": {
+          "type": "string",
+          "description": "Specific requirements and conditions for frontend development."
+        },
+        "ux_requirements": {
             "type": "string",
-            "format": "uri",
-            "description": "A link to the location of the deliverable (e.g., Google Drive folder)."
+            "description": "Notes on colors, user experience, and other UI/UX feedback."
         },
-        "deliveryMethod": {
-            "type": "string",
-            "enum": ["upload", "in-person", "email"],
-            "description": "The method of delivery for the task."
+        "market_research_link": {
+          "type": "string",
+          "format": "uri",
+          "description": "A link to related market research."
         },
-        "deliverableDetails": {
-            "type": "string",
-            "description": "Specific details about the deliverable."
-        },
-        "paymentShare": {
-            "type": "object",
-            "description": "Defines the payment distribution for the task.",
-            "properties": {
-                "backend": {"type": "number", "description": "Percentage share for the backend team."},
-                "frontend": {"type": "number", "description": "Percentage share for the frontend team."}
-            }
-        },
-        "clientPayment": {
-            "type": "number",
-            "description": "The payment amount received from the client for this task."
-        },
-        "backendConditions": {
-            "type": "string",
-            "description": "Specific requirements and conditions for backend development."
-        },
-        "frontendConditions": {
-            "type": "string",
-            "description": "Specific requirements and conditions for frontend development (e.g., color codes, UX)."
-        },
-        "marketResearchId": {
-            "type": "string",
-            "description": "An identifier or link to related market research."
-        },
-        "createdAt": {
+        "created_at": {
           "type": "string",
           "description": "Timestamp indicating when the task was created.",
           "format": "date-time"
         },
-        "updatedAt": {
+        "updated_at": {
           "type": "string",
           "description": "Timestamp indicating when the task was last updated.",
           "format": "date-time"
         }
       },
       "required": [
-        "id",
         "title",
+        "type",
         "status",
         "priority",
-        "createdBy",
-        "createdAt",
-        "updatedAt"
+        "created_by",
+        "created_at",
+        "updated_at"
       ]
     },
     "Client": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "Client",
-        "type": "object",
-        "description": "Represents a client.",
-        "properties": {
-            "id": {
-                "type": "string",
-                "description": "Unique identifier for the client."
-            },
-            "name": {
-                "type": "string",
-                "description": "The name of the client."
-            },
-            "projectName": {
-                "type": "string",
-                "description": "The name of the project associated with the client."
-            },
-            "totalPayment": {
-                "type": "number",
-                "description": "The total payment agreed upon for the project."
-            },
-            "paidAmount": {
-                "type": "number",
-                "description": "The amount already paid by the client."
-            },
-            "contactInfo": {
-                "type": "string",
-                "description": "Contact information for the client (e.g., email, phone)."
-            },
-            "notes": {
-                "type": "string",
-                "description": "General notes about the client or project."
-            }
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Client",
+      "type": "object",
+      "description": "Represents a client.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the client."
         },
-        "required": ["id", "name", "projectName"]
+        "name": {
+          "type": "string",
+          "description": "The name of the client."
+        },
+        "project_name": {
+          "type": "string",
+          "description": "The name of the project associated with the client."
+        },
+        "total_payment": {
+          "type": "number",
+          "description": "The total payment agreed upon for the project."
+        },
+        "paid_amount": {
+          "type": "number",
+          "description": "The amount already paid by the client."
+        },
+        "contact_info": {
+          "type": "string",
+          "description": "Contact information for the client (e.g., email, phone, address)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "General notes about the client or project."
+        }
+      },
+      "required": ["id", "name", "project_name"]
     },
     "File": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -206,18 +205,11 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the file.",
-          "format": "uuid"
+          "description": "Unique identifier for the file."
         },
         "taskId": {
           "type": "string",
-          "description": "Reference to Task. (Relationship: Task 1:N File). The ID of the task the file is associated with.",
-          "format": "uuid"
-        },
-        "uploadedBy": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N File).  The ID of the user who uploaded the file.",
-          "format": "uuid"
+          "description": "The ID of the task this file is associated with."
         },
         "name": {
           "type": "string",
@@ -227,7 +219,7 @@
           "type": "number",
           "description": "The size of the file in bytes."
         },
-        "type": {
+        "contentType": {
           "type": "string",
           "description": "The MIME type of the file."
         },
@@ -235,6 +227,10 @@
           "type": "string",
           "description": "The URL of the file stored in Firebase Storage.",
           "format": "uri"
+        },
+        "uploadedBy": {
+          "type": "string",
+          "description": "The UID of the user who uploaded the file."
         },
         "uploadedAt": {
           "type": "string",
@@ -245,11 +241,11 @@
       "required": [
         "id",
         "taskId",
-        "uploadedBy",
         "name",
         "size",
-        "type",
+        "contentType",
         "url",
+        "uploadedBy",
         "uploadedAt"
       ]
     },
@@ -319,10 +315,7 @@
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
@@ -330,9 +323,7 @@
         "path": "/users/{userId}",
         "definition": {
           "entityName": "User",
-          "schema": {
-            "$ref": "#/entities/User"
-          },
+          "schema": { "$ref": "#/entities/User" },
           "description": "Stores user information, including role and creation timestamp."
         }
       },
@@ -340,39 +331,31 @@
         "path": "/tasks/{taskId}",
         "definition": {
           "entityName": "Task",
-          "schema": {
-            "$ref": "#/entities/Task"
-          },
-          "description": "Stores task details, including assignee, status, team, and timestamps."
+          "schema": { "$ref": "#/entities/Task" },
+          "description": "Stores detailed information about a task."
         }
       },
       {
         "path": "/clients/{clientId}",
         "definition": {
-            "entityName": "Client",
-            "schema": {
-                "$ref": "#/entities/Client"
-            },
-            "description": "Stores client information and their associated projects."
+          "entityName": "Client",
+          "schema": { "$ref": "#/entities/Client" },
+          "description": "Stores client information and their associated projects."
         }
       },
       {
         "path": "/tasks/{taskId}/files/{fileId}",
         "definition": {
           "entityName": "File",
-          "schema": {
-            "$ref": "#/entities/File"
-          },
-          "description": "Stores file metadata associated with a task."
+          "schema": { "$ref": "#/entities/File" },
+          "description": "Stores file metadata associated with a specific task."
         }
       },
       {
         "path": "/attendance/{attendanceId}",
         "definition": {
           "entityName": "Attendance",
-          "schema": {
-            "$ref": "#/entities/Attendance"
-          },
+          "schema": { "$ref": "#/entities/Attendance" },
           "description": "Stores attendance records for users."
         }
       },
@@ -380,14 +363,10 @@
         "path": "/courses/{courseId}",
         "definition": {
           "entityName": "Course",
-          "schema": {
-            "$ref": "#/entities/Course"
-          },
+          "schema": { "$ref": "#/entities/Course" },
           "description": "Stores courses assigned to users."
         }
       }
     ]
   }
 }
-
-    

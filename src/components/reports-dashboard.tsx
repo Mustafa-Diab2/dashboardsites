@@ -7,7 +7,7 @@ import { utils, writeFile } from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Button } from './ui/button';
-import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users } from 'lucide-react';
+import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MemberTasksBarChart } from './charts/member-tasks-bar-chart';
 import { CompletionRatioPieChart } from './charts/completion-ratio-pie-chart';
@@ -47,7 +47,7 @@ export type UserReport = {
   done: number;
 };
 
-type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'tasks';
+type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients';
 
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
@@ -105,35 +105,31 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
 
   const renderContent = () => {
     switch(activeView) {
+      case 'my-tasks':
+        return <MyTasks tasks={tasks} />;
+      case 'reports':
+        return (
+          <Card>
+            <CardHeader><CardTitle>{t('reports')}</CardTitle></CardHeader>
+            <CardContent><p>Reports view coming soon.</p></CardContent>
+          </Card>
+        );
+      case 'clients':
+        return (
+          <Card>
+            <CardHeader><CardTitle>{t('clients')}</CardTitle></CardHeader>
+            <CardContent><p>Client management view coming soon.</p></CardContent>
+          </Card>
+        );
       case 'dashboard':
       default:
         return (
           <>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="font-semibold text-2xl font-headline">{isAdmin ? t('team_analytics') : t('my_dashboard')}</h2>
-                <p className="text-muted-foreground">{isAdmin ? t('team_analytics_desc') : t('my_dashboard_desc')}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {isAdmin && (
-                  <Button onClick={() => setTaskFormOpen(true)}>
-                    <Plus /> {t('add_task')}
-                  </Button>
-                )}
-                {isAdmin && <Button variant="outline" onClick={exportCSV}><FileDown /> {t('csv')}</Button>}
-                {isAdmin && <Button variant="outline" onClick={exportPDF}><FileDown /> {t('pdf')}</Button>}
-                <LanguageSwitcher />
-                <ThemeSwitcher />
-                <Button variant="outline" onClick={handleSignOut}><LogOut /> {t('sign_out')}</Button>
-              </div>
-            </div>
-
             <div className="grid md:grid-cols-2 gap-6">
               <Attendance />
               <Courses />
             </div>
 
-            {/* Admin-only sections */}
             {isAdmin && (
               <>
                 <AttendanceAdmin />
@@ -170,7 +166,6 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
               </>
             )}
             
-            {/* User-specific task list */}
             {!isAdmin && user && (
               <MyTasks tasks={tasks} />
             )}
@@ -227,7 +222,25 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
             </SidebarFooter>
           </Sidebar>
           <SidebarInset>
-            <div className="max-w-7xl mx-auto px-4 pb-10 space-y-8">
+            <div className="p-4 sm:p-6 lg:p-8 space-y-8">
+               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <SidebarTrigger className="md:hidden"/>
+                    <div>
+                      <h2 className="font-semibold text-2xl font-headline">{t('team_analytics')}</h2>
+                      <p className="text-muted-foreground">{t('home_page_description')}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {isAdmin && (
+                      <Button onClick={() => setTaskFormOpen(true)} className="w-full sm:w-auto">
+                        <Plus /> {t('add_task')}
+                      </Button>
+                    )}
+                    {isAdmin && <Button variant="outline" onClick={exportCSV}><FileDown /> {t('csv')}</Button>}
+                    {isAdmin && <Button variant="outline" onClick={exportPDF}><FileDown /> {t('pdf')}</Button>}
+                  </div>
+              </div>
               {renderContent()}
             </div>
           </SidebarInset>

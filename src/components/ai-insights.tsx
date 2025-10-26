@@ -63,15 +63,8 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     const reportTarget = targetUser === 'all' ? t('all') : targetUser;
     const reportTypeText = reportType === 'summary' ? t('summary') : t('detailed');
     
-    // Set font that supports Arabic - 'Helvetica' is a safe default, but for full support
-    // a custom font would ideally be loaded. jsPDF-autotable handles this better.
-    // The key is to set the font in the autoTable styles.
-    
-    doc.setFontSize(18);
-    // jsPDF struggles with RTL text rendering in `text` method. We will add titles in the table instead.
-    
     doc.autoTable({
-        head: [[title]],
+        head: [[{ content: title, styles: { halign: 'center', fontSize: 16 } }]],
         body: [
             [`${t('report_type')}: ${reportTypeText}`],
             [`${t('report_target')}: ${reportTarget}`],
@@ -79,17 +72,20 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
         ],
         startY: 15,
         styles: {
-            font: 'Helvetica', // A standard font that has some unicode support.
+            font: 'Helvetica', // This is a standard font that has better unicode support in jspdf-autotable
             halign: 'right', // Align text to the right for RTL
-        },
-        headStyles: {
-            halign: 'center',
-            fontSize: 16,
-            fillColor: [78, 115, 223]
-        },
-        bodyStyles: {
             cellPadding: 4,
             fontSize: 12,
+        },
+        headStyles: {
+            fillColor: [78, 115, 223],
+            textColor: 255,
+        },
+        didParseCell: (data) => {
+            // This hook is used to handle right-to-left text alignment for the body
+            if (data.section === 'body') {
+                data.cell.styles.halign = 'right';
+            }
         }
     });
 

@@ -208,6 +208,12 @@
     "client_and_project_name_required": "Client name and project name are required.",
     "save_changes": "Save Changes",
     "edit": "Edit",
-    "delete": "Delete"
+    "delete": "Delete",
+
+    "report_type": "Report Type",
+    "report_target": "Report Target",
+    "summary": "Summary",
+    "detailed": "Detailed"
 }
+
 

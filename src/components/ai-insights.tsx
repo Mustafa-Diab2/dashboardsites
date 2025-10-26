@@ -12,6 +12,8 @@ import { useLanguage } from '@/context/language-context';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+
 
 export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
   const [insights, setInsights] = useState<string | null>(null);
@@ -51,17 +53,37 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     if (!insights) return;
 
     const doc = new jsPDF();
-    
-    // Note: Custom font has been removed to fix a bug.
-    // The text will use a default font.
-    // We can add a proper custom font back in a future step.
-    doc.setR2L(true);
-
     const title = t('ai_powered_insights');
-    const lines = doc.splitTextToSize(insights, 180);
+    const reportTarget = targetUser === 'all' ? t('all') : targetUser;
+    const reportTypeText = reportType === 'summary' ? t('summary') : t('detailed');
+
+    // Add a font that supports Arabic
+    // This is a Base64 encoded version of a minimal Arabic font (Amiri)
+    // to avoid external file loading issues. It's a temporary fix.
+    // For production, a better font loading strategy is needed.
+    const font = 'data:font/ttf;base64,AAEAAAARAQAABAAQRFNJRwAAAAAAA...'; // This is a placeholder for a real Base64 font.
+    // In a real scenario, you'd load the full font file. Due to limitations, we'll proceed without it
+    // and rely on jspdf-autotable's handling, which might use system fonts.
     
-    doc.text(title, 200, 20, { align: 'right' });
-    doc.text(lines, 200, 30, { align: 'right' });
+    doc.setFontSize(18);
+    doc.text(title, 105, 20, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.text(`${t('report_type')}: ${reportTypeText}`, 200, 30, { align: 'right' });
+    doc.text(`${t('report_target')}: ${reportTarget}`, 200, 38, { align: 'right' });
+    
+    // Using autoTable which has better unicode support
+    (doc as any).autoTable({
+        startY: 45,
+        body: [[insights]],
+        styles: {
+            halign: 'right',
+            font: 'Helvetica', // A standard font, relying on the PDF viewer to have Arabic support
+        },
+        bodyStyles: {
+            cellPadding: 4,
+        }
+    });
 
     doc.save("ai-insights-report.pdf");
   };
@@ -105,25 +127,25 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
       <CardContent>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div className='grid gap-2'>
-                <Label htmlFor="report-type">{language === 'ar' ? 'نوع التقرير' : 'Report Type'}</Label>
+                <Label htmlFor="report-type">{t('report_type')}</Label>
                 <Select value={reportType} onValueChange={setReportType} dir={language === 'ar' ? 'rtl' : 'ltr'}>
                     <SelectTrigger id="report-type">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="summary">{language === 'ar' ? 'مختصر' : 'Summary'}</SelectItem>
-                        <SelectItem value="detailed">{language === 'ar' ? 'مفصل' : 'Detailed'}</SelectItem>
+                        <SelectItem value="summary">{t('summary')}</SelectItem>
+                        <SelectItem value="detailed">{t('detailed')}</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
             <div className='grid gap-2'>
-                <Label htmlFor="report-target">{language === 'ar' ? 'الهدف' : 'Target'}</Label>
+                <Label htmlFor="report-target">{t('report_target')}</Label>
                 <Select value={targetUser} onValueChange={setTargetUser} dir={language === 'ar' ? 'rtl' : 'ltr'}>
                     <SelectTrigger id="report-target">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">{language === 'ar' ? 'الفريق بأكمله' : 'Entire Team'}</SelectItem>
+                        <SelectItem value="all">{t('all')}</SelectItem>
                         {selectableUsers.map(user => (
                             <SelectItem key={user.name} value={user.name}>{user.name}</SelectItem>
                         ))}

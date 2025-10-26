@@ -207,6 +207,12 @@
     "client_and_project_name_required": "اسم العميل واسم المشروع مطلوبان.",
     "save_changes": "حفظ التغييرات",
     "edit": "تعديل",
-    "delete": "حذف"
+    "delete": "حذف",
+    
+    "report_type": "نوع التقرير",
+    "report_target": "هدف التقرير",
+    "summary": "مختصر",
+    "detailed": "مفصل"
 }
+
 

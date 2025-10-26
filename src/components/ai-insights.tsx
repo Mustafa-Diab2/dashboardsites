@@ -14,6 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
+// Extend the jsPDF type to include the autoTable method
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
   const [insights, setInsights] = useState<string | null>(null);
@@ -30,9 +36,9 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
 
     // Filter out 'Unassigned' tasks and any users that might not have a name yet before sending to the AI
     const filteredTaskDistribution = byUser.filter(
-      user => user.name && user.name !== 'Unassigned' && !user.name.startsWith('user-')
+      user => user.name && user.name !== 'Unassigned' && !user.name.startsWith('user-') && user.name !== 'undefined'
     );
-
+    
     const result = await generateTeamInsights({
       taskDistribution: filteredTaskDistribution,
       reportType: reportType as 'summary' | 'detailed',
@@ -56,39 +62,41 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     const title = t('ai_powered_insights');
     const reportTarget = targetUser === 'all' ? t('all') : targetUser;
     const reportTypeText = reportType === 'summary' ? t('summary') : t('detailed');
-
-    // Add a font that supports Arabic
-    // This is a Base64 encoded version of a minimal Arabic font (Amiri)
-    // to avoid external file loading issues. It's a temporary fix.
-    // For production, a better font loading strategy is needed.
-    const font = 'data:font/ttf;base64,AAEAAAARAQAABAAQRFNJRwAAAAAAA...'; // This is a placeholder for a real Base64 font.
-    // In a real scenario, you'd load the full font file. Due to limitations, we'll proceed without it
-    // and rely on jspdf-autotable's handling, which might use system fonts.
+    
+    // Set font that supports Arabic - 'Helvetica' is a safe default, but for full support
+    // a custom font would ideally be loaded. jsPDF-autotable handles this better.
+    // The key is to set the font in the autoTable styles.
     
     doc.setFontSize(18);
-    doc.text(title, 105, 20, { align: 'center' });
+    // jsPDF struggles with RTL text rendering in `text` method. We will add titles in the table instead.
     
-    doc.setFontSize(12);
-    doc.text(`${t('report_type')}: ${reportTypeText}`, 200, 30, { align: 'right' });
-    doc.text(`${t('report_target')}: ${reportTarget}`, 200, 38, { align: 'right' });
-    
-    // Using autoTable which has better unicode support
-    (doc as any).autoTable({
-        startY: 45,
-        body: [[insights]],
+    doc.autoTable({
+        head: [[title]],
+        body: [
+            [`${t('report_type')}: ${reportTypeText}`],
+            [`${t('report_target')}: ${reportTarget}`],
+            [insights]
+        ],
+        startY: 15,
         styles: {
-            halign: 'right',
-            font: 'Helvetica', // A standard font, relying on the PDF viewer to have Arabic support
+            font: 'Helvetica', // A standard font that has some unicode support.
+            halign: 'right', // Align text to the right for RTL
+        },
+        headStyles: {
+            halign: 'center',
+            fontSize: 16,
+            fillColor: [78, 115, 223]
         },
         bodyStyles: {
             cellPadding: 4,
+            fontSize: 12,
         }
     });
 
     doc.save("ai-insights-report.pdf");
   };
   
-  const selectableUsers = byUser.filter(user => user.name && user.name !== 'Unassigned'  && !user.name.startsWith('user-'));
+  const selectableUsers = byUser.filter(user => user.name && user.name !== 'Unassigned' && !user.name.startsWith('user-') && user.name !== 'undefined');
 
   return (
     <Card className="bg-card/50 border-primary/20 border-2 shadow-lg">

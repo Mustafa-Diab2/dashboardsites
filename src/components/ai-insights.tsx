@@ -25,8 +25,11 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     setError(null);
     setInsights(null);
 
+    // Filter out 'Unassigned' tasks before sending to the AI
+    const filteredTaskDistribution = byUser.filter(user => user.name !== 'Unassigned');
+
     const result = await generateTeamInsights({
-      taskDistribution: byUser,
+      taskDistribution: filteredTaskDistribution,
       reportType: reportType as 'summary' | 'detailed',
       target: targetUser,
     });
@@ -38,6 +41,8 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     }
     setIsLoading(false);
   };
+  
+  const selectableUsers = byUser.filter(user => user.name !== 'Unassigned');
 
   return (
     <Card className="bg-card/50 border-primary/20 border-2 shadow-lg">
@@ -87,7 +92,7 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">{language === 'ar' ? 'الفريق بأكمله' : 'Entire Team'}</SelectItem>
-                        {byUser.map(user => (
+                        {selectableUsers.map(user => (
                             <SelectItem key={user.name} value={user.name}>{user.name}</SelectItem>
                         ))}
                     </SelectContent>

@@ -304,8 +304,8 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                         <Plus /> {t('add_task')}
                       </Button>
                     )}
-                    {isAdmin && activeView === 'reports' && <Button variant="outline" onClick={exportCSV}><FileDown /> {t('csv')}</Button>}
-                    {isAdmin && activeView === 'reports' && <Button variant="outline" onClick={exportPDF}><FileDown /> {t('pdf')}</Button>}
+                    {isAdmin && activeView === 'dashboard' && <Button variant="outline" onClick={exportCSV}><FileDown /> {t('csv')}</Button>}
+                    {isAdmin && activeView === 'dashboard' && <Button variant="outline" onClick={exportPDF}><FileDown /> {t('pdf')}</Button>}
                   </div>
               </div>
               {renderContent()}

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles, Loader2, FileDown } from 'lucide-react';
 import { generateTeamInsights } from '@/lib/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { UserReport } from './reports-dashboard';
@@ -11,6 +11,8 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { useLanguage } from '@/context/language-context';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import jsPDF from 'jspdf';
+import { AmiriFont } from '@/lib/fonts/amiri-font';
 
 export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
   const [insights, setInsights] = useState<string | null>(null);
@@ -45,8 +47,28 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     }
     setIsLoading(false);
   };
+
+  const handleDownloadPdf = () => {
+    if (!insights) return;
+
+    const doc = new jsPDF();
+
+    doc.addFileToVFS("Amiri-Regular.ttf", AmiriFont);
+    doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
+    doc.setFont("Amiri");
+
+    doc.setR2L(true);
+
+    const title = t('ai_powered_insights');
+    const lines = doc.splitTextToSize(insights, 180);
+    
+    doc.text(title, 200, 20, { align: 'right' });
+    doc.text(lines, 200, 30, { align: 'right' });
+
+    doc.save("ai-insights-report.pdf");
+  };
   
-  const selectableUsers = byUser.filter(user => user.name !== 'Unassigned'  && !user.name.startsWith('user-'));
+  const selectableUsers = byUser.filter(user => user.name && user.name !== 'Unassigned'  && !user.name.startsWith('user-'));
 
   return (
     <Card className="bg-card/50 border-primary/20 border-2 shadow-lg">
@@ -59,19 +81,27 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
             </CardTitle>
             <CardDescription>{t('ai_powered_insights_desc')}</CardDescription>
           </div>
-          <Button onClick={handleGenerateInsights} disabled={isLoading} className="w-full sm:w-auto">
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {t('generating')}...
-              </>
-            ) : (
-              <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                {t('generate_insights')}
-              </>
+          <div className="flex gap-2 w-full sm:w-auto">
+             <Button onClick={handleGenerateInsights} disabled={isLoading} className="w-full sm:w-auto">
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('generating')}...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {t('generate_insights')}
+                </>
+              )}
+            </Button>
+            {insights && (
+               <Button onClick={handleDownloadPdf} variant="outline">
+                <FileDown className="mr-2 h-4 w-4" />
+                {t('download_pdf')}
+              </Button>
             )}
-          </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>

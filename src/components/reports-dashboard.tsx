@@ -4,7 +4,6 @@ import type { Client, Task } from '@/lib/data';
 import { useMemo, useState } from 'react';
 import { utils, writeFile } from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import { Button } from './ui/button';
 import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -102,11 +101,10 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
   const exportPDF = () => {
     const doc = new jsPDF();
     doc.text('Team Task Report', 14, 16);
-    const tableData = byUser.map(u => [u.name, u.total, u.backlog, u.in_progress, u.review, u.done]);
-    (doc as any).autoTable({
-      head: [['Member', 'Total', 'Backlog', 'In Progress', 'Review', 'Done']],
-      body: tableData,
-      startY: 22,
+    let y = 22;
+    byUser.forEach(user => {
+        doc.text(`${user.name}: Total - ${user.total}, Done - ${user.done}`, 14, y);
+        y += 7;
     });
     doc.save('TeamReport.pdf');
   };
@@ -315,3 +313,5 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
     </>
   );
 }
+
+    

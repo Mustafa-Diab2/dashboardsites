@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -80,14 +81,17 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     const reportTypeText = reportType === 'summary' ? t('summary') : t('detailed');
     const title = `${t('ai_powered_insights')} - ${reportTypeText} (${reportTarget})`;
 
+    const pageInfo = doc.getPageInfo(1);
+    const pageWidth = pageInfo.pageContext.mediaBox.width;
+
     // 3. Add content
     doc.setFontSize(16);
-    doc.text(title, doc.internal.pageSize.getWidth() - 10, 20, { align: 'right' });
+    doc.text(title, pageWidth - 10, 20, { align: 'right' });
     
     doc.setFontSize(12);
     // Split the text to handle multiple lines and wrapping
-    const lines = doc.splitTextToSize(insights, doc.internal.pageSize.getWidth() - 20);
-    doc.text(lines, doc.internal.pageSize.getWidth() - 10, 40, { align: 'right' });
+    const lines = doc.splitTextToSize(insights, pageWidth - 20);
+    doc.text(lines, pageWidth - 10, 40, { align: 'right' });
 
     doc.save("ai-insights-report.pdf");
   };

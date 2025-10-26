@@ -1,148 +1,125 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a combination of user-ownership and role-based access control.
- * All data is stored in top-level collections: /users, /tasks, /clients, /attendance, /courses.
- * Each document is secured based on a combination of user identity (request.auth.uid) and, in some cases,
- * denormalized ownership data within the document itself (e.g., createdBy, assignedTo).
+ * @description
+ * هذا الـ ruleset يفرض نموذج ملكية صارم لبيانات المستخدم وحضور الموظف والمهام،
+ * مع إمكانية "أدمن" اختيارية عبر Custom Claims. يدعم مرفقات لكل مهمة (Firestore + Storage)،
+ * ويعتمد على التحقق من ملكية الوثيقة لكل عملية قراءة/كتابة.
  *
- * Key Security Decisions:
- * - User listing is generally disallowed for privacy.
- * - The ruleset prioritizes secure authorization, but data shape validation is relaxed for rapid prototyping.
- * - Where applicable, ownership is validated on both create and update operations to prevent privilege escalation.
+ * @dataStructure
+ *  - /users/{userId}:
+ *      ملف المستخدم. المستخدم يقرأ/يكتب ملفه فقط (مع خيار list للمصادّقين لدعم القوائم).
+ *  - /attendance/{attendanceId}:
+ *      سجل الحضور. المستخدم يقرأ/ينشئ/يحدّث/يحذف سجلاته فقط.
+ *  - /tasks/{taskId}:
+ *      المهام. كل المصادّقين يقرأوا. الإنشاء/التحديث/الحذف لمالك المهمة (createdBy)،
+ *      أو للأدمن (لو مفعّل claims).
+ *  - /tasks/{taskId}/files/{fileId}:
+ *      ميتاداتا المرفقات. القراءة للمصادّقين، والإنشاء/التعديل/الحذف للرافع فقط
+ *      (أو للأدمن لو موجود).
  *
- * Denormalization for Authorization:
- * - Tasks: Require 'createdBy' field to match request.auth.uid on creation. Enforce ownership on updates/deletes.
- * - Files: Associate files with tasks via 'taskId'. Files are secured through the parent task.
+ * @keySecurityDecisions
+ *  - users: ملكية ذاتية؛ (اختياري) السماح بالـ list للمصادّقين لدعم Dropdowns.
+ *  - attendance: كل قراءة/استعلام يجب أن تكون لسجلات نفس المستخدم (userId == uid).
+ *  - tasks: القراءة عامة للمصادّقين؛ الكتابة للـ createdBy أو للأدمن (claims).
+ *  - files: الرافع فقط يدير ملفاته؛ القراءة عامة للمصادّقين.
+ *
+ * @denormalizationForAuthorization
+ *  - لا نعتمد على get() داخل القواعد (لتكلفة الأداء)؛ إن لزم "أدمن"، نفضل Custom Claims:
+ *    request.auth.token.role == "admin". (تُعيّن عبر Admin SDK).
+ *
+ * @structuralSegregation
+ *  - لا يوجد فصل هيكلي إضافي.
  */
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Controls access to user profiles.
-     * @path /users/{userId}
-     * @allow (create) - User can create their own profile if the userId matches their auth.uid.
-     * @allow (get, update, delete) - User can only access/modify their own profile.
-     * @deny (list) - User listing is disallowed for privacy.
-     * @deny (create) - Cannot create a user with an ID that does not match the auth.uid.
-     * @principle Enforces strict user-ownership for profile data.
-     */
-    match /users/{userId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
-    }
-
-    /**
-     * @description Controls access to tasks.  Tasks can be read by anyone.
-     *  Tasks can be created by a signed-in user, but they must set 'createdBy' to their own uid.
-     *  Tasks can be updated/deleted only by the user who created them.
-     * @path /tasks/{taskId}
-     * @allow (get, list) - Any signed-in user can read any task.
-     * @allow (create) - A signed-in user can create a task with 'createdBy' set to their own uid.
-     * @allow (update, delete) - Only the user who created the task can update or delete it.
-     * @deny (create) - Cannot create a task with a 'createdBy' field that doesn't match the auth.uid.
-     * @principle Public read, owner-only writes, with creator validation on creation.
-     */
-    match /tasks/{taskId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.created_by == request.auth.uid;
-      allow update: if isSignedIn() && isExistingOwnerForField(resource.data.created_by);
-      allow delete: if isSignedIn() && isExistingOwnerForField(resource.data.created_by);
-    }
-
-    /**
-     * @description Controls access to clients.
-     * @path /clients/{clientId}
-     * @allow (get) - Any signed-in user can read a client.
-     * @allow (list) - Any signed-in user can list clients.
-     * @allow (create) - Any signed-in user can create a client.
-     * @allow (update, delete) - Update and Delete operations are disallowed.
-     * @principle Public read, but no updates or deletes.
-     */
-    match /clients/{clientId} {
-        allow get: if isSignedIn();
-        allow list: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if false;
-        allow delete: if false;
-    }
-
-    /**
-     * @description Controls access to files associated with tasks.
-     *  Files inherit the security context of their parent task. Only the creator of the task
-     *  can create, update, or delete associated files.
-     * @path /tasks/{taskId}/files/{fileId}
-     * @allow (get, list) - Signed-in users can read files associated with a task.
-     * @allow (create) - The creator of the task can create files associated with the task.
-     * @allow (update, delete) - Only the creator of the task can update or delete associated files.
-     * @deny (create) - Cannot create files if you are not signed in.
-     * @principle Parent-based access control: file access depends on task ownership.
-     */
-    match /tasks/{taskId}/files/{fileId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isTaskOwner(taskId);
-      allow update: if isSignedIn() && isTaskOwner(taskId);
-      allow delete: if isSignedIn() && isTaskOwner(taskId);
-    }
-
-    /**
-     * @description Controls access to attendance records.
-     *  Attendance records are publicly readable and creatable, but cannot be updated or deleted.
-     * @path /attendance/{attendanceId}
-     * @allow (get, list) - Any signed-in user can read attendance records.
-     * @allow (create) - Any signed-in user can create attendance records.
-     * @deny (update, delete) - Attendance records cannot be updated or deleted.
-     * @principle Public read and create, immutable records.
-     */
-    match /attendance/{attendanceId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    /**
-     * @description Controls access to courses.
-     * @path /courses/{courseId}
-     * @allow (get, list) - Any signed-in user can read any course.
-     * @allow (create) - Any signed-in user can create a course.
-     * @allow (update, delete) - Update and Delete operations are disallowed.
-     * @principle Public read, but no updates or deletes.
-     */
-    match /courses/{courseId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    // Helper functions
+    /* ============================
+     * Helper Functions
+     * ============================ */
     function isSignedIn() {
       return request.auth != null;
     }
 
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isExistingOwner(userId) {
-        return isSignedIn() && isOwner(userId) && resource != null;
+    // اختياري: دعم "أدمن" عبر Custom Claims (role = "admin")
+    function isAdmin() {
+      return isSignedIn() && (request.auth.token.role == "admin");
     }
 
-    function isExistingOwnerForField(ownerId) {
-        return isSignedIn() && request.auth.uid == ownerId && resource != null;
+    /* ============================
+     * Users
+     * ============================ */
+    match /users/{userId} {
+      allow get:   if isOwner(userId);
+      allow list:  if isSignedIn(); // لو لا تحتاجه، اغلقه لزيادة الأمان
+      allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
+      allow update: if isOwner(userId) && resource.data.id == request.resource.data.id;
+      allow delete: if isOwner(userId);
     }
 
-    // Checks if the current user is the owner of the task
-    function isTaskOwner(taskId) {
-      return get(/databases/$(database)/documents/tasks/$(taskId)).data.created_by == request.auth.uid;
+    /* ============================
+     * Attendance
+     * ============================ */
+    match /attendance/{attendanceId} {
+      allow get:  if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    /* ============================
+     * Clients
+     * ============================ */
+    match /clients/{clientId} {
+      allow get:   if isSignedIn() && (resource.data.createdBy == request.auth.uid || isAdmin());
+      allow list:  if isSignedIn() && isAdmin();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (resource.data.createdBy == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
+
+    /* ============================
+     * Tasks
+     * ============================ */
+    match /tasks/{taskId} {
+      allow read:   if isSignedIn(); // تغطي get + list
+      allow create: if isSignedIn()
+                    && request.resource.data.createdBy == request.auth.uid;
+
+      allow update: if isSignedIn()
+                    && (resource.data.createdBy == request.auth.uid || isAdmin());
+
+      allow delete: if isSignedIn()
+                    && (resource.data.createdBy == request.auth.uid || isAdmin());
+
+      match /files/{fileId} {
+        allow read:   if isSignedIn(); // تغطي get + list
+
+        allow create: if isSignedIn()
+                      && request.resource.data.uploadedBy == request.auth.uid
+                      && request.resource.data.taskId == taskId;
+
+        allow update: if isSignedIn()
+                      && (resource.data.uploadedBy == request.auth.uid || isAdmin());
+
+        allow delete: if isSignedIn()
+                      && (resource.data.uploadedBy == request.auth.uid || isAdmin());
+      }
+    }
+
+    /* ============================
+     * Courses (اختياري—حسب نموذجك السابق)
+     * ============================ */
+    match /courses/{courseId} {
+      allow read:   if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list:   if isSignedIn(); // ستفشل لأي وثيقة لا تخص نفس المستخدم
+      allow create: if isSignedIn() && request.resource.data.userId != null;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
 }

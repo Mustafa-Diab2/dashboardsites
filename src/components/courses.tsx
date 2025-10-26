@@ -1,117 +1,49 @@
 'use client';
 
-import { Book, Plus, Play, StopCircle, ExternalLink } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
-import { useFirebase, useCollection, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, query, where, serverTimestamp, doc } from "firebase/firestore";
-import { useMutations } from "@/hooks/use-mutations";
-import { useState } from "react";
-import CourseForm from "./course-form";
+import { BookOpen } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
 import { useLanguage } from "@/context/language-context";
 
 export default function Courses() {
-  const { user, firestore } = useFirebase();
-  const { updateDoc } = useMutations();
-  const [isCourseFormOpen, setCourseFormOpen] = useState(false);
   const { t } = useLanguage();
+  const { firestore, user } = useFirebase();
 
-  const userDocRef = useMemoFirebase(
-    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
+  // Correctly filtered query for the user's courses
+  const coursesQuery = useMemoFirebase(
+    () => {
+      if (!firestore || !user) return null;
+      return query(collection(firestore, "courses"), where("userId", "==", user.uid));
+    },
     [firestore, user]
   );
-  const { data: userData } = useDoc(userDocRef);
-  const userRole = (userData as any)?.role;
-
-  const coursesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    
-    if (userRole === 'admin') {
-        return query(collection(firestore, 'courses'));
-    }
-    
-    return query(collection(firestore, 'courses'), where('userId', '==', user.uid));
-  }, [firestore, user, userRole]);
 
   const { data: courses, isLoading } = useCollection(coursesQuery);
 
-  const handleStartCourse = (courseId: string) => {
-    updateDoc('courses', courseId, { status: 'in_progress', startedAt: serverTimestamp() });
-  };
-
-  const handleEndCourse = (courseId: string) => {
-    updateDoc('courses', courseId, { status: 'completed', completedAt: serverTimestamp() });
-  };
-  
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'in_progress':
-        return <Badge variant="secondary">{t('in_progress')}</Badge>;
-      case 'completed':
-        return <Badge>{t('completed')}</Badge>;
-      case 'not_started':
-      default:
-        return <Badge variant="outline">{t('not_started')}</Badge>;
-    }
-  };
-
   return (
-    <>
-      <CourseForm isOpen={isCourseFormOpen} onOpenChange={setCourseFormOpen} />
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="font-headline flex items-center gap-2">
-              <Book />
-              {t('my_courses')}
-            </CardTitle>
-            <CardDescription>{t('my_courses_desc')}</CardDescription>
-          </div>
-          {userRole === 'admin' && (
-            <Button onClick={() => setCourseFormOpen(true)}><Plus/> {t('add_course')}</Button>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {isLoading ? (
-            <p>{t('loading_courses')}</p>
-          ) : courses && courses.length > 0 ? (
-            courses.map((course) => (
-              <div key={course.id} className="p-4 rounded-lg bg-muted/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="flex-grow">
-                  <div className="flex items-center gap-2">
-                     <h4 className="font-semibold">{course.name}</h4>
-                     {getStatusBadge(course.status)}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{t('duration')}: {course.duration}</p>
-                   <a href={course.link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
-                    {t('go_to_course')} <ExternalLink className="w-4 h-4" />
-                  </a>
-                </div>
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <Button
-                    size="sm"
-                    onClick={() => handleStartCourse(course.id)}
-                    disabled={course.status !== 'not_started'}
-                  >
-                    <Play className="mr-2" /> {t('start')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleEndCourse(course.id)}
-                    disabled={course.status !== 'in_progress'}
-                  >
-                    <StopCircle className="mr-2" /> {t('end')}
-                  </Button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-muted-foreground p-4 text-center">{t('no_courses_assigned')}</p>
-          )}
-        </CardContent>
-      </Card>
-    </>
+    <Card>
+      <CardHeader>
+        <CardTitle className="font-headline flex items-center gap-2">
+          <BookOpen />
+          {t('my_courses')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p>{t('loading')}</p>
+        ) : courses && courses.length > 0 ? (
+          <ul className="space-y-2">
+            {courses.map(course => (
+              <li key={course.id} className="p-2 rounded-md bg-muted/50">
+                {course.title}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground">{t('no_courses_assigned')}</p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

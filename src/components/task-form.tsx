@@ -28,6 +28,7 @@ import { useMutations } from '@/hooks/use-mutations';
 import { useLanguage } from '@/context/language-context';
 import { useUsers } from '@/hooks/use-users';
 import { ScrollArea } from './ui/scroll-area';
+import { Badge } from './ui/badge';
 
 type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'assigned_to'> & { assigned_to: string[] };
 
@@ -312,4 +313,3 @@ export function TaskForm({
       </DialogContent>
     </Dialog>
   );
-}

@@ -35,6 +35,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from '@/components/ui/sidebar';
+import CourseForm from './course-form';
 
 export type UserReport = {
   name: string;
@@ -167,7 +168,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
       case 'attendance':
         return isAdmin ? <AttendanceAdmin /> : <Attendance />;
       case 'courses':
-        return <Courses />;
+        return <Courses userRole={userRole} />;
       case 'dashboard':
       default:
         return (
@@ -211,7 +212,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                <div className="grid grid-cols-1 gap-6">
                 <h2 className="font-semibold text-2xl font-headline">{t('welcome_back')}</h2>
                 <Attendance />
-                <Courses />
+                <Courses userRole={userRole} />
               </div>
             )}
           </>

@@ -2,12 +2,13 @@
 
 import { generateTeamInsights as generateTeamInsightsFlow, GenerateTeamInsightsInput } from '@/ai/flows/generate-team-insights';
 
-export async function generateTeamInsights(input: GenerateTeamInsightsInput) {
+export async function generateTeamInsights(input: GenerateTeamInsightsInput): Promise<{ insights: string | null, error?: string }> {
   try {
     const result = await generateTeamInsightsFlow(input);
-    return result;
-  } catch (error) {
+    return { insights: result.insights };
+  } catch (error: any) {
     console.error("Error generating team insights:", error);
-    return { insights: "Sorry, I couldn't generate insights at this moment. Please try again later." };
+    // Return the actual error message for better debugging on the client-side
+    return { insights: null, error: error.message || "An unknown error occurred while generating insights." };
   }
 }

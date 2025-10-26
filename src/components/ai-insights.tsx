@@ -25,8 +25,10 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     setError(null);
     setInsights(null);
 
-    // Filter out 'Unassigned' tasks before sending to the AI
-    const filteredTaskDistribution = byUser.filter(user => user.name !== 'Unassigned');
+    // Filter out 'Unassigned' tasks and any users that might not have a name yet before sending to the AI
+    const filteredTaskDistribution = byUser.filter(
+      user => user.name && user.name !== 'Unassigned' && !user.name.startsWith('user-')
+    );
 
     const result = await generateTeamInsights({
       taskDistribution: filteredTaskDistribution,
@@ -37,12 +39,12 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     if (result.insights) {
       setInsights(result.insights);
     } else {
-      setError(t('failed_to_generate_insights'));
+      setError(result.error || t('failed_to_generate_insights'));
     }
     setIsLoading(false);
   };
   
-  const selectableUsers = byUser.filter(user => user.name !== 'Unassigned');
+  const selectableUsers = byUser.filter(user => user.name !== 'Unassigned'  && !user.name.startsWith('user-'));
 
   return (
     <Card className="bg-card/50 border-primary/20 border-2 shadow-lg">

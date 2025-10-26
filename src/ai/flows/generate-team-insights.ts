@@ -56,8 +56,8 @@ const prompt = ai.definePrompt({
 
   **Your Task:**
 
-  {{#if (eq target "all")}}
-    {{#if (eq reportType "summary")}}
+  {{#if (target == "all")}}
+    {{#if (reportType == "summary")}}
       - Provide a brief, high-level summary (2-3 sentences) of the team's overall workload and performance.
       - Identify the most significant bottleneck or imbalance.
     {{else}}
@@ -67,7 +67,7 @@ const prompt = ai.definePrompt({
       - Offer at least 3 concrete, actionable recommendations for improving team balance and efficiency.
     {{/if}}
   {{else}}
-    {{#if (eq reportType "summary")}}
+    {{#if (reportType == "summary")}}
       - Provide a brief, high-level summary (2-3 sentences) of the performance and current workload for **{{target}}**.
     {{else}}
       - Provide a detailed analysis of **{{target}}**'s tasks.

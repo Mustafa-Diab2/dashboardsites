@@ -34,6 +34,8 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
       taskDistribution: filteredTaskDistribution,
       reportType: reportType as 'summary' | 'detailed',
       target: targetUser,
+      isTeamReport: targetUser === 'all',
+      isSummaryReport: reportType === 'summary',
     });
     
     if (result.insights) {

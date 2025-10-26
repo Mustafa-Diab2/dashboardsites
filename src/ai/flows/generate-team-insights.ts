@@ -24,6 +24,8 @@ const GenerateTeamInsightsInputSchema = z.object({
   taskDistribution: z.array(TeamMemberSummarySchema).describe('An array of task summaries for each team member.'),
   reportType: z.enum(['summary', 'detailed']).describe("The type of report to generate: a brief 'summary' or a 'detailed' analysis."),
   target: z.string().describe("The focus of the report: 'all' for the entire team, or a specific member's name."),
+  isTeamReport: z.boolean().describe("True if the report is for the entire team."),
+  isSummaryReport: z.boolean().describe("True if the report is a summary."),
 });
 
 export type GenerateTeamInsightsInput = z.infer<typeof GenerateTeamInsightsInputSchema>;
@@ -56,8 +58,8 @@ const prompt = ai.definePrompt({
 
   **Your Task:**
 
-  {{#if (eq target "all")}}
-    {{#if (eq reportType "summary")}}
+  {{#if isTeamReport}}
+    {{#if isSummaryReport}}
       - Provide a brief, high-level summary (2-3 sentences) of the team's overall workload and performance.
       - Identify the most significant bottleneck or imbalance.
     {{else}}
@@ -67,7 +69,7 @@ const prompt = ai.definePrompt({
       - Offer at least 3 concrete, actionable recommendations for improving team balance and efficiency.
     {{/if}}
   {{else}}
-    {{#if (eq reportType "summary")}}
+    {{#if isSummaryReport}}
       - Provide a brief, high-level summary (2-3 sentences) of the performance and current workload for **{{target}}**.
     {{else}}
       - Provide a detailed analysis of **{{target}}**'s tasks.

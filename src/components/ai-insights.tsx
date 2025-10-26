@@ -12,7 +12,6 @@ import { useLanguage } from '@/context/language-context';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import jsPDF from 'jspdf';
-import { AmiriFont } from '@/lib/fonts/amiri-font';
 
 export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
   const [insights, setInsights] = useState<string | null>(null);
@@ -52,11 +51,10 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     if (!insights) return;
 
     const doc = new jsPDF();
-
-    doc.addFileToVFS("Amiri-Regular.ttf", AmiriFont);
-    doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
-    doc.setFont("Amiri");
-
+    
+    // Note: Custom font has been removed to fix a bug.
+    // The text will use a default font.
+    // We can add a proper custom font back in a future step.
     doc.setR2L(true);
 
     const title = t('ai_powered_insights');

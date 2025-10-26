@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Sparkles, Loader2, FileDown } from 'lucide-react';
-import { generateTeamInsights } from '@/lib/actions';
+import { generateTeamInsights, GenerateTeamInsightsInput } from '@/ai/flows/generate-team-insights';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { UserReport } from './reports-dashboard';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -12,7 +12,8 @@ import { useLanguage } from '@/context/language-context';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { amiriFont } from '@/lib/fonts/amiri-font';
+
 
 // Extend the jsPDF type to include the autoTable method
 declare module 'jspdf' {
@@ -33,61 +34,60 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     setIsLoading(true);
     setError(null);
     setInsights(null);
-
+    
     // Filter out 'Unassigned' tasks and any users that might not have a name yet before sending to the AI
     const filteredTaskDistribution = byUser.filter(
       user => user.name && user.name !== 'Unassigned' && !user.name.startsWith('user-') && user.name !== 'undefined'
     );
     
-    const result = await generateTeamInsights({
+    const input: GenerateTeamInsightsInput = {
       taskDistribution: filteredTaskDistribution,
       reportType: reportType as 'summary' | 'detailed',
       target: targetUser,
       isTeamReport: targetUser === 'all',
       isSummaryReport: reportType === 'summary',
-    });
-    
-    if (result.insights) {
-      setInsights(result.insights);
-    } else {
-      setError(result.error || t('failed_to_generate_insights'));
+    };
+
+    try {
+        const result = await generateTeamInsights(input);
+        if (result.insights) {
+            setInsights(result.insights);
+        } else {
+            setError(result.error || t('failed_to_generate_insights'));
+        }
+    } catch(e: any) {
+        console.error("Error in generateTeamInsights action:", e);
+        setError(e.message || t('failed_to_generate_insights'));
     }
+    
     setIsLoading(false);
   };
 
-  const handleDownloadPdf = () => {
+ const handleDownloadPdf = () => {
     if (!insights) return;
 
     const doc = new jsPDF();
-    const title = t('ai_powered_insights');
+    
+    // 1. Embed the font
+    doc.addFileToVFS("Amiri-Regular.ttf", amiriFont);
+    doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
+    doc.setFont("Amiri");
+
+    // 2. Set PDF to render Right-to-Left
+    doc.setR2L(true);
+
     const reportTarget = targetUser === 'all' ? t('all') : targetUser;
     const reportTypeText = reportType === 'summary' ? t('summary') : t('detailed');
+    const title = `${t('ai_powered_insights')} - ${reportTypeText} (${reportTarget})`;
+
+    // 3. Add content
+    doc.setFontSize(16);
+    doc.text(title, doc.internal.pageSize.getWidth() - 10, 20, { align: 'right' });
     
-    doc.autoTable({
-        head: [[{ content: title, styles: { halign: 'center', fontSize: 16 } }]],
-        body: [
-            [`${t('report_type')}: ${reportTypeText}`],
-            [`${t('report_target')}: ${reportTarget}`],
-            [insights]
-        ],
-        startY: 15,
-        styles: {
-            font: 'Helvetica', // This is a standard font that has better unicode support in jspdf-autotable
-            halign: 'right', // Align text to the right for RTL
-            cellPadding: 4,
-            fontSize: 12,
-        },
-        headStyles: {
-            fillColor: [78, 115, 223],
-            textColor: 255,
-        },
-        didParseCell: (data) => {
-            // This hook is used to handle right-to-left text alignment for the body
-            if (data.section === 'body') {
-                data.cell.styles.halign = 'right';
-            }
-        }
-    });
+    doc.setFontSize(12);
+    // Split the text to handle multiple lines and wrapping
+    const lines = doc.splitTextToSize(insights, doc.internal.pageSize.getWidth() - 20);
+    doc.text(lines, doc.internal.pageSize.getWidth() - 10, 40, { align: 'right' });
 
     doc.save("ai-insights-report.pdf");
   };

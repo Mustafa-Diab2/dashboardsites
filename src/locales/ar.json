@@ -18,7 +18,7 @@
     "review": "مراجعة",
     "done": "تم",
     "no_data_available": "لا توجد بيانات متاحة.",
-    "attendance": "الحضور",
+    "attendance": "الحاضرين",
     "status": "الحالة",
     "not_clocked_in": "لم يتم تسجيل الحضور",
     "not_clocked_in_desc": "لم تقم بتسجيل الحضور اليوم.",
@@ -189,5 +189,23 @@
     "technical_requirements": "المتطلبات التقنية",
     "deliverables": "التسليمات",
     "financials": "الماليات",
-    "market_research": "بحث السوق"
+    "market_research": "بحث السوق",
+    
+    "manage_clients": "إدارة العملاء",
+    "add_client": "إضافة عميل",
+    "edit_client": "تعديل العميل",
+    "client_form_desc": "أضف أو عدل تفاصيل العميل هنا.",
+    "client_name": "اسم العميل",
+    "project_name": "اسم المشروع",
+    "total_payment": "إجمالي الدفعة",
+    "paid_amount": "المبلغ المدفوع",
+    "contact_info": "معلومات الاتصال",
+    "notes": "ملاحظات",
+    "balance": "الرصيد",
+    "no_clients_found": "لم يتم العثور على عملاء. أضف واحداً للبدء.",
+    "client_and_project_name_required": "اسم العميل واسم المشروع مطلوبان.",
+    "save_changes": "حفظ التغييرات",
+    "edit": "تعديل",
+    "delete": "حذف"
 }
+

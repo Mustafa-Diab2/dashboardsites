@@ -36,6 +36,7 @@ import {
   SidebarInset,
 } from '@/components/ui/sidebar';
 import CourseForm from './course-form';
+import ClientsDashboard from './clients-dashboard';
 
 export type UserReport = {
   name: string;
@@ -159,12 +160,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
           </Card>
         );
       case 'clients':
-        return (
-          <Card>
-            <CardHeader><CardTitle>{t('clients')}</CardTitle></CardHeader>
-            <CardContent><p>Client management view coming soon.</p></CardContent>
-          </Card>
-        );
+        return <ClientsDashboard />;
       case 'attendance':
         return isAdmin ? <AttendanceAdmin /> : <Attendance />;
       case 'courses':

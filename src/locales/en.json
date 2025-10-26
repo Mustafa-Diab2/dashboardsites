@@ -190,5 +190,23 @@
     "technical_requirements": "Technical Requirements",
     "deliverables": "Deliverables",
     "financials": "Financials",
-    "market_research": "Market Research"
+    "market_research": "Market Research",
+
+    "manage_clients": "Manage Clients",
+    "add_client": "Add Client",
+    "edit_client": "Edit Client",
+    "client_form_desc": "Add or edit client details here.",
+    "client_name": "Client Name",
+    "project_name": "Project Name",
+    "total_payment": "Total Payment",
+    "paid_amount": "Paid Amount",
+    "contact_info": "Contact Info",
+    "notes": "Notes",
+    "balance": "Balance",
+    "no_clients_found": "No clients found. Add one to get started.",
+    "client_and_project_name_required": "Client name and project name are required.",
+    "save_changes": "Save Changes",
+    "edit": "Edit",
+    "delete": "Delete"
 }
+

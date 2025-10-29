@@ -1,9 +1,9 @@
 'use client';
 
-import type { Client, Task, TaskTemplate } from '@/lib/data';
+import type { Client, Task, TaskTemplate, User } from '@/lib/data';
 import { useMemo, useState } from 'react';
 import { Button } from './ui/button';
-import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus, MessageSquare, UserCog } from 'lucide-react';
+import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus, MessageSquare, UserCog, Briefcase, Banknote } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MemberTasksBarChart } from './charts/member-tasks-bar-chart';
 import { CompletionRatioPieChart } from './charts/completion-ratio-pie-chart';
@@ -44,6 +44,8 @@ import { TaskTemplates } from './templates/task-templates';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import TeamChat from './team-chat';
 import { HRManagementPage } from './hr-management-page';
+import TeamManagement from './team-management';
+import SalaryReport from './salary-report';
 
 export type UserReport = {
   name: string;
@@ -54,7 +56,7 @@ export type UserReport = {
   done: number;
 };
 
-type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat' | 'hr';
+type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat' | 'hr' | 'team' | 'salary';
 
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string | undefined }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
@@ -184,11 +186,15 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
       case 'attendance':
         return isAdmin ? <AttendanceAdmin /> : <Attendance />;
       case 'courses':
-        return <Courses userRole={userRole} />;
+        return <Courses userRole={userRole as string} />;
       case 'chat':
         return <TeamChat />;
       case 'hr':
         return <HRManagementPage userRole={userRole} />;
+      case 'team':
+        return <TeamManagement users={users as User[]} />;
+      case 'salary':
+        return <SalaryReport users={users as User[]} tasks={tasks} />;
       case 'dashboard':
       default:
         return (
@@ -232,7 +238,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                <div className="grid grid-cols-1 gap-6">
                 <h2 className="font-semibold text-2xl font-headline">{t('welcome_back')}</h2>
                 <Attendance />
-                <Courses userRole={userRole} />
+                <Courses userRole={userRole as string} />
               </div>
             )}
           </>
@@ -275,9 +281,9 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
       <Dialog open={isTemplateDialogOpen} onOpenChange={setTemplateDialogOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Create a New Task</DialogTitle>
+            <DialogTitle>{t('create_new_task')}</DialogTitle>
             <DialogDescription>
-              Select a template or start from scratch.
+              {t('select_template_or_start_fresh')}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -286,7 +292,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
            <DialogFooter>
             <Button variant="outline" onClick={() => handleOpenTaskForm()}>
               <FilePlus className="mr-2" />
-              Start from Scratch
+              {t('start_from_scratch')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -343,15 +349,27 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                     </SidebarMenuItem>
                     <SidebarMenuItem>
                     <SidebarMenuButton isActive={activeView === 'clients'} onClick={() => setActiveView('clients')}>
-                        <Users />
+                        <Briefcase />
                         <span>{t('clients')}</span>
                     </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'team'} onClick={() => setActiveView('team')}>
+                        <Users />
+                        <span>{t('team')}</span>
+                    </SidebarMenuButton>
+                    </SidebarMenuItem>
+                     <SidebarMenuItem>
                     <SidebarMenuButton isActive={activeView === 'hr'} onClick={() => setActiveView('hr')}>
                         <UserCog />
                         <span>{t('hr_management')}</span>
                     </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton isActive={activeView === 'salary'} onClick={() => setActiveView('salary')}>
+                            <Banknote />
+                            <span>{t('salary_report')}</span>
+                        </SidebarMenuButton>
                     </SidebarMenuItem>
                   </>
                 )}
@@ -381,6 +399,8 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                          {activeView === 'clients' && t('clients')}
                          {activeView === 'chat' && t('team_chat')}
                          {activeView === 'hr' && t('hr_management')}
+                         {activeView === 'team' && t('team_management')}
+                         {activeView === 'salary' && t('salary_report')}
                       </h2>
                       <p className="text-muted-foreground">
                         {isAdmin ? t('home_page_description') : t('welcome_back_desc')}
@@ -402,3 +422,5 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
     </>
   );
 }
+
+    

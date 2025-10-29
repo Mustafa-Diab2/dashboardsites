@@ -23,6 +23,10 @@
           "enum": ["admin", "backend", "frontend", "trainee"],
           "description": "The role of the user."
         },
+        "hourlyRate": {
+          "type": "number",
+          "description": "The user's hourly rate for salary calculation."
+        },
         "joined_at": {
           "type": "string",
           "description": "Timestamp indicating when the user was created.",
@@ -138,6 +142,32 @@
           "type": "string",
           "format": "uri",
           "description": "A link to related market research."
+        },
+        "checklist": {
+            "type": "array",
+            "items": {
+                "$ref": "#/entities/ChecklistItem"
+            }
+        },
+        "blocked_by": {
+            "type": "array",
+            "items": { "type": "string" }
+        },
+        "blocks": {
+            "type": "array",
+            "items": { "type": "string" }
+        },
+        "approvals": {
+            "type": "array",
+            "items": {
+                "$ref": "#/entities/Approval"
+            }
+        },
+        "research": {
+            "type": "array",
+            "items": {
+                "$ref": "#/entities/ResearchItem"
+            }
         },
         "created_at": {
           "type": "string",
@@ -319,6 +349,7 @@
       "type": "object",
       "description": "Represents a single message in the team chat.",
       "properties": {
+        "id": { "type": "string" },
         "userId": {
           "type": "string",
           "description": "The ID of the user who sent the message."
@@ -337,7 +368,7 @@
           "description": "The timestamp when the message was sent."
         }
       },
-      "required": ["userId", "userName", "text", "timestamp"]
+      "required": ["id", "userId", "userName", "text", "timestamp"]
     },
     "Leave": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -345,6 +376,7 @@
       "type": "object",
       "description": "Represents a leave request from an employee.",
       "properties": {
+        "id": { "type": "string" },
         "userId": { "type": "string" },
         "userName": { "type": "string" },
         "type": { "type": "string", "enum": ["sick", "annual", "unpaid", "emergency", "other"] },
@@ -354,9 +386,11 @@
         "reason": { "type": "string" },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
         "approvedBy": { "type": "string" },
-        "approvedAt": { "type": "string", "format": "date-time" }
+        "approvedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time"},
+        "extractedFromChatMessageId": { "type": "string"}
       },
-      "required": ["userId", "userName", "type", "startDate", "endDate", "days", "status"]
+      "required": ["id", "userId", "userName", "type", "startDate", "endDate", "days", "status", "createdAt"]
     },
     "Deduction": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -364,15 +398,18 @@
       "type": "object",
       "description": "Represents a salary deduction for an employee.",
       "properties": {
+        "id": { "type": "string" },
         "userId": { "type": "string" },
         "userName": { "type": "string" },
         "amount": { "type": "number" },
         "reason": { "type": "string" },
         "type": { "type": "string", "enum": ["absence", "late", "penalty", "other"] },
         "date": { "type": "string", "format": "date-time" },
-        "createdBy": { "type": "string" }
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "extractedFromChatMessageId": { "type": "string"}
       },
-      "required": ["userId", "amount", "reason", "type", "date", "createdBy"]
+      "required": ["id", "userId", "amount", "reason", "type", "date", "createdBy", "createdAt"]
     }
   },
   "auth": {
@@ -455,3 +492,5 @@
     ]
   }
 }
+
+    

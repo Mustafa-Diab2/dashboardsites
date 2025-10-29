@@ -35,6 +35,15 @@ export type AuditLogEntry = {
   timestamp: any;
 };
 
+export type User = {
+    id: string;
+    fullName: string;
+    email: string;
+    role: 'admin' | 'frontend' | 'backend' | 'trainee';
+    hourlyRate?: number;
+    createdAt: any;
+}
+
 export type Task = {
   id: string;
   title: string;
@@ -184,3 +193,5 @@ export type AttendanceSummary = {
     end: any;
   };
 };
+
+    

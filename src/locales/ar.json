@@ -346,6 +346,21 @@
     "deduction_added_desc": "تم تسجيل الخصم بنجاح.",
     "penalty": "جزاء",
     "auto_extracted_from_chat": "مستخلص تلقائيًا من المحادثة",
-    "leave_approved_for": "تمت الموافقة على طلب الإجازة لـ",
-    "leave_rejected_for": "تم رفض طلب الإجازة لـ"
+    "leave_approved_for": "تمت الموافقة على طلب الإجازة لـ @{userName}",
+    "leave_rejected_for": "تم رفض طلب الإجازة لـ @{userName}",
+    "select_template_or_start_fresh": "اختر قالبًا أو ابدأ من الصفر.",
+    "start_from_scratch": "البدء من الصفر",
+    "team_management": "إدارة الفريق",
+    "salary_report": "تقرير الرواتب",
+    "hourly_rate": "سعر الساعة (جنيه)",
+    "not_set": "لم يحدد",
+    "save": "حفظ",
+    "gross_salary": "الراتب الإجمالي",
+    "net_salary": "الراتب الصافي",
+    "completed_tasks_month": "المهام المنجزة (شهريًا)",
+    "performance_insight": "تحليل الأداء بالذكاء الاصطناعي",
+    "analyze": "تحليل",
+    "no_insight_generated": "تعذر إنشاء تحليل."
 }
+
+    

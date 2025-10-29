@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A Genkit flow that analyzes an employee's monthly performance and salary.
@@ -10,7 +11,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-export const GenerateSalaryInsightInputSchema = z.object({
+const GenerateSalaryInsightInputSchema = z.object({
   userName: z.string().describe("The employee's name."),
   hourlyRate: z.number().describe('The hourly rate of the employee.'),
   totalHours: z.number().describe('Total hours worked by the employee in the month.'),
@@ -20,7 +21,7 @@ export const GenerateSalaryInsightInputSchema = z.object({
 });
 export type GenerateSalaryInsightInput = z.infer<typeof GenerateSalaryInsightInputSchema>;
 
-export const GenerateSalaryInsightOutputSchema = z.object({
+const GenerateSalaryInsightOutputSchema = z.object({
   insight: z.string().describe('A concise analysis in Egyptian Arabic evaluating if the salary is justified by the performance, with suggestions for improvement if needed.'),
 });
 export type GenerateSalaryInsightOutput = z.infer<typeof GenerateSalaryInsightOutputSchema>;
@@ -70,5 +71,3 @@ const generateSalaryInsightFlow = ai.defineFlow(
     return output!;
   }
 );
-
-    

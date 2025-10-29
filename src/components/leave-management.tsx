@@ -26,7 +26,7 @@ type LeaveAction = 'approve' | 'reject' | null;
 export function LeaveManagement({ userRole }: { userRole: string | undefined }) {
   const { firestore, user } = useFirebase();
   const { addDoc, updateDoc } = useMutations();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const users = useUsers(userRole);
 
@@ -89,7 +89,8 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
     const processedMessageIds = new Set(allLeaves.filter(l => l.extractedFromChatMessageId).map(l => l.extractedFromChatMessageId));
 
     chatMessages.forEach((msg) => {
-      if (processedMessageIds.has(msg.id)) return;
+      // Skip if message doesn't have required fields or already processed
+      if (!msg.id || !msg.text || !msg.userId || processedMessageIds.has(msg.id)) return;
 
       const messageUser = users.find(u => u.id === msg.userId);
       if (!messageUser || (messageUser as any).role !== 'admin') return;
@@ -116,7 +117,6 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
             });
 
             if (targetUser) {
-
               const startDate = new Date();
               const endDate = new Date();
               let reason = `${t('auto_extracted_from_chat')}: "${msg.text.substring(0, 100)}"`;
@@ -144,12 +144,11 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
                   createdAt: serverTimestamp(),
                   extractedFromChatMessageId: msg.id,
                 });
+                processedMessageIds.add(msg.id); // Mark as processed
+                return; // Exit after first successful match
               } catch (error) {
                 console.error('Error creating auto-leave:', error);
               }
-
-              processedMessageIds.add(msg.id);
-              return;
             }
         }
       }
@@ -198,21 +197,34 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
 
   const handleConfirmAction = () => {
     const { action, leaveId } = confirmAction;
-    if (!leaveId) return;
+    if (!leaveId || !user) return;
 
-    if (action === 'approve') {
-      updateDoc('leaves', leaveId, {
-        status: 'approved',
-        approvedBy: user?.uid,
+    const leave = allLeaves.find(l => l.id === leaveId);
+    if (!leave) return;
+  
+    const status = action === 'approve' ? 'approved' : 'rejected';
+    const notificationMessage = action === 'approve' 
+        ? `${t('leave_approved_for')} @${leave.userName}`
+        : `${t('leave_rejected_for')} @${leave.userName}`;
+
+    // Update leave status
+    updateDoc('leaves', leaveId, {
+        status,
+        approvedBy: user.uid,
         approvedAt: serverTimestamp(),
-      });
+    });
+
+    // Send chat notification
+    addDoc('chat', {
+        userId: user.uid,
+        userName: user.displayName,
+        text: notificationMessage,
+        timestamp: serverTimestamp(),
+    });
+  
+    if (action === 'approve') {
       toast({ title: t('leave_approved_title'), description: t('leave_approved_desc') });
     } else if (action === 'reject') {
-      updateDoc('leaves', leaveId, {
-        status: 'rejected',
-        approvedBy: user?.uid,
-        approvedAt: serverTimestamp(),
-      });
       toast({ title: t('leave_rejected_title'), description: t('leave_rejected_desc') });
     }
     setConfirmAction({ action: null, leaveId: null });

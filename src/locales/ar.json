@@ -25,7 +25,7 @@
     "clocked_in": "تم تسجيل الحضور",
     "in": "دخول",
     "out": "خروج",
-    "pending": "قيد الانتظار...",
+    "pending": "قيد الانتظار",
     "clocked_out": "تم تسجيل الانصراف",
     "loading_attendance_status": "جاري تحميل حالة الحضور...",
     "clock_in": "تسجيل الحضور",
@@ -143,7 +143,7 @@
     "error_title": "عفوًا! حدث خطأ.",
     "error_desc": "حدثت مشكلة في طلبك.",
     "ai_powered_insights": "رؤى مدعومة بالذكاء الاصطناعي",
-    "ai_powered_insights_desc": "حلل أداء فريقك واحصل على توصيات.",
+    "ai_powered_insights_desc": "حلل أداء فريقك واحصل على توصيات باللغة العربية.",
     "generating": "جاري الإنشاء",
     "generate_insights": "إنشاء رؤى",
     "ai_analyzing_data": "يقوم الذكاء الاصطناعي بتحليل بيانات فريقك... قد يستغرق هذا بعض الوقت.",
@@ -346,5 +346,6 @@
     "deduction_added_desc": "تم تسجيل الخصم بنجاح.",
     "penalty": "جزاء",
     "auto_extracted_from_chat": "مستخلص تلقائيًا من المحادثة",
-    "in_progress": "قيد التنفيذ"
+    "leave_approved_for": "تمت الموافقة على طلب الإجازة لـ",
+    "leave_rejected_for": "تم رفض طلب الإجازة لـ"
 }

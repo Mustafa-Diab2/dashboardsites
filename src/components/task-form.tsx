@@ -74,10 +74,12 @@ export function TaskForm({
   isOpen,
   onOpenChange,
   task,
+  initialData,
 }: {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   task?: Task;
+  initialData?: Partial<Task>;
 }) {
   const { firestore, user } = useFirebase();
   const { addDoc: addTask, updateDoc } = useMutations();
@@ -108,16 +110,21 @@ export function TaskForm({
   const { data: clients } = useCollection(clientsQuery);
 
   useEffect(() => {
-    if (task) {
-      setForm({
-        ...(task as any),
-        start_date: task.start_date ? task.start_date.split('T')[0] : '',
-        due_date: task.due_date ? task.due_date.split('T')[0] : '',
-      });
+    if (isOpen) {
+      if (task) {
+        setForm({
+          ...(task as any),
+          start_date: task.start_date ? task.start_date.split('T')[0] : '',
+          due_date: task.due_date ? task.due_date.split('T')[0] : '',
+        });
+      } else {
+        setForm({ ...INITIAL_FORM_STATE, ...initialData });
+      }
     } else {
-      setForm(INITIAL_FORM_STATE);
+      setForm(INITIAL_FORM_STATE); // Reset form when dialog closes
     }
-  }, [task, isOpen]);
+  }, [task, initialData, isOpen]);
+
 
   const handleFieldChange = (field: keyof TaskFormData, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }));

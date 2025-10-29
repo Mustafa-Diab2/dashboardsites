@@ -1,11 +1,11 @@
 'use client';
 
-import type { Client, Task } from '@/lib/data';
+import type { Client, Task, TaskTemplate } from '@/lib/data';
 import { useMemo, useState } from 'react';
 import { utils, writeFile } from 'xlsx';
 import jsPDF from 'jspdf';
 import { Button } from './ui/button';
-import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen } from 'lucide-react';
+import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MemberTasksBarChart } from './charts/member-tasks-bar-chart';
 import { CompletionRatioPieChart } from './charts/completion-ratio-pie-chart';
@@ -42,6 +42,8 @@ import { WorkloadHeatmap } from './workload-heatmap';
 import { PaymentManagement } from './payment-management';
 import { useClients } from '@/hooks/use-clients';
 import ClientForm from './client-form';
+import { TaskTemplates } from './templates/task-templates';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 
 export type UserReport = {
   name: string;
@@ -57,6 +59,9 @@ type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'c
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
   const [isClientFormOpen, setClientFormOpen] = useState(false);
+  const [isTemplateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [initialTaskData, setInitialTaskData] = useState<Partial<Task> | undefined>(undefined);
+  
   const { auth } = useFirebase();
   const { t } = useLanguage();
   const users = useUsers(userRole);
@@ -108,9 +113,9 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
 
   const exportPDF = () => {
     const doc = new jsPDF();
-    doc.text('Team Task Report', 14, 16);
+    doc.text("Team Task Report", 14, 16);
     const tableData = byUser.map(u => [u.name, u.total, u.backlog, u.in_progress, u.review, u.done]);
-    (doc as any).autoTable({
+    const table = (doc as any).autoTable({
         head: [['Member', 'Total', 'Backlog', 'In Progress', 'Review', 'Done']],
         body: tableData,
         startY: 22,
@@ -122,6 +127,22 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
     if (auth) {
       await signOut(auth);
     }
+  };
+  
+  const handleOpenTaskForm = (template?: Partial<Task>) => {
+    setTemplateDialogOpen(false);
+    setInitialTaskData(template);
+    setTaskFormOpen(true);
+  };
+  
+  const handleSelectTemplate = (template: TaskTemplate) => {
+    const taskDataFromTemplate = {
+      ...template.defaultFields,
+      checklist: template.defaultChecklist?.map(item => ({...item, id: crypto.randomUUID(), createdAt: new Date() })),
+      title: template.name,
+      description: template.description,
+    };
+    handleOpenTaskForm(taskDataFromTemplate);
   };
 
   const isAdmin = userRole === 'admin';
@@ -237,7 +258,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
   const handleCommandAction = (action: string, data?: any) => {
     switch (action) {
       case 'new-task':
-        setTaskFormOpen(true);
+        setTemplateDialogOpen(true);
         break;
       case 'new-client':
         setClientFormOpen(true);
@@ -259,8 +280,33 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
   return (
     <>
       <CommandPalette onAction={handleCommandAction} />
-      <TaskForm isOpen={isTaskFormOpen} onOpenChange={setTaskFormOpen} />
+      <TaskForm 
+        isOpen={isTaskFormOpen} 
+        onOpenChange={setTaskFormOpen}
+        initialData={initialTaskData}
+      />
       <ClientForm isOpen={isClientFormOpen} onOpenChange={setClientFormOpen} />
+      
+      <Dialog open={isTemplateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Create a New Task</DialogTitle>
+            <DialogDescription>
+              Select a template or start from scratch.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <TaskTemplates templates={[]} onSelectTemplate={handleSelectTemplate} />
+          </div>
+           <DialogFooter>
+            <Button variant="outline" onClick={() => handleOpenTaskForm()}>
+              <FilePlus className="mr-2" />
+              Start from Scratch
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <SidebarProvider>
           <Sidebar>
@@ -344,7 +390,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     {isAdmin && (
-                      <Button onClick={() => setTaskFormOpen(true)} className="w-full sm:w-auto">
+                      <Button onClick={() => setTemplateDialogOpen(true)} className="w-full sm:w-auto">
                         <Plus /> {t('add_task')}
                       </Button>
                     )}

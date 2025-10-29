@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, orderBy, where, serverTimestamp, Timestamp, doc } from 'firebase/firestore';
 import { useMutations } from '@/hooks/use-mutations';
@@ -14,11 +14,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog';
-import { Calendar, Plus, Check, X, Clock } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
+import { Calendar, Plus, Check, X, Clock, MessageSquare, AlertCircle } from 'lucide-react';
+import { format, differenceInDays, addDays, parse } from 'date-fns';
 import { useUsers } from '@/hooks/use-users';
 import type { Leave } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
+
+type LeaveAction = 'approve' | 'reject' | null;
 
 export function LeaveManagement({ userRole }: { userRole: string | undefined }) {
   const { firestore, user } = useFirebase();
@@ -35,6 +38,8 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
     reason: '',
   });
 
+  const [confirmAction, setConfirmAction] = useState<{ action: LeaveAction; leaveId: string | null }>({ action: null, leaveId: null });
+
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
     [firestore, user]
@@ -45,25 +50,92 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
   // Query leaves
   const leavesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-
-    if (isAdmin) {
-      // Admin sees all leaves
-      return query(
-        collection(firestore, 'leaves'),
-        orderBy('createdAt', 'desc')
-      );
-    } else {
-      // Regular users see only their leaves
-      return query(
-        collection(firestore, 'leaves'),
-        where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc')
-      );
-    }
-  }, [firestore, user, isAdmin]);
+    return query(collection(firestore, 'leaves'), orderBy('createdAt', 'desc'));
+  }, [firestore, user]);
 
   const { data: leavesData } = useCollection(leavesQuery);
-  const leaves = (leavesData as Leave[]) || [];
+  const allLeaves = (leavesData as Leave[]) || [];
+  
+  const leaves = useMemo(() => {
+    if(isAdmin) return allLeaves;
+    return allLeaves.filter(l => l.userId === user?.uid);
+  }, [allLeaves, isAdmin, user]);
+
+  // Query chat messages for auto-extraction (admin only)
+  const chatQuery = useMemoFirebase(() => {
+    if (!firestore || !isAdmin) return null;
+    return query(collection(firestore, 'chat'), orderBy('timestamp', 'desc'));
+  }, [firestore, isAdmin]);
+
+  const { data: chatData } = useCollection(chatQuery);
+  const chatMessages = (chatData || []) as any[];
+
+   // Extract leave requests from admin chat messages
+  useEffect(() => {
+    if (!isAdmin || !chatMessages || !users || !firestore) return;
+
+    const processedMessageIds = new Set(allLeaves.filter(l => l.extractedFromChatMessageId).map(l => l.extractedFromChatMessageId));
+
+    chatMessages.forEach((msg) => {
+      if (processedMessageIds.has(msg.id)) return;
+
+      const messageUser = users.find(u => u.id === msg.userId);
+      if (!messageUser || (messageUser as any).role !== 'admin') return;
+
+      const text = msg.text?.toLowerCase() || '';
+      
+      // Pattern: [name] [wants] [leave] from [date] to [date]
+      // Examples: "أحمد عايز أجازة من بكرة", "leave for mohamed tomorrow", "mohamed requested leave"
+      const leavePatterns = [
+        /(?:إجازة|اجازة|leave for)\s+([^\s]+)/gi,
+        /([^\s]+)\s+(?:طلب|عايز|wants|requested)\s+(?:إجازة|اجaze|leave)/gi,
+      ];
+      
+      for(const pattern of leavePatterns) {
+          const matches = [...text.matchAll(pattern)];
+          for(const match of matches) {
+            const targetName = match[1];
+            
+            const targetUser = users.find(u => ((u as any).fullName?.toLowerCase() || '').includes(targetName.toLowerCase()));
+
+            if (targetUser) {
+              const startDate = new Date();
+              const endDate = new Date();
+              let reason = `Auto-extracted from chat: "${msg.text}"`;
+
+              // Basic date detection (e.g., "tomorrow", "next week")
+              if (text.includes('بكرة') || text.includes('tomorrow')) {
+                startDate.setDate(startDate.getDate() + 1);
+                endDate.setDate(endDate.getDate() + 1);
+              } else if (text.includes('الأسبوع الجاي') || text.includes('next week')) {
+                  startDate.setDate(startDate.getDate() + 7);
+                  endDate.setDate(endDate.getDate() + 7);
+              }
+
+              const days = differenceInDays(endDate, startDate) + 1;
+              
+              addDoc('leaves', {
+                userId: targetUser.id,
+                userName: (targetUser as any).fullName,
+                type: 'annual',
+                startDate: Timestamp.fromDate(startDate),
+                endDate: Timestamp.fromDate(endDate),
+                days,
+                reason,
+                status: 'pending',
+                createdAt: serverTimestamp(),
+                extractedFromChatMessageId: msg.id,
+              });
+              
+              processedMessageIds.add(msg.id);
+              // Break after first match to avoid multiple deductions from one message
+              return; 
+            }
+        }
+      }
+    });
+  }, [chatMessages, users, isAdmin, allLeaves, firestore, addDoc]);
+
 
   const handleSubmit = async () => {
     if (!firestore || !user || !formData.startDate || !formData.endDate) {
@@ -104,39 +176,28 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
     }
   };
 
-  const handleApprove = async (leaveId: string) => {
-    if (!isAdmin) return;
+  const handleConfirmAction = () => {
+    const { action, leaveId } = confirmAction;
+    if (!leaveId) return;
 
-    try {
-      await updateDoc('leaves', leaveId, {
+    if (action === 'approve') {
+      updateDoc('leaves', leaveId, {
         status: 'approved',
         approvedBy: user?.uid,
         approvedAt: serverTimestamp(),
       });
-
       toast({ title: 'Leave Approved', description: 'Leave request has been approved' });
-    } catch (error) {
-      console.error('Error approving leave:', error);
-      toast({ variant: 'destructive', title: t('error_title'), description: t('error_desc') });
-    }
-  };
-
-  const handleReject = async (leaveId: string) => {
-    if (!isAdmin) return;
-
-    try {
-      await updateDoc('leaves', leaveId, {
+    } else if (action === 'reject') {
+      updateDoc('leaves', leaveId, {
         status: 'rejected',
         approvedBy: user?.uid,
         approvedAt: serverTimestamp(),
       });
-
       toast({ title: 'Leave Rejected', description: 'Leave request has been rejected' });
-    } catch (error) {
-      console.error('Error rejecting leave:', error);
-      toast({ variant: 'destructive', title: t('error_title'), description: t('error_desc') });
     }
+    setConfirmAction({ action: null, leaveId: null });
   };
+
 
   const getStatusBadge = (status: Leave['status']) => {
     switch (status) {
@@ -159,6 +220,8 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
     };
     return types[type] || type;
   };
+  
+  const autoExtractedCount = useMemo(() => allLeaves.filter(l => l.extractedFromChatMessageId).length, [allLeaves]);
 
   const stats = useMemo(() => {
     const approved = leaves.filter(l => l.status === 'approved');
@@ -169,12 +232,19 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
   }, [leaves]);
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="font-headline flex items-center gap-2">
             <Calendar className="w-5 h-5" />
             Leave Management
+             {isAdmin && autoExtractedCount > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                <MessageSquare className="w-3 h-3 mr-1" />
+                {autoExtractedCount} from chat
+              </Badge>
+            )}
           </CardTitle>
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
@@ -198,6 +268,18 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
             <p className="text-2xl font-bold">{stats.totalDays}</p>
           </div>
         </div>
+        
+        {isAdmin && (
+             <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                <div className="text-sm">
+                <p className="font-semibold text-blue-900 dark:text-blue-100">Auto-Extraction Enabled</p>
+                <p className="text-blue-700 dark:text-blue-300">
+                    Leave requests are automatically detected from admin chat messages. e.g., "أحمد عايز أجازة من بكرة".
+                </p>
+                </div>
+            </div>
+        )}
 
         {/* Leaves Table */}
         <div className="border rounded-lg">
@@ -211,13 +293,14 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
                 <TableHead>Days</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead>Status</TableHead>
+                 {isAdmin && <TableHead>Source</TableHead>}
                 {isAdmin && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {leaves.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 8 : 7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={isAdmin ? 9 : 7} className="text-center text-muted-foreground">
                     No leave requests found
                   </TableCell>
                 </TableRow>
@@ -232,16 +315,34 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
                     <TableCell className="max-w-xs truncate">{leave.reason || '-'}</TableCell>
                     <TableCell>{getStatusBadge(leave.status)}</TableCell>
                     {isAdmin && (
+                         <TableCell>
+                            {leave.extractedFromChatMessageId ? (
+                            <Badge variant="secondary" className="text-xs">
+                                <MessageSquare className="w-3 h-3 mr-1" />
+                                Chat
+                            </Badge>
+                            ) : (
+                            <Badge variant="outline" className="text-xs">
+                                Manual
+                            </Badge>
+                            )}
+                        </TableCell>
+                    )}
+                    {isAdmin && (
                       <TableCell>
                         {leave.status === 'pending' && (
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => handleApprove(leave.id)}>
-                              <Check className="w-4 h-4" />
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleReject(leave.id)}>
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
+                           <div className="flex gap-2">
+                            <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="outline" onClick={() => setConfirmAction({ action: 'approve', leaveId: leave.id })}>
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                             <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="destructiveOutline" onClick={() => setConfirmAction({ action: 'reject', leaveId: leave.id })}>
+                                  <X className="w-4 h-4" />
+                                </Button>
+                             </AlertDialogTrigger>
+                           </div>
                         )}
                       </TableCell>
                     )}
@@ -252,6 +353,22 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
           </Table>
         </div>
       </CardContent>
+
+    </Card>
+
+      {/* Action Confirmation Dialog */}
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            You are about to {confirmAction.action} this leave request. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setConfirmAction({ action: null, leaveId: null })}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmAction}>Confirm</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
 
       {/* Request Leave Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
@@ -324,6 +441,6 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </>
   );
 }

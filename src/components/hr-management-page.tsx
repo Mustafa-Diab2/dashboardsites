@@ -5,11 +5,14 @@ import { AttendanceSummary } from './attendance-summary';
 import { DeductionsManagement } from './deductions-management';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Calendar, CalendarDays, DollarSign, Users } from 'lucide-react';
+import { AlertDialog } from './ui/alert-dialog';
+
 
 export function HRManagementPage({ userRole }: { userRole: string | undefined }) {
   const isAdmin = userRole === 'admin';
 
   return (
+    <AlertDialog>
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <div className="p-3 bg-primary/10 rounded-lg">
@@ -90,5 +93,6 @@ export function HRManagementPage({ userRole }: { userRole: string | undefined })
         </div>
       )}
     </div>
+    </AlertDialog>
   );
 }

@@ -13,8 +13,11 @@ import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { useMutations } from '@/hooks/use-mutations';
 import type { Task } from '@/lib/data';
-import { CheckSquare, Forward, Play, Link, User, DollarSign, Briefcase, Code, Palette, Search } from 'lucide-react';
+import { CheckSquare, Forward, Play, Link, User, DollarSign, Briefcase, Code, Palette, Search, Shield } from 'lucide-react';
 import { useLanguage } from '@/context/language-context';
+import { TaskChecklist } from './task-checklist';
+import { TaskApprovals } from './task-approvals';
+import { useFirebase } from '@/firebase';
 
 type StatusTransition = {
   nextStatus: Task['status'];
@@ -33,6 +36,8 @@ export function TaskDetailsDialog({
 }) {
   const { updateDoc } = useMutations();
   const { t } = useLanguage();
+  const { user } = useFirebase();
+
 
   const statusTransitions: Record<Task['status'], StatusTransition | null> = {
     backlog: { nextStatus: 'in_progress', label: t('start_progress'), icon: <Play className="mr-2" /> },
@@ -113,6 +118,28 @@ export function TaskDetailsDialog({
           </div>
           
           <Separator />
+          
+           {(task.checklist && task.checklist.length > 0) && (
+            <>
+                <TaskChecklist checklist={task.checklist || []} onChange={() => {}} readonly/>
+                <Separator />
+            </>
+           )}
+
+            {(task.approvals && task.approvals.length > 0) && (
+            <>
+                <TaskApprovals 
+                    taskId={task.id}
+                    approvals={task.approvals || []}
+                    currentStatus={task.status}
+                    onApprove={() => {}}
+                    onReject={() => {}}
+                    readonly
+                />
+                <Separator />
+            </>
+           )}
+
 
           <div>
             <h4 className="font-semibold mb-2">{t('description')}</h4>

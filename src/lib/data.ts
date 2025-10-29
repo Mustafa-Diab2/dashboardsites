@@ -62,7 +62,6 @@ export type Task = {
   createdAt?: any;
   updatedAt?: any;
   tags?: string[];
-  // New fields
   checklist?: ChecklistItem[];
   blocked_by?: string[];
   blocks?: string[];
@@ -81,7 +80,6 @@ export type Client = {
   paid_amount?: number;
   contact_info?: string;
   notes?: string;
-  // New fields
   publicToken?: string;
   billing_notes?: string;
   default_requirements?: string;

@@ -32,7 +32,9 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { TaskChecklist } from './task-checklist';
 import { TaskResearch } from './task-research';
-import { ChecklistItem, ResearchItem } from '@/lib/data';
+import { ChecklistItem, ResearchItem, Approval } from '@/lib/data';
+import { TaskDependencies } from './task-dependencies';
+import { TaskApprovals } from './task-approvals';
 
 type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'assigned_to'> & { assigned_to: string[] };
 
@@ -64,6 +66,7 @@ const INITIAL_FORM_STATE: TaskFormData = {
   research: [],
   blocked_by: [],
   blocks: [],
+  approvals: [],
   payment_status: 'pending',
 };
 
@@ -77,7 +80,7 @@ export function TaskForm({
   task?: Task;
 }) {
   const { firestore, user } = useFirebase();
-  const { addDoc: addTask } = useMutations();
+  const { addDoc: addTask, updateDoc } = useMutations();
   const { toast } = useToast();
   const { t, language } = useLanguage();
   const [form, setForm] = useState<TaskFormData>(INITIAL_FORM_STATE);
@@ -90,6 +93,10 @@ export function TaskForm({
   const userRole = (userData as any)?.role;
   
   const users = useUsers(userRole);
+
+  const allTasksQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'tasks')) : null), [firestore]);
+  const { data: allTasksData } = useCollection(allTasksQuery);
+  const allTasks = (allTasksData as Task[]) || [];
   
   const clientsQuery = useMemoFirebase(() => {
     // Only fetch clients if the user is an admin
@@ -145,16 +152,19 @@ export function TaskForm({
       const taskData: Omit<Task, 'id'> = {
         ...form,
         created_by: user.uid,
-        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
-
-      addTask('tasks', taskData);
+      
+      if(task) {
+          updateDoc('tasks', task.id, taskData)
+      } else {
+          addTask('tasks', { ...taskData, createdAt: serverTimestamp() });
+      }
       
       toast({ title: t('task_created_title'), description: `${t('task_created_desc')} "${form.title}"` });
       onOpenChange(false);
     } catch (error) {
-      console.error('Error creating task:', error);
+      console.error('Error creating/updating task:', error);
       toast({ variant: 'destructive', title: t('error_title'), description: t('error_desc') });
     }
   };
@@ -168,10 +178,11 @@ export function TaskForm({
         </DialogHeader>
         <ScrollArea className="max-h-[70vh]">
           <Tabs defaultValue="basic" className="w-full" dir={language === 'ar' ? 'rtl' : 'ltr'}>
-            <TabsList className="grid w-full grid-cols-4 mb-4">
+            <TabsList className="grid w-full grid-cols-5 mb-4">
               <TabsTrigger value="basic">{t('basic_info')}</TabsTrigger>
               <TabsTrigger value="details">{t('details')}</TabsTrigger>
               <TabsTrigger value="checklist">{t('checklist')}</TabsTrigger>
+              <TabsTrigger value="dependencies">{t('dependencies')}</TabsTrigger>
               <TabsTrigger value="research">{t('research_hub')}</TabsTrigger>
             </TabsList>
 
@@ -267,41 +278,6 @@ export function TaskForm({
             </div>
             {/* Right Column */}
             <div className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="deliverable_location">{t('deliverable_location')}</Label>
-                <Input id="deliverable_location" value={form.deliverable_location || ''} onChange={e => handleFieldChange('deliverable_location', e.target.value)} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="delivery_method">{t('delivery_method')}</Label>
-                <Select value={form.delivery_method} onValueChange={value => handleFieldChange('delivery_method', value)} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                  <SelectTrigger id="delivery_method"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="in_person">{t('in_person')}</SelectItem>
-                    <SelectItem value="upload">{t('upload')}</SelectItem>
-                    <SelectItem value="link">{t('link')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="deliverable_details">{t('deliverable_details')}</Label>
-                <Textarea id="deliverable_details" value={form.deliverable_details || ''} onChange={e => handleFieldChange('deliverable_details', e.target.value)} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="market_research_link">{t('market_research_link')}</Label>
-                <Input id="market_research_link" value={form.market_research_link || ''} onChange={e => handleFieldChange('market_research_link', e.target.value)} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="ux_requirements">{t('ux_requirements')}</Label>
-                <Textarea id="ux_requirements" value={form.ux_requirements || ''} onChange={e => handleFieldChange('ux_requirements', e.target.value)} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="backend_conditions">{t('backend_conditions')}</Label>
-                <Textarea id="backend_conditions" value={form.backend_conditions || ''} onChange={e => handleFieldChange('backend_conditions', e.target.value)} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="frontend_conditions">{t('frontend_conditions')}</Label>
-                <Textarea id="frontend_conditions" value={form.frontend_conditions || ''} onChange={e => handleFieldChange('frontend_conditions', e.target.value)} />
-              </div>
                <div className="grid grid-cols-3 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="client_payment">{t('client_payment')}</Label>
@@ -330,12 +306,31 @@ export function TaskForm({
                 <Input id="deliverable_location" value={form.deliverable_location || ''} onChange={e => handleFieldChange('deliverable_location', e.target.value)} />
               </div>
               <div className="grid gap-2">
+                <Label htmlFor="delivery_method">{t('delivery_method')}</Label>
+                <Select value={form.delivery_method} onValueChange={value => handleFieldChange('delivery_method', value)} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                  <SelectTrigger id="delivery_method"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="in_person">{t('in_person')}</SelectItem>
+                    <SelectItem value="upload">{t('upload')}</SelectItem>
+                    <SelectItem value="link">{t('link')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="deliverable_details">{t('deliverable_details')}</Label>
+                <Textarea id="deliverable_details" value={form.deliverable_details || ''} onChange={e => handleFieldChange('deliverable_details', e.target.value)} />
+              </div>
+              <div className="grid gap-2">
                 <Label htmlFor="ux_requirements">{t('ux_requirements')}</Label>
                 <Textarea id="ux_requirements" value={form.ux_requirements || ''} onChange={e => handleFieldChange('ux_requirements', e.target.value)} rows={3} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="market_research_link">{t('market_research_link')}</Label>
-                <Input id="market_research_link" value={form.market_research_link || ''} onChange={e => handleFieldChange('market_research_link', e.target.value)} />
+                <Label htmlFor="backend_conditions">{t('backend_conditions')}</Label>
+                <Textarea id="backend_conditions" value={form.backend_conditions || ''} onChange={e => handleFieldChange('backend_conditions', e.target.value)} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="frontend_conditions">{t('frontend_conditions')}</Label>
+                <Textarea id="frontend_conditions" value={form.frontend_conditions || ''} onChange={e => handleFieldChange('frontend_conditions', e.target.value)} />
               </div>
             </TabsContent>
 
@@ -344,6 +339,17 @@ export function TaskForm({
                 checklist={form.checklist || []}
                 onChange={(checklist) => handleFieldChange('checklist', checklist)}
               />
+            </TabsContent>
+
+            <TabsContent value="dependencies" className="p-4">
+                <TaskDependencies 
+                    task={form as Task} 
+                    allTasks={allTasks}
+                    onChange={(blocked_by, blocks) => {
+                        handleFieldChange('blocked_by', blocked_by);
+                        handleFieldChange('blocks', blocks);
+                    }}
+                />
             </TabsContent>
 
             <TabsContent value="research" className="p-4">

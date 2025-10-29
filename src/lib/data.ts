@@ -138,3 +138,48 @@ export type Report = {
   actions?: string[];
   data?: any;
 };
+
+export type Leave = {
+  id: string;
+  userId: string;
+  userName?: string;
+  type: 'sick' | 'annual' | 'unpaid' | 'emergency' | 'other';
+  startDate: any;
+  endDate: any;
+  days: number;
+  reason?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  approvedBy?: string;
+  approvedAt?: any;
+  notes?: string;
+  createdAt: any;
+  updatedAt?: any;
+};
+
+export type Deduction = {
+  id: string;
+  userId: string;
+  userName?: string;
+  amount: number;
+  reason: string;
+  type: 'absence' | 'late' | 'penalty' | 'other';
+  date: any;
+  extractedFromChatMessageId?: string;
+  createdBy: string;
+  createdAt: any;
+  notes?: string;
+};
+
+export type AttendanceSummary = {
+  userId: string;
+  userName?: string;
+  totalDays: number;
+  presentDays: number;
+  absentDays: number;
+  lateDays: number;
+  totalHours: number;
+  period: {
+    start: any;
+    end: any;
+  };
+};

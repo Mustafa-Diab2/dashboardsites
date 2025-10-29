@@ -330,3 +330,52 @@ function getCourseStatusText(status) {
   };
   return statusMap[status] || status;
 }
+
+/**
+ * Cloud Function: إنشاء وثيقة المستخدم تلقائياً عند التسجيل
+ * يتم تشغيلها تلقائياً عند إنشاء حساب جديد في Firebase Authentication
+ *
+ * Note: This function will be triggered automatically when a new user signs up
+ */
+const functions = require("firebase-functions");
+const admin = require("firebase-admin");
+
+exports.createUserDocument = functions.auth.user().onCreate(async (user) => {
+  const userId = user.uid;
+
+  console.log(`👤 New user created: ${userId}`);
+
+  try {
+    // Check if user document already exists
+    const userDocRef = db.collection('users').doc(userId);
+    const userDoc = await userDocRef.get();
+
+    if (userDoc.exists) {
+      console.log('User document already exists. Skipping creation.');
+      return null;
+    }
+
+    // Create user document with default role
+    await userDocRef.set({
+      id: userId,
+      email: user.email || '',
+      fullName: user.displayName || user.email?.split('@')[0] || 'User',
+      role: 'frontend', // Default role for new users
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log(`✅ Created user document for ${userId} with role: frontend`);
+
+    // Check if this is the first user, if so make them admin
+    const usersSnapshot = await db.collection('users').get();
+    if (usersSnapshot.size === 1) {
+      await userDocRef.update({ role: 'admin' });
+      console.log(`🎉 First user! Set ${userId} as admin`);
+    }
+
+    return { success: true, userId };
+  } catch (error) {
+    console.error('❌ Failed to create user document:', error);
+    return { success: false, error: error.message };
+  }
+});

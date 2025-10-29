@@ -3,7 +3,7 @@
 import type { Client, Task, TaskTemplate } from '@/lib/data';
 import { useMemo, useState } from 'react';
 import { Button } from './ui/button';
-import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus, MessageSquare } from 'lucide-react';
+import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus, MessageSquare, UserCog } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MemberTasksBarChart } from './charts/member-tasks-bar-chart';
 import { CompletionRatioPieChart } from './charts/completion-ratio-pie-chart';
@@ -43,6 +43,7 @@ import ClientForm from './client-form';
 import { TaskTemplates } from './templates/task-templates';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import TeamChat from './team-chat';
+import { HRManagementPage } from './hr-management-page';
 
 export type UserReport = {
   name: string;
@@ -53,9 +54,9 @@ export type UserReport = {
   done: number;
 };
 
-type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat';
+type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat' | 'hr';
 
-export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string }) {
+export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string | undefined }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
   const [isClientFormOpen, setClientFormOpen] = useState(false);
   const [isTemplateDialogOpen, setTemplateDialogOpen] = useState(false);
@@ -186,6 +187,8 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
         return <Courses userRole={userRole} />;
       case 'chat':
         return <TeamChat />;
+      case 'hr':
+        return <HRManagementPage userRole={userRole} />;
       case 'dashboard':
       default:
         return (
@@ -344,6 +347,12 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                         <span>{t('clients')}</span>
                     </SidebarMenuButton>
                     </SidebarMenuItem>
+                    <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'hr'} onClick={() => setActiveView('hr')}>
+                        <UserCog />
+                        <span>{t('hr_management')}</span>
+                    </SidebarMenuButton>
+                    </SidebarMenuItem>
                   </>
                 )}
               </SidebarMenu>
@@ -371,6 +380,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                          {activeView === 'reports' && t('reports')}
                          {activeView === 'clients' && t('clients')}
                          {activeView === 'chat' && t('team_chat')}
+                         {activeView === 'hr' && t('hr_management')}
                       </h2>
                       <p className="text-muted-foreground">
                         {isAdmin ? t('home_page_description') : t('welcome_back_desc')}

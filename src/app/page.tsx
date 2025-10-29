@@ -5,7 +5,6 @@ import { useCollection, useFirebase, useMemoFirebase, useDoc } from '@/firebase'
 import { collection, query, doc, where } from 'firebase/firestore';
 import { AuthCard } from '@/components/auth-card';
 import type { Task } from '@/lib/data';
-import { useLanguage } from '@/context/language-context';
 
 export default function Home() {
   const { firestore, user, isUserLoading } = useFirebase();
@@ -15,7 +14,7 @@ export default function Home() {
     [firestore, user]
   );
   const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
-  const userRole = (userData as any)?.role || 'frontend';
+  const userRole = (userData as any)?.role;
 
 
   const tasksQuery = useMemoFirebase(

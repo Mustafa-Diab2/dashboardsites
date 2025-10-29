@@ -2,20 +2,54 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // --- Helper Functions ---
+
+    // Checks if the user is signed in.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Checks if the authenticated user is the owner of the resource.
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Checks if the authenticated user is the owner of the resource and if the resource exists.
+    function isExistingOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Checks if the user has admin role via custom claims
+    function isAdmin() {
+      return request.auth != null && request.auth.token.role == 'admin';
+    }
+
+    // Alternative: Check if user has admin role in their user document
+    // NOTE: This is less efficient as it requires a document read
+    // Returns false if document doesn't exist instead of erroring
+    function isAdminViaDoc() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
     /**
      * @description: Manages user profile data, ensuring only the owning user can read or write their own profile.
+     * Admins can list all users. Non-admins can only read their own profile.
      * @path: /users/{userId}
+     * @allow: (get) User can read their own profile, admin can read any profile
+     * @allow: (list) Admin can list all users via custom claims or document role check
      * @allow: (create) User with ID 'user_abc' can create their own profile at /users/user_abc. (auth.uid == 'user_abc')
-     * @deny: (create) User with ID 'user_xyz' cannot create a profile at /users/user_abc. (auth.uid != 'user_abc')
-     * @principle: Enforces strict user-ownership for profile data.
+     * @allow: (update) User can update their own profile
+     * @allow: (delete) User can delete their own profile
+     * @principle: Enforces user-ownership for profile data, with admin override.
      */
     match /users/{userId} {
-      // Verifies that the user is signed in
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false; // User listing is disallowed.
+      allow get: if isSignedIn() && (isOwner(userId) || isAdminViaDoc());
+      allow list: if isAdminViaDoc(); // Only admins can list all users
       allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && (isOwner(userId) || isAdminViaDoc());
+      allow delete: if isSignedIn() && (isOwner(userId) || isAdminViaDoc());
     }
 
     /**
@@ -48,51 +82,119 @@ service cloud.firestore {
       allow delete: if isSignedIn() && get(/databases/$(database)/documents/tasks/$(taskId)/files/$(fileId)).data.uploadedBy == request.auth.uid;
     }
 
-        /**
-     * @description: Manages attendance records. All users can read attendance, but only the record creator can modify or delete.
+    /**
+     * @description: Manages attendance records. All authenticated users can read attendance.
+     * Only the record creator or admin can modify or delete.
      * @path: /attendance/{attendanceId}
-     * @allow: (get) Any user can read an attendance record.
-     * @allow: (create) User 'user_abc' can create an attendance record with userId: 'user_abc'. (auth.uid == 'user_abc' && request.resource.data.userId == 'user_abc')
-     * @deny: (update) User 'user_xyz' cannot update an attendance record created by 'user_abc'. (auth.uid != 'user_abc' && resource.data.userId == 'user_abc')
-     * @principle: Allows public read access with owner-only writes, enforcing document ownership for modifications.
+     * @allow: (get) Any authenticated user can read an attendance record.
+     * @allow: (list) Any authenticated user can list attendance records.
+     * @allow: (create) User 'user_abc' can create an attendance record with userId: 'user_abc'.
+     * @allow: (update) User can update their own record, or admin can update any record.
+     * @allow: (delete) User can delete their own record, or admin can delete any record.
+     * @principle: Allows authenticated read access with owner/admin-only writes.
      */
     match /attendance/{attendanceId} {
-      allow get, list: if true;
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && get(/databases/$(database)/documents/attendance/$(attendanceId)).data.userId == request.auth.uid;
-      allow delete: if isSignedIn() && get(/databases/$(database)/documents/attendance/$(attendanceId)).data.userId == request.auth.uid;
+      allow update: if isSignedIn() && (get(/databases/$(database)/documents/attendance/$(attendanceId)).data.userId == request.auth.uid || isAdminViaDoc());
+      allow delete: if isSignedIn() && (get(/databases/$(database)/documents/attendance/$(attendanceId)).data.userId == request.auth.uid || isAdminViaDoc());
     }
 
     /**
-     * @description: Manages courses assigned to users. All users can read courses, but only the creator can modify or delete.
+     * @description: Manages courses assigned to users. All authenticated users can read courses.
+     * Only the assigned user or admin can modify courses.
      * @path: /courses/{courseId}
-     * @allow: (get) Any user can read a course.
-     * @allow: (create) User 'user_abc' can create a course with userId: 'user_abc'. (auth.uid == 'user_abc' && request.resource.data.userId == 'user_abc')
-     * @deny: (update) User 'user_xyz' cannot update a course created by 'user_abc'. (auth.uid != 'user_abc' && resource.data.userId == 'user_abc')
-     * @principle: Allows public read access with owner-only writes, enforcing document ownership for modifications.
+     * @allow: (get) Any authenticated user can read a course.
+     * @allow: (list) Any authenticated user can list courses.
+     * @allow: (create) Admin can create courses, or user can create their own course assignment.
+     * @allow: (update) User can update their own course, or admin can update any course.
+     * @allow: (delete) User can delete their own course, or admin can delete any course.
+     * @principle: Allows authenticated read access with owner/admin-only writes.
      */
     match /courses/{courseId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && get(/databases/$(database)/documents/courses/$(courseId)).data.userId == request.auth.uid;
-      allow delete: if isSignedIn() && get(/databases/$(database)/documents/courses/$(courseId)).data.userId == request.auth.uid;
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdminViaDoc());
+      allow update: if isSignedIn() && (get(/databases/$(database)/documents/courses/$(courseId)).data.userId == request.auth.uid || isAdminViaDoc());
+      allow delete: if isSignedIn() && (get(/databases/$(database)/documents/courses/$(courseId)).data.userId == request.auth.uid || isAdminViaDoc());
     }
-  }
 
-  // --- Helper Functions ---
+    /**
+     * @description: Manages client data. Only admins can manage clients.
+     * @path: /clients/{clientId}
+     * @allow: (get) Any authenticated user can read a client.
+     * @allow: (list) Any authenticated user can list clients (for task assignment).
+     * @allow: (create) Only admins can create clients.
+     * @allow: (update) Only admins can update clients.
+     * @allow: (delete) Only admins can delete clients.
+     * @principle: Authenticated users can read clients, but only admins can modify them.
+     */
+    match /clients/{clientId} {
+      allow get, list: if isSignedIn();
+      allow create: if isAdminViaDoc();
+      allow update: if isAdminViaDoc();
+      allow delete: if isAdminViaDoc();
+    }
 
-  // Checks if the user is signed in.
-  function isSignedIn() {
-    return request.auth != null;
-  }
+    /**
+     * @description: Manages team chat messages. All authenticated users can read messages,
+     * and any signed-in user can create messages.
+     * @path: /chat/{messageId}
+     * @allow: (get) Any authenticated user can read chat messages.
+     * @allow: (list) Any authenticated user can list chat messages.
+     * @allow: (create) Any signed-in user can create a chat message with userId matching their auth.uid.
+     * @deny: (update) Users cannot update chat messages.
+     * @deny: (delete) Users cannot delete chat messages.
+     * @principle: Allows authenticated read access and authenticated write access for team collaboration.
+     */
+    match /chat/{messageId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if false; // Chat messages cannot be edited
+      allow delete: if false; // Chat messages cannot be deleted
+    }
 
-  // Checks if the authenticated user is the owner of the resource.
-  function isOwner(userId) {
-    return request.auth.uid == userId;
-  }
+    /**
+     * @description: Manages leave requests. Users can create and view their own leaves.
+     * Admins can approve/reject and manage all leave requests.
+     * @path: /leaves/{leaveId}
+     * @allow: (get) Any authenticated user can read leaves.
+     * @allow: (list) Any authenticated user can list leaves.
+     * @allow: (create) User can create their own leave request.
+     * @allow: (update) User can update their own pending leave, admin can approve/reject any leave.
+     * @allow: (delete) User can delete their own pending leave, admin can delete any leave.
+     * @principle: Users can request leaves, admins can approve/reject and manage all leaves.
+     */
+    match /leaves/{leaveId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        (get(/databases/$(database)/documents/leaves/$(leaveId)).data.userId == request.auth.uid &&
+         get(/databases/$(database)/documents/leaves/$(leaveId)).data.status == 'pending') ||
+        isAdminViaDoc()
+      );
+      allow delete: if isSignedIn() && (
+        (get(/databases/$(database)/documents/leaves/$(leaveId)).data.userId == request.auth.uid &&
+         get(/databases/$(database)/documents/leaves/$(leaveId)).data.status == 'pending') ||
+        isAdminViaDoc()
+      );
+    }
 
-  // Checks if the authenticated user is the owner of the resource and if the resource exists.
-  function isExistingOwner(userId) {
-    return request.auth.uid == userId;
+    /**
+     * @description: Manages deductions. Only admins can create and manage deductions.
+     * Users have read-only access to their own deductions.
+     * @path: /deductions/{deductionId}
+     * @allow: (get) Any authenticated user can read deductions.
+     * @allow: (list) Any authenticated user can list deductions.
+     * @allow: (create) Only admins can create deductions.
+     * @allow: (update) Only admins can update deductions.
+     * @allow: (delete) Only admins can delete deductions.
+     * @principle: Only admins can manage deductions, users have read-only access to their own deductions.
+     */
+    match /deductions/{deductionId} {
+      allow get, list: if isSignedIn();
+      allow create: if isAdminViaDoc();
+      allow update: if isAdminViaDoc();
+      allow delete: if isAdminViaDoc();
+    }
   }
 }

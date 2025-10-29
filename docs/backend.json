@@ -313,7 +313,7 @@
       },
       "required": ["userId", "name", "link", "duration", "status"]
     },
-     "ChatMessage": {
+    "ChatMessage": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ChatMessage",
       "type": "object",
@@ -338,6 +338,41 @@
         }
       },
       "required": ["userId", "userName", "text", "timestamp"]
+    },
+    "Leave": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Leave",
+      "type": "object",
+      "description": "Represents a leave request from an employee.",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "type": { "type": "string", "enum": ["sick", "annual", "unpaid", "emergency", "other"] },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "days": { "type": "number" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "approvedBy": { "type": "string" },
+        "approvedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "type", "startDate", "endDate", "days", "status"]
+    },
+    "Deduction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Deduction",
+      "type": "object",
+      "description": "Represents a salary deduction for an employee.",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "amount": { "type": "number" },
+        "reason": { "type": "string" },
+        "type": { "type": "string", "enum": ["absence", "late", "penalty", "other"] },
+        "date": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["userId", "amount", "reason", "type", "date", "createdBy"]
     }
   },
   "auth": {
@@ -399,6 +434,22 @@
           "entityName": "ChatMessage",
           "schema": { "$ref": "#/entities/ChatMessage" },
           "description": "Stores team chat messages."
+        }
+      },
+      {
+        "path": "/leaves/{leaveId}",
+        "definition": {
+          "entityName": "Leave",
+          "schema": { "$ref": "#/entities/Leave" },
+          "description": "Stores employee leave requests."
+        }
+      },
+      {
+        "path": "/deductions/{deductionId}",
+        "definition": {
+          "entityName": "Deduction",
+          "schema": { "$ref": "#/entities/Deduction" },
+          "description": "Stores employee salary deductions."
         }
       }
     ]

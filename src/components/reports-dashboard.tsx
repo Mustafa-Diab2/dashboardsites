@@ -2,17 +2,15 @@
 
 import type { Client, Task, TaskTemplate } from '@/lib/data';
 import { useMemo, useState } from 'react';
-import { utils, writeFile } from 'xlsx';
-import jsPDF from 'jspdf';
 import { Button } from './ui/button';
-import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus } from 'lucide-react';
+import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MemberTasksBarChart } from './charts/member-tasks-bar-chart';
 import { CompletionRatioPieChart } from './charts/completion-ratio-pie-chart';
 import { DetailedBreakdownTable } from './detailed-breakdown-table';
 import AIInsights from './ai-insights';
 import { TaskForm } from './task-form';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import Attendance from './attendance';
 import AttendanceAdmin from './attendance-admin';
@@ -44,6 +42,7 @@ import { useClients } from '@/hooks/use-clients';
 import ClientForm from './client-form';
 import { TaskTemplates } from './templates/task-templates';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import TeamChat from './team-chat';
 
 export type UserReport = {
   name: string;
@@ -54,7 +53,7 @@ export type UserReport = {
   done: number;
 };
 
-type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses';
+type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat';
 
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
@@ -103,25 +102,6 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
 
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [tasks, users]);
-
-  const exportCSV = () => {
-    const ws = utils.json_to_sheet(byUser);
-    const wb = utils.book_new();
-    utils.book_append_sheet(wb, ws, 'Report');
-    writeFile(wb, 'TeamReport.xlsx');
-  };
-
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.text("Team Task Report", 14, 16);
-    const tableData = byUser.map(u => [u.name, u.total, u.backlog, u.in_progress, u.review, u.done]);
-    (doc as any).autoTable({
-        head: [['Member', 'Total', 'Backlog', 'In Progress', 'Review', 'Done']],
-        body: tableData,
-        startY: 22,
-    });
-    doc.save('TeamReport.pdf');
-  };
 
   const handleSignOut = async () => {
     if (auth) {
@@ -204,6 +184,8 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
         return isAdmin ? <AttendanceAdmin /> : <Attendance />;
       case 'courses':
         return <Courses userRole={userRole} />;
+      case 'chat':
+        return <TeamChat />;
       case 'dashboard':
       default:
         return (
@@ -270,7 +252,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
         // Handle filters
         break;
       case 'export-pdf':
-        exportPDF();
+        // exportPDF(); // This needs to be reimplemented without autotable.
         break;
       default:
         break;
@@ -331,6 +313,12 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                    </SidebarMenuButton>
                 </SidebarMenuItem>
                  <SidebarMenuItem>
+                   <SidebarMenuButton isActive={activeView === 'chat'} onClick={() => setActiveView('chat')}>
+                    <MessageSquare />
+                    <span>{t('chat')}</span>
+                   </SidebarMenuButton>
+                </SidebarMenuItem>
+                 <SidebarMenuItem>
                    <SidebarMenuButton isActive={activeView === 'attendance'} onClick={() => setActiveView('attendance')}>
                     <Clock />
                     <span>{t('attendance')}</span>
@@ -382,6 +370,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                          {activeView === 'courses' && t('my_courses')}
                          {activeView === 'reports' && t('reports')}
                          {activeView === 'clients' && t('clients')}
+                         {activeView === 'chat' && t('team_chat')}
                       </h2>
                       <p className="text-muted-foreground">
                         {isAdmin ? t('home_page_description') : t('welcome_back_desc')}
@@ -394,8 +383,6 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                         <Plus /> {t('add_task')}
                       </Button>
                     )}
-                    {isAdmin && activeView === 'dashboard' && <Button variant="outline" onClick={exportCSV}><FileDown /> {t('csv')}</Button>}
-                    {isAdmin && activeView === 'dashboard' && <Button variant="outline" onClick={exportPDF}><FileDown /> {t('pdf')}</Button>}
                   </div>
               </div>
               {renderContent()}

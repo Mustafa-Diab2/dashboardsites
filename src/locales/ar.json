@@ -18,7 +18,7 @@
     "review": "مراجعة",
     "done": "تم",
     "no_data_available": "لا توجد بيانات متاحة.",
-    "attendance": "الحاضرين",
+    "attendance": "الحضور والانصراف",
     "status": "الحالة",
     "not_clocked_in": "لم يتم تسجيل الحضور",
     "not_clocked_in_desc": "لم تقم بتسجيل الحضور اليوم.",
@@ -215,7 +215,6 @@
     "detailed": "مفصل",
 
     "checklist": "قائمة التحقق",
-    "completed": "مكتملة",
     "add_checklist_item": "أضف عنصر للقائمة...",
     "dependencies": "الاعتماديات",
     "task_is_blocked": "⚠️ هذه المهمة محجوبة!",
@@ -228,7 +227,6 @@
     "add_research_item": "إضافة عنصر بحث",
     "research_title": "عنوان البحث...",
     "url": "الرابط",
-    "type": "النوع",
     "optional_notes": "ملاحظات اختيارية...",
     "add": "إضافة",
     "no_research_items": "لا توجد عناصر بحث بعد",
@@ -247,11 +245,11 @@
     "task_approved": "✓ تمت الموافقة على المهمة",
     "type_command_or_search": "اكتب أمر أو ابحث...",
     "no_results_found": "لم يتم العثور على نتائج",
-    "actions": "الإجراءات",
     "create_new_task": "إنشاء مهمة جديدة",
     "create_new_client": "إنشاء عميل جديد",
     "export_to_pdf": "تصدير إلى PDF",
     "navigation": "التنقل",
+    "dashboard": "لوحة التحكم",
     "filters": "الفلاتر",
     "show_my_tasks": "إظهار مهامي",
     "show_urgent": "إظهار العاجل",
@@ -279,11 +277,13 @@
     "pending_payments": "دفعات معلقة",
     "partial_payments": "دفعات جزئية",
     "paid_tasks": "مهام مدفوعة",
-    "cancel": "إلغاء",
-    "title": "العنوان",
     "basic_info": "معلومات أساسية",
-    "details": "تفاصيل"
+    "details": "تفاصيل",
+    "chat": "محادثة",
+    "team_chat": "محادثة الفريق",
+    "type_message": "اكتب رسالة..."
 }
+
 
 
 

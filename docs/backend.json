@@ -312,6 +312,32 @@
         }
       },
       "required": ["userId", "name", "link", "duration", "status"]
+    },
+     "ChatMessage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ChatMessage",
+      "type": "object",
+      "description": "Represents a single message in the team chat.",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who sent the message."
+        },
+        "userName": {
+          "type": "string",
+          "description": "The display name of the user who sent the message."
+        },
+        "text": {
+          "type": "string",
+          "description": "The content of the chat message."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the message was sent."
+        }
+      },
+      "required": ["userId", "userName", "text", "timestamp"]
     }
   },
   "auth": {
@@ -365,6 +391,14 @@
           "entityName": "Course",
           "schema": { "$ref": "#/entities/Course" },
           "description": "Stores courses assigned to users."
+        }
+      },
+      {
+        "path": "/chat/{messageId}",
+        "definition": {
+          "entityName": "ChatMessage",
+          "schema": { "$ref": "#/entities/ChatMessage" },
+          "description": "Stores team chat messages."
         }
       }
     ]

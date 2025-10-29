@@ -43,7 +43,7 @@ import { PaymentManagement } from './payment-management';
 import { useClients } from '@/hooks/use-clients';
 import ClientForm from './client-form';
 import { TaskTemplates } from './templates/task-templates';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 
 export type UserReport = {
   name: string;
@@ -115,7 +115,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
     const doc = new jsPDF();
     doc.text("Team Task Report", 14, 16);
     const tableData = byUser.map(u => [u.name, u.total, u.backlog, u.in_progress, u.review, u.done]);
-    const table = (doc as any).autoTable({
+    (doc as any).autoTable({
         head: [['Member', 'Total', 'Backlog', 'In Progress', 'Review', 'Done']],
         body: tableData,
         startY: 22,

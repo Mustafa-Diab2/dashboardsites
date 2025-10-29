@@ -33,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from './ui/alert-dialog';
+import { Input } from './ui/input';
 
 export default function ClientsDashboard() {
   const { t } = useLanguage();
@@ -98,8 +99,10 @@ export default function ClientsDashboard() {
           />
           <AlertDialogFooter>
             <Button onClick={() => {
-              navigator.clipboard.writeText(portalLink || '');
-              toast({ title: 'Copied!', description: 'Link copied to clipboard.' });
+              if (portalLink) {
+                navigator.clipboard.writeText(portalLink);
+                toast({ title: 'Copied!', description: 'Link copied to clipboard.' });
+              }
             }}>
               Copy Link
             </Button>

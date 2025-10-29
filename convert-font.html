@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Font Converter for jsPDF</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <h1>Convert TTF to jsPDF format</h1>
+    <input type="file" id="fontFile" accept=".ttf,.otf" />
+    <button onclick="convertFont()">Convert</button>
+    <pre id="output"></pre>
+
+    <script>
+        async function convertFont() {
+            const file = document.getElementById('fontFile').files[0];
+            if (!file) {
+                alert('Please select a font file');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64 = btoa(
+                    new Uint8Array(e.target.result)
+                        .reduce((data, byte) => data + String.fromCharCode(byte), '')
+                );
+
+                document.getElementById('output').textContent =
+                    `export const amiriFont = '${base64}';`;
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    </script>
+</body>
+</html>

@@ -4,6 +4,7 @@ import type { Client, Task } from '@/lib/data';
 import { useMemo, useState } from 'react';
 import { utils, writeFile } from 'xlsx';
 import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import { Button } from './ui/button';
 import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -36,6 +37,11 @@ import {
 } from '@/components/ui/sidebar';
 import CourseForm from './course-form';
 import ClientsDashboard from './clients-dashboard';
+import { CommandPalette } from './command-palette';
+import { WorkloadHeatmap } from './workload-heatmap';
+import { PaymentManagement } from './payment-management';
+import { useClients } from '@/hooks/use-clients';
+import ClientForm from './client-form';
 
 export type UserReport = {
   name: string;
@@ -50,9 +56,11 @@ type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'c
 
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
+  const [isClientFormOpen, setClientFormOpen] = useState(false);
   const { auth } = useFirebase();
   const { t } = useLanguage();
   const users = useUsers(userRole);
+  const clients = useClients();
   const [activeView, setActiveView] = useState<View>('dashboard');
 
 
@@ -101,10 +109,10 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
   const exportPDF = () => {
     const doc = new jsPDF();
     doc.text('Team Task Report', 14, 16);
-    let y = 22;
-    byUser.forEach(user => {
-        doc.text(`${user.name}: Total - ${user.total}, Done - ${user.done}`, 14, y);
-        y += 7;
+    (doc as any).autoTable({
+        head: [['Member', 'Total', 'Backlog', 'In Progress', 'Review', 'Done']],
+        body: byUser.map(u => [u.name, u.total, u.backlog, u.in_progress, u.review, u.done]),
+        startY: 22,
     });
     doc.save('TeamReport.pdf');
   };
@@ -123,39 +131,50 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
         return <MyTasks tasks={tasks} />;
       case 'reports':
         return (
-          <Card>
-            <CardHeader><CardTitle>{t('reports')}</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="font-headline">{t('tasks_by_member')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <MemberTasksBarChart data={byUser} />
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="font-headline">{t('tasks_completion_ratio')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <CompletionRatioPieChart data={byUser} />
-                    </CardContent>
-                  </Card>
-                </div>
+          <div className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="font-headline">{t('tasks_by_member')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <MemberTasksBarChart data={byUser} />
+                </CardContent>
+              </Card>
 
-                <Card className="mt-6">
-                  <CardHeader>
-                    <CardTitle className="font-headline">{t('detailed_member_breakdown')}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <DetailedBreakdownTable data={byUser} />
-                  </CardContent>
-                </Card>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="font-headline">{t('tasks_completion_ratio')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CompletionRatioPieChart data={byUser} />
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-headline">{t('detailed_member_breakdown')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DetailedBreakdownTable data={byUser} />
+              </CardContent>
+            </Card>
+
+            {isAdmin && (
+              <>
+                <WorkloadHeatmap
+                  tasks={tasks}
+                  users={users?.map(u => ({ id: u.id, name: (u as any).fullName || 'Unknown' })) || []}
+                />
+
+                <PaymentManagement
+                  tasks={tasks}
+                  clients={clients || []}
+                />
+              </>
+            )}
+          </div>
         );
       case 'clients':
         return <ClientsDashboard />;
@@ -214,9 +233,34 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
     }
   }
 
+  const handleCommandAction = (action: string, data?: any) => {
+    switch (action) {
+      case 'new-task':
+        setTaskFormOpen(true);
+        break;
+      case 'new-client':
+        setClientFormOpen(true);
+        break;
+      case 'navigate':
+        setActiveView(data as View);
+        break;
+      case 'filter':
+        // Handle filters
+        break;
+      case 'export-pdf':
+        exportPDF();
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <>
+      <CommandPalette onAction={handleCommandAction} />
       <TaskForm isOpen={isTaskFormOpen} onOpenChange={setTaskFormOpen} />
+      <ClientForm isOpen={isClientFormOpen} onOpenChange={setClientFormOpen} />
+
       <SidebarProvider>
           <Sidebar>
             <SidebarHeader>
@@ -313,5 +357,3 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
     </>
   );
 }
-
-    

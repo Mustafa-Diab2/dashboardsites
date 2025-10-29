@@ -1,4 +1,40 @@
 
+export type ChecklistItem = {
+  id: string;
+  title: string;
+  done: boolean;
+  createdAt?: any;
+};
+
+export type ResearchItem = {
+  id: string;
+  title: string;
+  url: string;
+  type: 'ui' | 'tech' | 'competitor' | 'other';
+  notes?: string;
+  createdAt?: any;
+};
+
+export type Approval = {
+  by: string;
+  byName?: string;
+  at: any;
+  status: 'approved' | 'rejected';
+  notes?: string;
+};
+
+export type AuditLogEntry = {
+  id: string;
+  taskId: string;
+  userId: string;
+  userName?: string;
+  action: 'created' | 'updated' | 'deleted' | 'status_changed' | 'assigned' | 'approved' | 'rejected';
+  field?: string;
+  oldValue?: any;
+  newValue?: any;
+  timestamp: any;
+};
+
 export type Task = {
   id: string;
   title: string;
@@ -26,6 +62,15 @@ export type Task = {
   createdAt?: any;
   updatedAt?: any;
   tags?: string[];
+  // New fields
+  checklist?: ChecklistItem[];
+  blocked_by?: string[];
+  blocks?: string[];
+  approvals?: Approval[];
+  payment_status?: 'pending' | 'partial' | 'paid';
+  due_alert_48h?: boolean;
+  research?: ResearchItem[];
+  template_id?: string;
 };
 
 export type Client = {
@@ -36,6 +81,11 @@ export type Client = {
   paid_amount?: number;
   contact_info?: string;
   notes?: string;
+  // New fields
+  publicToken?: string;
+  billing_notes?: string;
+  default_requirements?: string;
+  payment_terms?: string;
 };
 
 export type File = {
@@ -47,4 +97,46 @@ export type File = {
   url: string;
   uploadedBy: string;
   uploadedAt: any;
+};
+
+export type TaskTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  type: 'work' | 'training';
+  category: 'backend' | 'frontend' | 'fullstack' | 'design' | 'other';
+  defaultFields: Partial<Task>;
+  defaultChecklist?: Omit<ChecklistItem, 'id' | 'createdAt'>[];
+  createdBy: string;
+  createdAt: any;
+};
+
+export type SavedView = {
+  id: string;
+  name: string;
+  userId: string;
+  filters: {
+    status?: Task['status'][];
+    priority?: Task['priority'][];
+    assigned_to?: string[];
+    client_id?: string;
+    search?: string;
+    date_range?: { start?: string; end?: string };
+  };
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  isPublic?: boolean;
+  createdAt: any;
+};
+
+export type Report = {
+  id: string;
+  type: 'team' | 'client' | 'financial' | 'workload';
+  title: string;
+  filters: any;
+  generated_at: any;
+  generated_by: string;
+  summary?: string;
+  actions?: string[];
+  data?: any;
 };

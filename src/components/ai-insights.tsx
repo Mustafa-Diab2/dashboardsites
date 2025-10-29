@@ -13,16 +13,8 @@ import { useLanguage } from '@/context/language-context';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import { amiriFont } from '@/lib/fonts/amiri-font';
-
-
-// Extend the jsPDF type to include the autoTable method
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
+import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 
 export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
   const [insights, setInsights] = useState<string | null>(null);
@@ -55,7 +47,7 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
         if (result.insights) {
             setInsights(result.insights);
         } else {
-            setError(result.error || t('failed_to_generate_insights'));
+            setError(t('failed_to_generate_insights'));
         }
     } catch(e: any) {
         console.error("Error in generateTeamInsights action:", e);
@@ -65,39 +57,77 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     setIsLoading(false);
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (!insights) return;
 
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    
-    // 1. Embed the font
-    doc.addFileToVFS("Amiri-Regular.ttf", amiriFont);
-    doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
-    doc.setFont("Amiri", "normal");
+    // 1) نتأكد أننا على المتصفح
+    if (typeof window === 'undefined') return;
 
-    // 2. Set PDF to render Right-to-Left
-    const reportTarget = targetUser === 'all' ? t('all') : targetUser;
-    const reportTypeText = reportType === 'summary' ? t('summary') : t('detailed');
-    const title = `${t('ai_powered_insights')} - ${reportTypeText} (${reportTarget})`;
+    try {
+      // 2) أنشئ عنصر HTML مؤقت للمحتوى
+      const reportTarget = targetUser === 'all' ? t('all') : targetUser;
+      const reportTypeText = reportType === 'summary' ? t('summary') : t('detailed');
+      const title = `${t('ai_powered_insights')} - ${reportTypeText} (${reportTarget})`;
 
-    doc.setFontSize(16);
-    doc.text(title, pageWidth - 10, 20, { align: 'right' });
-    
-    // 3. Use autoTable for the body content for better text wrapping and handling
-    const body = doc.splitTextToSize(insights, pageWidth - 20);
-    
-    doc.autoTable({
-        startY: 40,
-        body: body.map((line: string) => [line]),
-        theme: 'plain',
-        styles: {
-            font: "Amiri",
-            halign: 'right',
-        }
-    });
+      // إنشاء عنصر div مؤقت
+      const element = document.createElement('div');
+      element.style.cssText = `
+        position: absolute;
+        left: -9999px;
+        top: -9999px;
+        width: 794px;
+        padding: 40px;
+        background: white;
+        font-family: 'Cairo', 'Amiri', 'Noto Sans Arabic', Arial, sans-serif;
+        direction: rtl;
+        color: #000;
+      `;
 
-    doc.save("ai-insights-report.pdf");
+      element.innerHTML = `
+        <h1 style="font-size: 24px; margin-bottom: 20px; text-align: right; color: #1a1a1a;">
+          ${title}
+        </h1>
+        <div style="font-size: 14px; line-height: 1.8; text-align: right; white-space: pre-wrap;">
+          ${insights}
+        </div>
+      `;
+
+      document.body.appendChild(element);
+
+      // 3) تحويل HTML إلى صورة
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      // 4) إزالة العنصر المؤقت
+      document.body.removeChild(element);
+
+      // 5) إنشاء PDF
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: 'a4',
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 0;
+
+      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+
+      // 6) حفظ
+      pdf.save('ai-insights-report.pdf');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      setError('Failed to generate PDF');
+    }
   };
   
   const selectableUsers = byUser.filter(user => user.name && user.name !== 'Unassigned' && !user.name.startsWith('user-') && user.name !== 'undefined');

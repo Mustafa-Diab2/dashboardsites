@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
-import { Plus, Users, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
+import { Plus, Users, MoreHorizontal, Edit, Trash2, Link } from 'lucide-react';
 import { useLanguage } from '@/context/language-context';
 import ClientForm from './client-form';
 import { useClients } from '@/hooks/use-clients';
@@ -24,13 +23,25 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useMutations } from '@/hooks/use-mutations';
 import type { Client } from '@/lib/data';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
 
 export default function ClientsDashboard() {
   const { t } = useLanguage();
   const [isClientFormOpen, setClientFormOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | undefined>(undefined);
   const clients = useClients();
-  const { deleteDoc } = useMutations();
+  const { updateDoc, deleteDoc } = useMutations();
+  const { toast } = useToast();
+  const [portalLink, setPortalLink] = useState<string | null>(null);
 
   const handleAddClient = () => {
     setSelectedClient(undefined);
@@ -45,6 +56,18 @@ export default function ClientsDashboard() {
   const handleDeleteClient = (clientId: string) => {
     deleteDoc('clients', clientId);
   };
+
+  const handleGeneratePortalLink = (client: Client) => {
+    const token = client.publicToken || crypto.randomUUID();
+    const link = `${window.location.origin}/client-portal/${token}`;
+    
+    // If the client doesn't have a token, update the document
+    if (!client.publicToken) {
+      updateDoc('clients', client.id, { publicToken: token });
+    }
+
+    setPortalLink(link);
+  };
   
   const calculateBalance = (total?: number, paid?: number) => {
     const balance = (total || 0) - (paid || 0);
@@ -58,6 +81,33 @@ export default function ClientsDashboard() {
         onOpenChange={setClientFormOpen}
         client={selectedClient}
       />
+      
+      <AlertDialog open={!!portalLink} onOpenChange={() => setPortalLink(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Client Portal Link</AlertDialogTitle>
+            <AlertDialogDescription>
+              Share this secure link with your client for them to view project progress.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input 
+            readOnly 
+            value={portalLink || ''} 
+            className="my-4" 
+            onFocus={(e) => e.target.select()}
+          />
+          <AlertDialogFooter>
+            <Button onClick={() => {
+              navigator.clipboard.writeText(portalLink || '');
+              toast({ title: 'Copied!', description: 'Link copied to clipboard.' });
+            }}>
+              Copy Link
+            </Button>
+            <AlertDialogAction onClick={() => setPortalLink(null)}>Close</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="font-headline flex items-center gap-2">
@@ -102,6 +152,10 @@ export default function ClientsDashboard() {
                             <DropdownMenuItem onClick={() => handleEditClient(client)}>
                               <Edit className="mr-2 h-4 w-4" />
                               <span>{t('edit')}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleGeneratePortalLink(client)}>
+                              <Link className="mr-2 h-4 w-4" />
+                              <span>Client Portal</span>
                             </DropdownMenuItem>
                              <DropdownMenuItem onClick={() => handleDeleteClient(client.id)} className="text-destructive">
                               <Trash2 className="mr-2 h-4 w-4" />

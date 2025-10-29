@@ -29,14 +29,19 @@ import { useLanguage } from '@/context/language-context';
 import { useUsers } from '@/hooks/use-users';
 import { ScrollArea } from './ui/scroll-area';
 import { Badge } from './ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { TaskChecklist } from './task-checklist';
+import { TaskResearch } from './task-research';
+import { ChecklistItem, ResearchItem } from '@/lib/data';
 
-type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'assigned_to'> & { assigned_to: string[] };
+type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'assigned_to'> & { assigned_to: string[] };
 
 const INITIAL_FORM_STATE: TaskFormData = {
   title: '',
   description: '',
   type: 'work',
   assigned_to: [],
+  created_by: '',
   client_id: undefined,
   progress: 0,
   start_date: '',
@@ -55,6 +60,11 @@ const INITIAL_FORM_STATE: TaskFormData = {
   status: 'backlog',
   priority: 'medium',
   tags: [],
+  checklist: [],
+  research: [],
+  blocked_by: [],
+  blocks: [],
+  payment_status: 'pending',
 };
 
 export function TaskForm({
@@ -134,11 +144,11 @@ export function TaskForm({
     try {
       const taskData: Omit<Task, 'id'> = {
         ...form,
-        createdBy: user.uid,
+        created_by: user.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
-      
+
       addTask('tasks', taskData);
       
       toast({ title: t('task_created_title'), description: `${t('task_created_desc')} "${form.title}"` });
@@ -157,6 +167,15 @@ export function TaskForm({
           <DialogDescription>{task ? t('edit_task_desc') : t('create_task_desc')}</DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[70vh]">
+          <Tabs defaultValue="basic" className="w-full" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+            <TabsList className="grid w-full grid-cols-4 mb-4">
+              <TabsTrigger value="basic">{t('basic_info')}</TabsTrigger>
+              <TabsTrigger value="details">{t('details')}</TabsTrigger>
+              <TabsTrigger value="checklist">{t('checklist')}</TabsTrigger>
+              <TabsTrigger value="research">{t('research_hub')}</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="basic" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
             {/* Left Column */}
             <div className="space-y-4">
@@ -303,6 +322,37 @@ export function TaskForm({
               </div>
             </div>
           </div>
+            </TabsContent>
+
+            <TabsContent value="details" className="p-4 space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="deliverable_location">{t('deliverable_location')}</Label>
+                <Input id="deliverable_location" value={form.deliverable_location || ''} onChange={e => handleFieldChange('deliverable_location', e.target.value)} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="ux_requirements">{t('ux_requirements')}</Label>
+                <Textarea id="ux_requirements" value={form.ux_requirements || ''} onChange={e => handleFieldChange('ux_requirements', e.target.value)} rows={3} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="market_research_link">{t('market_research_link')}</Label>
+                <Input id="market_research_link" value={form.market_research_link || ''} onChange={e => handleFieldChange('market_research_link', e.target.value)} />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="checklist" className="p-4">
+              <TaskChecklist
+                checklist={form.checklist || []}
+                onChange={(checklist) => handleFieldChange('checklist', checklist)}
+              />
+            </TabsContent>
+
+            <TabsContent value="research" className="p-4">
+              <TaskResearch
+                research={form.research || []}
+                onChange={(research) => handleFieldChange('research', research)}
+              />
+            </TabsContent>
+          </Tabs>
         </ScrollArea>
         <DialogFooter className="border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -313,3 +363,4 @@ export function TaskForm({
       </DialogContent>
     </Dialog>
   );
+}

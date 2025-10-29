@@ -1,125 +1,189 @@
-/**
- * @description
- * هذا الـ ruleset يفرض نموذج ملكية صارم لبيانات المستخدم وحضور الموظف والمهام،
- * مع إمكانية "أدمن" اختيارية عبر Custom Claims. يدعم مرفقات لكل مهمة (Firestore + Storage)،
- * ويعتمد على التحقق من ملكية الوثيقة لكل عملية قراءة/كتابة.
- *
- * @dataStructure
- *  - /users/{userId}:
- *      ملف المستخدم. المستخدم يقرأ/يكتب ملفه فقط (مع خيار list للمصادّقين لدعم القوائم).
- *  - /attendance/{attendanceId}:
- *      سجل الحضور. المستخدم يقرأ/ينشئ/يحدّث/يحذف سجلاته فقط.
- *  - /tasks/{taskId}:
- *      المهام. كل المصادّقين يقرأوا. الإنشاء/التحديث/الحذف لمالك المهمة (createdBy)،
- *      أو للأدمن (لو مفعّل claims).
- *  - /tasks/{taskId}/files/{fileId}:
- *      ميتاداتا المرفقات. القراءة للمصادّقين، والإنشاء/التعديل/الحذف للرافع فقط
- *      (أو للأدمن لو موجود).
- *
- * @keySecurityDecisions
- *  - users: ملكية ذاتية؛ (اختياري) السماح بالـ list للمصادّقين لدعم Dropdowns.
- *  - attendance: كل قراءة/استعلام يجب أن تكون لسجلات نفس المستخدم (userId == uid).
- *  - tasks: القراءة عامة للمصادّقين؛ الكتابة للـ createdBy أو للأدمن (claims).
- *  - files: الرافع فقط يدير ملفاته؛ القراءة عامة للمصادّقين.
- *
- * @denormalizationForAuthorization
- *  - لا نعتمد على get() داخل القواعد (لتكلفة الأداء)؛ إن لزم "أدمن"، نفضل Custom Claims:
- *    request.auth.token.role == "admin". (تُعيّن عبر Admin SDK).
- *
- * @structuralSegregation
- *  - لا يوجد فصل هيكلي إضافي.
- */
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /* ============================
-     * Helper Functions
-     * ============================ */
+    /**
+     * @description Checks if the request is authenticated.
+     */
     function isSignedIn() {
       return request.auth != null;
     }
 
+    /**
+     * @description Checks if the authenticated user's ID matches the provided userId.
+     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // اختياري: دعم "أدمن" عبر Custom Claims (role = "admin")
-    function isAdmin() {
-      return isSignedIn() && (request.auth.token.role == "admin");
+    /**
+     * @description Checks if the authenticated user is the owner of the existing document.
+     */
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
     }
 
-    /* ============================
-     * Users
-     * ============================ */
+    /**
+     * @description Rules for user documents.
+     * @path /users/{userId}
+     * @allow (create) User with ID 'user123' can create their own document.
+     *   Request: { "auth": { "uid": "user123" }, "resource": { "data": { "id": "user123", ... } } }
+     * @allow (get) User with ID 'user123' can read their own document.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @allow (update) User with ID 'user123' can update their own document.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @deny  (create) User with ID 'user123' cannot create a document with a different ID ('user456').
+     *   Request: { "auth": { "uid": "user123" }, "resource": { "data": { "id": "user456", ... } } }
+     * @deny (update) User with ID 'user123' cannot update someone else's document ('user456').
+     *   Request: { "auth": { "uid": "user123" }, "resource": { "data": { "id": "user456", ... } } }
+     * @principle Enforces document ownership for all operations.
+     */
     match /users/{userId} {
-      allow get:   if isOwner(userId);
-      allow list:  if isSignedIn(); // لو لا تحتاجه، اغلقه لزيادة الأمان
-      allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
-      allow update: if isOwner(userId) && resource.data.id == request.resource.data.id;
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId);
       allow delete: if isOwner(userId);
     }
 
-    /* ============================
-     * Attendance
-     * ============================ */
-    match /attendance/{attendanceId} {
-      allow get:  if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-    }
-
-    /* ============================
-     * Clients
-     * ============================ */
-    match /clients/{clientId} {
-      allow get:   if isSignedIn() && (resource.data.createdBy == request.auth.uid || isAdmin());
-      allow list:  if isSignedIn() && isAdmin();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (resource.data.createdBy == request.auth.uid || isAdmin());
-      allow delete: if isSignedIn() && (resource.data.createdBy == request.auth.uid || isAdmin());
-    }
-
-    /* ============================
-     * Tasks
-     * ============================ */
+    /**
+     * @description Rules for task documents. Tasks are publicly readable, but writes are restricted to the task creator.
+     * @path /tasks/{taskId}
+     * @allow (get) Any user can read a task.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @allow (list) Any user can list tasks.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @allow (create) User with ID 'user123' can create a task with 'created_by' field set to 'user123'.
+     *   Request: { "auth": { "uid": "user123" }, "resource": { "data": { "created_by": "user123", ... } } }
+     * @deny  (create) User with ID 'user123' cannot create a task with 'created_by' field set to a different user ID ('user456').
+     *   Request: { "auth": { "uid": "user123" }, "resource": { "data": { "created_by": "user456", ... } } }
+     * @deny (update) User with ID 'user123' cannot update a task if they are not the creator (resource.data.created_by != 'user123').
+     *   Request: { "auth": { "uid": "user123" } }
+     * @deny (delete) User with ID 'user123' cannot delete a task if they are not the creator (resource.data.created_by != 'user123').
+     *   Request: { "auth": { "uid": "user123" } }
+     * @principle Tasks are publicly readable, but only the creator can modify them.
+     */
     match /tasks/{taskId} {
-      allow read:   if isSignedIn(); // تغطي get + list
-      allow create: if isSignedIn()
-                    && request.resource.data.createdBy == request.auth.uid;
-
-      allow update: if isSignedIn()
-                    && (resource.data.createdBy == request.auth.uid || isAdmin());
-
-      allow delete: if isSignedIn()
-                    && (resource.data.createdBy == request.auth.uid || isAdmin());
-
-      match /files/{fileId} {
-        allow read:   if isSignedIn(); // تغطي get + list
-
-        allow create: if isSignedIn()
-                      && request.resource.data.uploadedBy == request.auth.uid
-                      && request.resource.data.taskId == taskId;
-
-        allow update: if isSignedIn()
-                      && (resource.data.uploadedBy == request.auth.uid || isAdmin());
-
-        allow delete: if isSignedIn()
-                      && (resource.data.uploadedBy == request.auth.uid || isAdmin());
-      }
+      allow get: if true;
+      allow list: if true;
+      allow create: if isSignedIn() && request.resource.data.created_by == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.created_by == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.created_by == request.auth.uid;
     }
 
-    /* ============================
-     * Courses (اختياري—حسب نموذجك السابق)
-     * ============================ */
+    /**
+     * @description Rules for client documents. Clients are publicly readable, but writes are restricted.
+     * @path /clients/{clientId}
+     * @allow (get) Any user can read a client document.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @allow (list) Any user can list client documents.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @deny (create) No general create rule.  Writes must be specifically granted based on application logic.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @deny (update) No general update rule.  Writes must be specifically granted based on application logic.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @deny (delete) No general delete rule.  Writes must be specifically granted based on application logic.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @principle Clients are publicly readable, but write permissions are restricted.
+     */
+    match /clients/{clientId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false; // TODO: Add stricter rules.
+      allow update: if false; // TODO: Add stricter rules.
+      allow delete: if false; // TODO: Add stricter rules.
+    }
+
+    /**
+     * @description Rules for file documents associated with a task.
+     * @path /tasks/{taskId}/files/{fileId}
+     * @allow (get) Any user can read a file.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @allow (list) Any user can list files.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @allow (create) User can create a file if signed in. Additional checks might be required based on task assignment.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @deny (update) No general update rule. Writes must be specifically granted based on application logic.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @deny (delete) No general delete rule. Writes must be specifically granted based on application logic.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @principle Files are publicly readable, but write permissions are restricted.
+     */
+    match /tasks/{taskId}/files/{fileId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if isSignedIn(); // Further validation may be needed here based on task assignment
+      allow update: if false; // TODO: Add stricter rules.
+      allow delete: if false; // TODO: Add stricter rules.
+    }
+
+      /**
+       * @description Rules for attendance documents. Attendance records are publicly readable.
+       * @path /attendance/{attendanceId}
+       * @allow (get) Any user can read attendance records.
+       * Request: { "auth": { "uid": "user123" } }
+       * @allow (list) Any user can list attendance records.
+       * Request: { "auth": { "uid": "user123" } }
+       * @deny (create) No general create rule.  Writes must be specifically granted based on application logic.
+       *   Request: { "auth": { "uid": "user123" } }
+       * @deny (update) No general update rule.  Writes must be specifically granted based on application logic.
+       *   Request: { "auth": { "uid": "user123" } }
+       * @deny (delete) No general delete rule.  Writes must be specifically granted based on application logic.
+       *   Request: { "auth": { "uid": "user123" } }
+       * @principle Attendance records are publicly readable, but write permissions are restricted.
+       */
+    match /attendance/{attendanceId} {
+        allow get: if true;
+        allow list: if true;
+        allow create: if false; // TODO: Add stricter rules.
+        allow update: if false; // TODO: Add stricter rules.
+        allow delete: if false; // TODO: Add stricter rules.
+    }
+
+      /**
+       * @description Rules for course documents. Course documents are publicly readable.
+       * @path /courses/{courseId}
+       * @allow (get) Any user can read course documents.
+       * Request: { "auth": { "uid": "user123" } }
+       * @allow (list) Any user can list course documents.
+       * Request: { "auth": { "uid": "user123" } }
+       * @deny (create) No general create rule.  Writes must be specifically granted based on application logic.
+       *   Request: { "auth": { "uid": "user123" } }
+       * @deny (update) No general update rule.  Writes must be specifically granted based on application logic.
+       *   Request: { "auth": { "uid": "user123" } }
+       * @deny (delete) No general delete rule.  Writes must be specifically granted based on application logic.
+       *   Request: { "auth": { "uid": "user123" } }
+       * @principle Course documents are publicly readable, but write permissions are restricted.
+       */
     match /courses/{courseId} {
-      allow read:   if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list:   if isSignedIn(); // ستفشل لأي وثيقة لا تخص نفس المستخدم
-      allow create: if isSignedIn() && request.resource.data.userId != null;
-      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow get: if true;
+        allow list: if true;
+        allow create: if false; // TODO: Add stricter rules.
+        allow update: if false; // TODO: Add stricter rules.
+        allow delete: if false; // TODO: Add stricter rules.
+    }
+
+    /**
+     * @description Rules for chat messages. Chat messages are publicly readable.
+     * @path /chat/{messageId}
+     * @allow (get) Any user can read chat messages.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @allow (list) Any user can list chat messages.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @allow (create) Any signed-in user can create a chat message.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @deny (update) No general update rule.  Writes must be specifically granted based on application logic.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @deny (delete) No general delete rule.  Writes must be specifically granted based on application logic.
+     *   Request: { "auth": { "uid": "user123" } }
+     * @principle Chat messages are publicly readable, and any signed-in user can create a message. Update and delete operations are restricted.
+     */
+    match /chat/{messageId} {
+        allow get: if true;
+        allow list: if true;
+        allow create: if isSignedIn();
+        allow update: if false; // TODO: Add stricter rules.
+        allow delete: if false; // TODO: Add stricter rules.
     }
   }
 }

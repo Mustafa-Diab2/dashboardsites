@@ -10,10 +10,12 @@ import { CalendarDays, TrendingUp, TrendingDown, Clock } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, differenceInMinutes, eachDayOfInterval } from 'date-fns';
 import { useUsers } from '@/hooks/use-users';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { useLanguage } from '@/context/language-context';
 
 export function AttendanceSummary({ userRole }: { userRole: string | undefined }) {
   const { firestore, user } = useFirebase();
   const users = useUsers(userRole);
+  const { t } = useLanguage();
   const isAdmin = userRole === 'admin';
 
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
@@ -94,33 +96,35 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
 
       return {
         userId: u.id,
-        userName: (u as any).fullName || 'Unknown',
+        userName: (u as any).fullName || t('unknown_user'),
         totalDays: workingDays.length,
         presentDays,
         absentDays,
         lateDays,
         totalHours: Math.round(totalHours * 10) / 10,
-        attendanceRate: Math.round((presentDays / workingDays.length) * 100),
+        attendanceRate: workingDays.length > 0 ? Math.round((presentDays / workingDays.length) * 100) : 0,
       };
     });
-  }, [users, attendance, isAdmin, user, monthStart, monthEnd, selectedUserId]);
+  }, [users, attendance, isAdmin, user, monthStart, monthEnd, selectedUserId, t]);
 
   const getAttendanceRateBadge = (rate: number) => {
-    if (rate >= 95) return <Badge className="bg-green-500">Excellent</Badge>;
-    if (rate >= 85) return <Badge className="bg-blue-500">Good</Badge>;
-    if (rate >= 75) return <Badge className="bg-yellow-500">Fair</Badge>;
-    return <Badge variant="destructive">Poor</Badge>;
+    if (rate >= 95) return <Badge className="bg-green-500">{t('excellent')}</Badge>;
+    if (rate >= 85) return <Badge className="bg-blue-500">{t('good')}</Badge>;
+    if (rate >= 75) return <Badge className="bg-yellow-500">{t('fair')}</Badge>;
+    return <Badge variant="destructive">{t('poor')}</Badge>;
   };
 
   const totalStats = useMemo(() => {
     if (summary.length === 0) return null;
+
+    const avgAttendance = summary.reduce((sum, s) => sum + s.attendanceRate, 0) / summary.length;
 
     return {
       totalPresent: summary.reduce((sum, s) => sum + s.presentDays, 0),
       totalAbsent: summary.reduce((sum, s) => sum + s.absentDays, 0),
       totalLate: summary.reduce((sum, s) => sum + s.lateDays, 0),
       totalHours: summary.reduce((sum, s) => sum + s.totalHours, 0),
-      avgAttendanceRate: Math.round(summary.reduce((sum, s) => sum + s.attendanceRate, 0) / summary.length),
+      avgAttendanceRate: isNaN(avgAttendance) ? 0 : Math.round(avgAttendance),
     };
   }, [summary]);
 
@@ -130,7 +134,7 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
         <div className="flex items-center justify-between">
           <CardTitle className="font-headline flex items-center gap-2">
             <CalendarDays className="w-5 h-5" />
-            Attendance Summary
+            {t('attendance_summary')}
           </CardTitle>
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-[180px]">
@@ -156,16 +160,16 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
         {/* User Filter (Admin only) */}
         {isAdmin && users && users.length > 0 && (
           <div className="flex items-center gap-3">
-            <label htmlFor="attendance-user-filter" className="text-sm font-medium whitespace-nowrap">Filter by Employee:</label>
+            <label htmlFor="attendance-user-filter" className="text-sm font-medium whitespace-nowrap">{t('filter_by_employee')}:</label>
             <Select value={selectedUserId} onValueChange={setSelectedUserId}>
               <SelectTrigger id="attendance-user-filter" className="w-[250px]">
-                <SelectValue placeholder="All Employees" />
+                <SelectValue placeholder={t('all_employees')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Employees</SelectItem>
+                <SelectItem value="all">{t('all_employees')}</SelectItem>
                 {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
-                    {(u as any).fullName || u.email || 'Unknown'}
+                    {(u as any).fullName || u.email || t('unknown_user')}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -175,42 +179,42 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
                 onClick={() => setSelectedUserId('all')}
                 className="text-sm text-muted-foreground hover:text-foreground"
               >
-                Clear Filter
+                {t('clear_filter')}
               </button>
             )}
           </div>
         )}
 
         {/* Overall Stats */}
-        {totalStats && isAdmin && (
-          <div className="grid grid-cols-5 gap-4">
+        {totalStats && (isAdmin || summary.length === 1) && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="bg-muted p-4 rounded-lg">
-              <p className="text-sm text-muted-foreground">Total Present</p>
+              <p className="text-sm text-muted-foreground">{t('total_present')}</p>
               <p className="text-2xl font-bold flex items-center gap-2">
                 {totalStats.totalPresent}
                 <TrendingUp className="w-4 h-4 text-green-500" />
               </p>
             </div>
             <div className="bg-muted p-4 rounded-lg">
-              <p className="text-sm text-muted-foreground">Total Absent</p>
+              <p className="text-sm text-muted-foreground">{t('total_absent')}</p>
               <p className="text-2xl font-bold flex items-center gap-2">
                 {totalStats.totalAbsent}
                 <TrendingDown className="w-4 h-4 text-red-500" />
               </p>
             </div>
             <div className="bg-muted p-4 rounded-lg">
-              <p className="text-sm text-muted-foreground">Late Days</p>
+              <p className="text-sm text-muted-foreground">{t('late_days')}</p>
               <p className="text-2xl font-bold flex items-center gap-2">
                 {totalStats.totalLate}
                 <Clock className="w-4 h-4 text-yellow-500" />
               </p>
             </div>
             <div className="bg-muted p-4 rounded-lg">
-              <p className="text-sm text-muted-foreground">Total Hours</p>
+              <p className="text-sm text-muted-foreground">{t('total_hours')}</p>
               <p className="text-2xl font-bold">{Math.round(totalStats.totalHours)}h</p>
             </div>
             <div className="bg-muted p-4 rounded-lg">
-              <p className="text-sm text-muted-foreground">Avg Attendance</p>
+              <p className="text-sm text-muted-foreground">{t('avg_attendance')}</p>
               <p className="text-2xl font-bold">{totalStats.avgAttendanceRate}%</p>
             </div>
           </div>
@@ -221,21 +225,21 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
           <Table>
             <TableHeader>
               <TableRow>
-                {isAdmin && <TableHead>Employee</TableHead>}
-                <TableHead>Working Days</TableHead>
-                <TableHead>Present</TableHead>
-                <TableHead>Absent</TableHead>
-                <TableHead>Late Days</TableHead>
-                <TableHead>Total Hours</TableHead>
-                <TableHead>Attendance Rate</TableHead>
-                <TableHead>Rating</TableHead>
+                {isAdmin && <TableHead>{t('employee')}</TableHead>}
+                <TableHead>{t('working_days')}</TableHead>
+                <TableHead>{t('present')}</TableHead>
+                <TableHead>{t('absent')}</TableHead>
+                <TableHead>{t('late_days')}</TableHead>
+                <TableHead>{t('total_hours')}</TableHead>
+                <TableHead>{t('attendance_rate')}</TableHead>
+                <TableHead>{t('rating')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {summary.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={isAdmin ? 8 : 7} className="text-center text-muted-foreground">
-                    No attendance data for the selected month
+                    {t('no_attendance_data')}
                   </TableCell>
                 </TableRow>
               ) : (

@@ -97,18 +97,11 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
 
       const text = msg.text?.toLowerCase() || '';
 
-      // Pattern matching for deductions
-      // Examples: "خصم 100 جنيه من أحمد", "deduct 50 from ahmed", "خصم محمد 200", "خصم 100 من نورا"
       const deductionPatterns = [
-        // Arabic patterns - "خصم 100 من نورا" or "خصم 100 جنيه من أحمد"
         /خصم\s+(\d+)\s+(?:جنيه|ج\.م|ريال)?\s*(?:من|لـ)\s+([^\s،.]+)/gi,
-        // Arabic patterns - "خصم نورا 200" or "خصم محمد 100"
         /خصم\s+([^\s\d،.]+)\s+(\d+)/gi,
-        // English patterns - "deduct 100 from ahmed"
         /deduct\s+(\d+)\s+(?:egp|pounds)?\s*from\s+([^\s,.]+)/gi,
-        // English patterns - "deduct ahmed 200"
         /deduct\s+([^\s\d,.]+)\s+(\d+)/gi,
-        // Penalty patterns - "جزاء 50 على محمد" or "penalty 50 for ahmed"
         /(?:جزاء|penalty)\s+(\d+)\s+(?:على|for|on)\s+([^\s،.]+)/gi,
       ];
 
@@ -118,7 +111,6 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
           let amount: number;
           let targetName: string;
 
-          // Check if first group is number or name
           if (!isNaN(Number(match[1]))) {
             amount = Number(match[1]);
             targetName = match[2];
@@ -127,26 +119,21 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
             amount = Number(match[2]);
           }
 
-          console.log('🔍 Deduction Pattern Match:', { text: msg.text, amount, targetName, allUsers: users.map(u => (u as any).fullName) });
-
           // Find user by name (match partial names)
           const targetUser = users.find(u => {
             const fullName = (u as any).fullName?.toLowerCase() || '';
             const targetNameLower = targetName.toLowerCase().trim();
-            // Check if the full name includes the target name, or if the target name is part of any word
             return fullName.includes(targetNameLower) ||
                    fullName.split(/\s+/).some(part => part.startsWith(targetNameLower));
           });
 
           if (targetUser && amount > 0) {
-            console.log('✅ Creating deduction for:', (targetUser as any).fullName, amount);
-            // Auto-create deduction
             try {
               addDoc('deductions', {
                 userId: targetUser.id,
                 userName: (targetUser as any).fullName,
                 amount,
-                reason: `Auto-extracted from chat: "${msg.text.substring(0, 100)}"`,
+                reason: `${t('auto_extracted_from_chat')}: "${msg.text.substring(0, 100)}"`,
                 type: 'penalty',
                 date: msg.timestamp || serverTimestamp(),
                 extractedFromChatMessageId: msg.id,
@@ -156,17 +143,15 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
             } catch (error) {
               console.error('Error creating auto-deduction:', error);
             }
-          } else {
-            console.log('❌ No user found or invalid amount:', { targetName, amount, targetUser: targetUser ? (targetUser as any).fullName : 'NOT FOUND' });
           }
         });
       });
     });
-  }, [chatMessages, users, isAdmin, deductions, firestore, addDoc]);
+  }, [chatMessages, users, isAdmin, deductions, firestore, addDoc, t]);
 
   const handleSubmit = async () => {
     if (!firestore || !user || !formData.userId || !formData.amount) {
-      toast({ variant: 'destructive', title: t('error_title'), description: 'Please fill all required fields' });
+      toast({ variant: 'destructive', title: t('error_title'), description: t('please_fill_all_fields') });
       return;
     }
 
@@ -188,7 +173,7 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
         createdAt: serverTimestamp(),
       });
 
-      toast({ title: 'Deduction Added', description: 'Deduction has been recorded successfully' });
+      toast({ title: t('deduction_added_title'), description: t('deduction_added_desc') });
       setDialogOpen(false);
       setFormData({ userId: '', amount: '', type: 'penalty', reason: '', date: format(new Date(), 'yyyy-MM-dd') });
     } catch (error) {
@@ -200,13 +185,13 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
   const getTypeBadge = (type: Deduction['type']) => {
     switch (type) {
       case 'absence':
-        return <Badge variant="destructive">Absence</Badge>;
+        return <Badge variant="destructive">{t('absence')}</Badge>;
       case 'late':
-        return <Badge className="bg-yellow-500">Late</Badge>;
+        return <Badge className="bg-yellow-500">{t('late')}</Badge>;
       case 'penalty':
-        return <Badge className="bg-orange-500">Penalty</Badge>;
+        return <Badge className="bg-orange-500">{t('penalty')}</Badge>;
       case 'other':
-        return <Badge variant="secondary">Other</Badge>;
+        return <Badge variant="secondary">{t('other')}</Badge>;
     }
   };
 
@@ -232,18 +217,18 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
         <div className="flex items-center justify-between">
           <CardTitle className="font-headline flex items-center gap-2">
             <DollarSign className="w-5 h-5" />
-            Deductions Management
+            {t('deductions_management')}
             {stats.autoExtracted > 0 && (
               <Badge variant="secondary" className="ml-2">
                 <MessageSquare className="w-3 h-3 mr-1" />
-                {stats.autoExtracted} from chat
+                {stats.autoExtracted} {t('from_chat')}
               </Badge>
             )}
           </CardTitle>
           {isAdmin && (
             <Button onClick={() => setDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
-              Add Deduction
+              {t('add_deduction')}
             </Button>
           )}
         </div>
@@ -252,15 +237,15 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-muted p-4 rounded-lg">
-            <p className="text-sm text-muted-foreground">Total Deductions</p>
+            <p className="text-sm text-muted-foreground">{t('total_deductions')}</p>
             <p className="text-2xl font-bold">{stats.totalCount}</p>
           </div>
           <div className="bg-muted p-4 rounded-lg">
-            <p className="text-sm text-muted-foreground">Total Amount</p>
-            <p className="text-2xl font-bold text-red-600">{stats.totalAmount} EGP</p>
+            <p className="text-sm text-muted-foreground">{t('total_amount')}</p>
+            <p className="text-2xl font-bold text-red-600">{stats.totalAmount} {t('currency')}</p>
           </div>
           <div className="bg-muted p-4 rounded-lg">
-            <p className="text-sm text-muted-foreground">Auto-Extracted</p>
+            <p className="text-sm text-muted-foreground">{t('auto_extracted')}</p>
             <p className="text-2xl font-bold text-blue-600">{stats.autoExtracted}</p>
           </div>
         </div>
@@ -268,23 +253,23 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
         {/* User Filter (Admin only) */}
         {isAdmin && users && users.length > 0 && (
           <div className="flex items-center gap-3">
-            <Label htmlFor="deduction-user-filter" className="whitespace-nowrap">Filter by Employee:</Label>
+            <Label htmlFor="deduction-user-filter" className="whitespace-nowrap">{t('filter_by_employee')}:</Label>
             <Select value={selectedUserId} onValueChange={setSelectedUserId}>
               <SelectTrigger id="deduction-user-filter" className="w-[250px]">
-                <SelectValue placeholder="All Employees" />
+                <SelectValue placeholder={t('all_employees')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Employees</SelectItem>
+                <SelectItem value="all">{t('all_employees')}</SelectItem>
                 {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
-                    {(u as any).fullName || u.email || 'Unknown'}
+                    {(u as any).fullName || u.email || t('unknown_user')}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {selectedUserId !== 'all' && (
               <Button variant="ghost" size="sm" onClick={() => setSelectedUserId('all')}>
-                Clear Filter
+                {t('clear_filter')}
               </Button>
             )}
           </div>
@@ -293,12 +278,12 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
         {/* Deductions by User */}
         {isAdmin && stats.byUser.length > 0 && selectedUserId === 'all' && (
           <div className="bg-muted p-4 rounded-lg">
-            <h4 className="font-semibold mb-2">Deductions by Employee</h4>
+            <h4 className="font-semibold mb-2">{t('deductions_by_employee')}</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {stats.byUser.map(([userId, data]) => (
                 <div key={userId} className="bg-background p-2 rounded text-sm">
-                  <p className="font-medium">{data.userName || 'Unknown'}</p>
-                  <p className="text-red-600 font-bold">{data.total} EGP ({data.count} items)</p>
+                  <p className="font-medium">{data.userName || t('unknown_user')}</p>
+                  <p className="text-red-600 font-bold">{data.total} {t('currency')} ({data.count} {t('items')})</p>
                 </div>
               ))}
             </div>
@@ -310,14 +295,9 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
           <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
             <div className="text-sm">
-              <p className="font-semibold text-blue-900 dark:text-blue-100">Auto-Extraction Enabled</p>
+              <p className="font-semibold text-blue-900 dark:text-blue-100">{t('auto_extraction_enabled')}</p>
               <p className="text-blue-700 dark:text-blue-300">
-                Deductions are automatically extracted from admin chat messages. Supported patterns:
-                <br />
-                • "خصم 100 من أحمد" or "deduct 100 from ahmed"
-                <br />
-                • "خصم محمد 200" or "deduct ahmed 200"
-                <br />• "جزاء 50 على محمد" or "penalty 50 for ahmed"
+                {t('auto_extraction_desc_deductions')}
               </p>
             </div>
           </div>
@@ -328,19 +308,19 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
           <Table>
             <TableHeader>
               <TableRow>
-                {isAdmin && <TableHead>Employee</TableHead>}
-                <TableHead>Amount</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Reason</TableHead>
-                {isAdmin && <TableHead>Source</TableHead>}
+                {isAdmin && <TableHead>{t('employee')}</TableHead>}
+                <TableHead>{t('amount')}</TableHead>
+                <TableHead>{t('type')}</TableHead>
+                <TableHead>{t('date')}</TableHead>
+                <TableHead>{t('reason')}</TableHead>
+                {isAdmin && <TableHead>{t('source')}</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {deductions.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={isAdmin ? 6 : 5} className="text-center text-muted-foreground">
-                    No deductions found
+                    {t('no_deductions_found')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -348,7 +328,7 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
                   <TableRow key={deduction.id}>
                     {isAdmin && <TableCell className="font-medium">{deduction.userName}</TableCell>}
                     <TableCell>
-                      <span className="text-red-600 font-bold">{deduction.amount} EGP</span>
+                      <span className="text-red-600 font-bold">{deduction.amount} {t('currency')}</span>
                     </TableCell>
                     <TableCell>{getTypeBadge(deduction.type)}</TableCell>
                     <TableCell>{format((deduction.date as Timestamp).toDate(), 'MMM dd, yyyy')}</TableCell>
@@ -358,11 +338,11 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
                         {deduction.extractedFromChatMessageId ? (
                           <Badge variant="secondary" className="text-xs">
                             <MessageSquare className="w-3 h-3 mr-1" />
-                            Chat
+                            {t('chat')}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-xs">
-                            Manual
+                            {t('manual')}
                           </Badge>
                         )}
                       </TableCell>
@@ -380,15 +360,15 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
         <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Deduction</DialogTitle>
-              <DialogDescription>Record a deduction for an employee</DialogDescription>
+              <DialogTitle>{t('add_deduction')}</DialogTitle>
+              <DialogDescription>{t('add_deduction_desc')}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid gap-2">
-                <Label htmlFor="userId">Employee</Label>
+                <Label htmlFor="userId">{t('employee')}</Label>
                 <Select value={formData.userId} onValueChange={(value) => setFormData({ ...formData, userId: value })}>
                   <SelectTrigger id="userId">
-                    <SelectValue placeholder="Select employee" />
+                    <SelectValue placeholder={t('select_employee')} />
                   </SelectTrigger>
                   <SelectContent>
                     {users?.map((u) => (
@@ -402,7 +382,7 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="amount">Amount (EGP)</Label>
+                  <Label htmlFor="amount">{t('amount')} ({t('currency')})</Label>
                   <Input
                     id="amount"
                     type="number"
@@ -412,41 +392,41 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="date">Date</Label>
+                  <Label htmlFor="date">{t('date')}</Label>
                   <Input id="date" type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
                 </div>
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="type">Type</Label>
+                <Label htmlFor="type">{t('type')}</Label>
                 <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value as Deduction['type'] })}>
                   <SelectTrigger id="type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="absence">Absence</SelectItem>
-                    <SelectItem value="late">Late</SelectItem>
-                    <SelectItem value="penalty">Penalty</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                    <SelectItem value="absence">{t('absence')}</SelectItem>
+                    <SelectItem value="late">{t('late')}</SelectItem>
+                    <SelectItem value="penalty">{t('penalty')}</SelectItem>
+                    <SelectItem value="other">{t('other')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="reason">Reason</Label>
+                <Label htmlFor="reason">{t('reason')}</Label>
                 <Textarea
                   id="reason"
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                  placeholder="Provide a reason for this deduction"
+                  placeholder={t('deduction_reason_placeholder')}
                 />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
+                {t('cancel')}
               </Button>
-              <Button onClick={handleSubmit}>Add Deduction</Button>
+              <Button onClick={handleSubmit}>{t('add_deduction')}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

@@ -16,7 +16,7 @@ import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { Calendar, Plus, Check, X, Clock, MessageSquare, AlertCircle } from 'lucide-react';
-import { format, differenceInDays, addDays, parse } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { useUsers } from '@/hooks/use-users';
 import type { Leave } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
@@ -96,12 +96,8 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
 
       const text = msg.text?.toLowerCase() || '';
 
-      // Pattern: [name] [wants] [leave] from [date] to [date]
-      // Examples: "نورا خالد عايزة بكرة اجازة", "أحمد عايز أجازة من بكرة", "leave for mohamed tomorrow", "mohamed requested leave"
       const leavePatterns = [
-        // "نورا خالد عايزة بكرة اجازة" or "أحمد عايز أجازة"
         /([^\s]+(?:\s+[^\s]+)?)\s+(?:عايز|عايزة|طلب|طلبت|wants?|needs?|requested?)\s+(?:.*?)(?:إجازة|اجازة|أجازة|leave)/gi,
-        // "اجازة لـ نورا" or "leave for ahmed"
         /(?:إجازة|اجازة|أجازة|leave)\s+(?:لـ|ل|for)\s+([^\s]+(?:\s+[^\s]+)?)/gi,
       ];
       
@@ -111,26 +107,20 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
             const targetName = match[1]?.trim();
             if (!targetName) continue;
 
-            console.log('🔍 Leave Pattern Match:', { text: msg.text, targetName, allUsers: users.map(u => (u as any).fullName) });
-
-            // Find user by name (match partial names - first name or full name)
             const targetUser = users.find(u => {
               const fullName = (u as any).fullName?.toLowerCase() || '';
               const targetNameLower = targetName.toLowerCase();
-              // Check if the full name includes the target name, or if any word matches
               return fullName.includes(targetNameLower) ||
                      fullName.split(/\s+/).some(part => part.startsWith(targetNameLower)) ||
                      targetNameLower.split(/\s+/).some(part => fullName.includes(part) && part.length > 2);
             });
 
             if (targetUser) {
-              console.log('✅ Creating leave request for:', (targetUser as any).fullName);
 
               const startDate = new Date();
               const endDate = new Date();
-              let reason = `Auto-extracted from chat: "${msg.text.substring(0, 100)}"`;
+              let reason = `${t('auto_extracted_from_chat')}: "${msg.text.substring(0, 100)}"`;
 
-              // Basic date detection (e.g., "tomorrow", "next week")
               if (text.includes('بكرة') || text.includes('tomorrow')) {
                 startDate.setDate(startDate.getDate() + 1);
                 endDate.setDate(endDate.getDate() + 1);
@@ -159,15 +149,12 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
               }
 
               processedMessageIds.add(msg.id);
-              // Break after first match to avoid multiple leaves from one message
               return;
-            } else {
-              console.log('❌ No user found for:', targetName);
             }
         }
       }
     });
-  }, [chatMessages, users, isAdmin, allLeaves, firestore, addDoc]);
+  }, [chatMessages, users, isAdmin, allLeaves, firestore, addDoc, t]);
 
 
   const handleSubmit = async () => {
@@ -200,7 +187,7 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
         createdAt: serverTimestamp(),
       });
 
-      toast({ title: 'Leave Request Submitted', description: 'Your leave request has been submitted for approval' });
+      toast({ title: t('leave_request_submitted_title'), description: t('leave_request_submitted_desc') });
       setDialogOpen(false);
       setFormData({ type: 'annual', startDate: '', endDate: '', reason: '' });
     } catch (error) {
@@ -219,14 +206,14 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
         approvedBy: user?.uid,
         approvedAt: serverTimestamp(),
       });
-      toast({ title: 'Leave Approved', description: 'Leave request has been approved' });
+      toast({ title: t('leave_approved_title'), description: t('leave_approved_desc') });
     } else if (action === 'reject') {
       updateDoc('leaves', leaveId, {
         status: 'rejected',
         approvedBy: user?.uid,
         approvedAt: serverTimestamp(),
       });
-      toast({ title: 'Leave Rejected', description: 'Leave request has been rejected' });
+      toast({ title: t('leave_rejected_title'), description: t('leave_rejected_desc') });
     }
     setConfirmAction({ action: null, leaveId: null });
   };
@@ -235,21 +222,21 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
   const getStatusBadge = (status: Leave['status']) => {
     switch (status) {
       case 'approved':
-        return <Badge className="bg-green-500"><Check className="w-3 h-3 mr-1" /> Approved</Badge>;
+        return <Badge className="bg-green-500"><Check className="w-3 h-3 mr-1" /> {t('approved')}</Badge>;
       case 'rejected':
-        return <Badge variant="destructive"><X className="w-3 h-3 mr-1" /> Rejected</Badge>;
+        return <Badge variant="destructive"><X className="w-3 h-3 mr-1" /> {t('rejected')}</Badge>;
       case 'pending':
-        return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1" /> Pending</Badge>;
+        return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1" /> {t('pending')}</Badge>;
     }
   };
 
   const getLeaveTypeLabel = (type: Leave['type']) => {
-    const types = {
-      sick: 'Sick Leave',
-      annual: 'Annual Leave',
-      unpaid: 'Unpaid Leave',
-      emergency: 'Emergency Leave',
-      other: 'Other',
+    const types: Record<Leave['type'], string> = {
+      sick: t('sick_leave'),
+      annual: t('annual_leave'),
+      unpaid: t('unpaid_leave'),
+      emergency: t('emergency_leave'),
+      other: t('other'),
     };
     return types[type] || type;
   };
@@ -271,17 +258,17 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
         <div className="flex items-center justify-between">
           <CardTitle className="font-headline flex items-center gap-2">
             <Calendar className="w-5 h-5" />
-            Leave Management
+            {t('leave_management')}
              {isAdmin && autoExtractedCount > 0 && (
               <Badge variant="secondary" className="ml-2">
                 <MessageSquare className="w-3 h-3 mr-1" />
-                {autoExtractedCount} from chat
+                {autoExtractedCount} {t('from_chat')}
               </Badge>
             )}
           </CardTitle>
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Request Leave
+            {t('request_leave')}
           </Button>
         </div>
       </CardHeader>
@@ -289,15 +276,15 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-muted p-4 rounded-lg">
-            <p className="text-sm text-muted-foreground">Approved</p>
+            <p className="text-sm text-muted-foreground">{t('approved_leaves')}</p>
             <p className="text-2xl font-bold">{stats.approved}</p>
           </div>
           <div className="bg-muted p-4 rounded-lg">
-            <p className="text-sm text-muted-foreground">Pending</p>
+            <p className="text-sm text-muted-foreground">{t('pending_requests')}</p>
             <p className="text-2xl font-bold">{stats.pending}</p>
           </div>
           <div className="bg-muted p-4 rounded-lg">
-            <p className="text-sm text-muted-foreground">Total Days</p>
+            <p className="text-sm text-muted-foreground">{t('total_leave_days')}</p>
             <p className="text-2xl font-bold">{stats.totalDays}</p>
           </div>
         </div>
@@ -305,23 +292,23 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
         {/* User Filter (Admin only) */}
         {isAdmin && users && users.length > 0 && (
           <div className="flex items-center gap-3">
-            <Label htmlFor="user-filter" className="whitespace-nowrap">Filter by Employee:</Label>
+            <Label htmlFor="user-filter" className="whitespace-nowrap">{t('filter_by_employee')}:</Label>
             <Select value={selectedUserId} onValueChange={setSelectedUserId}>
               <SelectTrigger id="user-filter" className="w-[250px]">
-                <SelectValue placeholder="All Employees" />
+                <SelectValue placeholder={t('all_employees')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Employees</SelectItem>
+                <SelectItem value="all">{t('all_employees')}</SelectItem>
                 {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
-                    {(u as any).fullName || u.email || 'Unknown'}
+                    {(u as any).fullName || u.email || t('unknown_user')}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {selectedUserId !== 'all' && (
               <Button variant="ghost" size="sm" onClick={() => setSelectedUserId('all')}>
-                Clear Filter
+                {t('clear_filter')}
               </Button>
             )}
           </div>
@@ -331,9 +318,9 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
              <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
                 <div className="text-sm">
-                <p className="font-semibold text-blue-900 dark:text-blue-100">Auto-Extraction Enabled</p>
+                <p className="font-semibold text-blue-900 dark:text-blue-100">{t('auto_extraction_enabled')}</p>
                 <p className="text-blue-700 dark:text-blue-300">
-                    Leave requests are automatically detected from admin chat messages. e.g., "أحمد عايز أجازة من بكرة".
+                    {t('auto_extraction_desc_leaves')}
                 </p>
                 </div>
             </div>
@@ -344,22 +331,22 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
           <Table>
             <TableHeader>
               <TableRow>
-                {isAdmin && <TableHead>Employee</TableHead>}
-                <TableHead>Type</TableHead>
-                <TableHead>Start Date</TableHead>
-                <TableHead>End Date</TableHead>
-                <TableHead>Days</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Status</TableHead>
-                 {isAdmin && <TableHead>Source</TableHead>}
-                {isAdmin && <TableHead>Actions</TableHead>}
+                {isAdmin && <TableHead>{t('employee')}</TableHead>}
+                <TableHead>{t('leave_type')}</TableHead>
+                <TableHead>{t('start_date')}</TableHead>
+                <TableHead>{t('end_date')}</TableHead>
+                <TableHead>{t('days')}</TableHead>
+                <TableHead>{t('reason')}</TableHead>
+                <TableHead>{t('status')}</TableHead>
+                 {isAdmin && <TableHead>{t('source')}</TableHead>}
+                {isAdmin && <TableHead>{t('actions')}</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {leaves.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={isAdmin ? 9 : 7} className="text-center text-muted-foreground">
-                    No leave requests found
+                    {t('no_leave_requests')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -377,11 +364,11 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
                             {leave.extractedFromChatMessageId ? (
                             <Badge variant="secondary" className="text-xs">
                                 <MessageSquare className="w-3 h-3 mr-1" />
-                                Chat
+                                {t('chat')}
                             </Badge>
                             ) : (
                             <Badge variant="outline" className="text-xs">
-                                Manual
+                                {t('manual')}
                             </Badge>
                             )}
                         </TableCell>
@@ -396,7 +383,7 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
                                 </Button>
                             </AlertDialogTrigger>
                              <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="destructiveOutline" onClick={() => setConfirmAction({ action: 'reject', leaveId: leave.id })}>
+                                <Button size="sm" variant="destructive" onClick={() => setConfirmAction({ action: 'reject', leaveId: leave.id })}>
                                   <X className="w-4 h-4" />
                                 </Button>
                              </AlertDialogTrigger>
@@ -417,14 +404,14 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
       {/* Action Confirmation Dialog */}
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogTitle>{t('are_you_sure')}</AlertDialogTitle>
           <AlertDialogDescription>
-            You are about to {confirmAction.action} this leave request. This action cannot be undone.
+            {t('leave_action_confirm_desc', { action: t(confirmAction.action || '') })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setConfirmAction({ action: null, leaveId: null })}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleConfirmAction}>Confirm</AlertDialogAction>
+          <AlertDialogCancel onClick={() => setConfirmAction({ action: null, leaveId: null })}>{t('cancel')}</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmAction}>{t('confirm')}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
 
@@ -432,29 +419,29 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
       <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Request Leave</DialogTitle>
-            <DialogDescription>Submit a leave request for approval</DialogDescription>
+            <DialogTitle>{t('request_leave')}</DialogTitle>
+            <DialogDescription>{t('submit_leave_request_desc')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="type">Leave Type</Label>
+              <Label htmlFor="type">{t('leave_type')}</Label>
               <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value as Leave['type'] })}>
                 <SelectTrigger id="type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="annual">Annual Leave</SelectItem>
-                  <SelectItem value="sick">Sick Leave</SelectItem>
-                  <SelectItem value="emergency">Emergency Leave</SelectItem>
-                  <SelectItem value="unpaid">Unpaid Leave</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="annual">{t('annual_leave')}</SelectItem>
+                  <SelectItem value="sick">{t('sick_leave')}</SelectItem>
+                  <SelectItem value="emergency">{t('emergency_leave')}</SelectItem>
+                  <SelectItem value="unpaid">{t('unpaid_leave')}</SelectItem>
+                  <SelectItem value="other">{t('other')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="startDate">Start Date</Label>
+                <Label htmlFor="startDate">{t('start_date')}</Label>
                 <Input
                   id="startDate"
                   type="date"
@@ -463,7 +450,7 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="endDate">End Date</Label>
+                <Label htmlFor="endDate">{t('end_date')}</Label>
                 <Input
                   id="endDate"
                   type="date"
@@ -474,28 +461,28 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="reason">Reason</Label>
+              <Label htmlFor="reason">{t('reason')}</Label>
               <Textarea
                 id="reason"
                 value={formData.reason}
                 onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                placeholder="Please provide a reason for your leave request"
+                placeholder={t('leave_reason_placeholder')}
               />
             </div>
 
-            {formData.startDate && formData.endDate && (
+            {formData.startDate && formData.endDate && (differenceInDays(new Date(formData.endDate), new Date(formData.startDate)) + 1) > 0 && (
               <div className="bg-muted p-3 rounded-lg">
                 <p className="text-sm">
-                  Total days: <span className="font-bold">{differenceInDays(new Date(formData.endDate), new Date(formData.startDate)) + 1}</span>
+                  {t('total_days')}: <span className="font-bold">{differenceInDays(new Date(formData.endDate), new Date(formData.startDate)) + 1}</span>
                 </p>
               </div>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
+              {t('cancel')}
             </Button>
-            <Button onClick={handleSubmit}>Submit Request</Button>
+            <Button onClick={handleSubmit}>{t('submit_request')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

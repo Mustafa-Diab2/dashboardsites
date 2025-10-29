@@ -6,10 +6,12 @@ import { DeductionsManagement } from './deductions-management';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Calendar, CalendarDays, DollarSign, Users } from 'lucide-react';
 import { AlertDialog } from './ui/alert-dialog';
+import { useLanguage } from '@/context/language-context';
 
 
 export function HRManagementPage({ userRole }: { userRole: string | undefined }) {
   const isAdmin = userRole === 'admin';
+  const { t } = useLanguage();
 
   return (
     <AlertDialog>
@@ -19,11 +21,11 @@ export function HRManagementPage({ userRole }: { userRole: string | undefined })
           <Users className="w-6 h-6 text-primary" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold font-headline">HR Management</h2>
+          <h2 className="text-2xl font-bold font-headline">{t('hr_management')}</h2>
           <p className="text-muted-foreground">
             {isAdmin
-              ? 'Manage leaves, attendance, and deductions for all team members'
-              : 'View your attendance, leaves, and deductions'
+              ? t('hr_management_desc_admin')
+              : t('hr_management_desc_user')
             }
           </p>
         </div>
@@ -33,15 +35,15 @@ export function HRManagementPage({ userRole }: { userRole: string | undefined })
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="attendance" className="flex items-center gap-2">
             <CalendarDays className="w-4 h-4" />
-            Attendance
+            {t('attendance_summary')}
           </TabsTrigger>
           <TabsTrigger value="leaves" className="flex items-center gap-2">
             <Calendar className="w-4 h-4" />
-            Leaves
+            {t('leaves')}
           </TabsTrigger>
           <TabsTrigger value="deductions" className="flex items-center gap-2">
             <DollarSign className="w-4 h-4" />
-            Deductions
+            {t('deductions')}
           </TabsTrigger>
         </TabsList>
 
@@ -64,30 +66,30 @@ export function HRManagementPage({ userRole }: { userRole: string | undefined })
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 p-6 rounded-lg">
             <div className="flex items-center gap-3 mb-2">
               <CalendarDays className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              <h3 className="font-semibold text-blue-900 dark:text-blue-100">Attendance</h3>
+              <h3 className="font-semibold text-blue-900 dark:text-blue-100">{t('attendance_summary')}</h3>
             </div>
             <p className="text-sm text-blue-700 dark:text-blue-300">
-              Track team attendance, absences, and late arrivals with detailed monthly reports
+              {t('attendance_summary_desc')}
             </p>
           </div>
 
           <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 p-6 rounded-lg">
             <div className="flex items-center gap-3 mb-2">
               <Calendar className="w-5 h-5 text-green-600 dark:text-green-400" />
-              <h3 className="font-semibold text-green-900 dark:text-green-100">Leave Management</h3>
+              <h3 className="font-semibold text-green-900 dark:text-green-100">{t('leave_management')}</h3>
             </div>
             <p className="text-sm text-green-700 dark:text-green-300">
-              Approve or reject leave requests and monitor team availability
+              {t('leave_management_desc')}
             </p>
           </div>
 
           <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 p-6 rounded-lg">
             <div className="flex items-center gap-3 mb-2">
               <DollarSign className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-              <h3 className="font-semibold text-orange-900 dark:text-orange-100">Deductions</h3>
+              <h3 className="font-semibold text-orange-900 dark:text-orange-100">{t('deductions')}</h3>
             </div>
             <p className="text-sm text-orange-700 dark:text-orange-300">
-              Auto-extracted from chat messages or added manually for accurate payroll
+              {t('deductions_desc')}
             </p>
           </div>
         </div>

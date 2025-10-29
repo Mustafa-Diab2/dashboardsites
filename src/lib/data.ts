@@ -154,6 +154,7 @@ export type Leave = {
   notes?: string;
   createdAt: any;
   updatedAt?: any;
+  extractedFromChatMessageId?: string;
 };
 
 export type Deduction = {

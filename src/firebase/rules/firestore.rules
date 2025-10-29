@@ -166,7 +166,10 @@ service cloud.firestore {
      */
     match /leaves/{leaveId} {
       allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && (
+        request.resource.data.userId == request.auth.uid ||
+        isAdminViaDoc()
+      );
       allow update: if isSignedIn() && (
         (get(/databases/$(database)/documents/leaves/$(leaveId)).data.userId == request.auth.uid &&
          get(/databases/$(database)/documents/leaves/$(leaveId)).data.status == 'pending') ||

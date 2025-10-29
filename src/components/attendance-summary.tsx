@@ -17,6 +17,7 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
   const isAdmin = userRole === 'admin';
 
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [selectedUserId, setSelectedUserId] = useState<string>('all');
 
   const monthStart = useMemo(() => startOfMonth(new Date(selectedMonth)), [selectedMonth]);
   const monthEnd = useMemo(() => endOfMonth(new Date(selectedMonth)), [selectedMonth]);
@@ -59,7 +60,13 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
       return dayOfWeek !== 5 && dayOfWeek !== 6; // Exclude Friday (5) and Saturday (6)
     });
 
-    return usersList.map(u => {
+    return usersList
+      .filter(u => {
+        // Filter by selected user if not 'all'
+        if (!isAdmin || selectedUserId === 'all') return true;
+        return u.id === selectedUserId;
+      })
+      .map(u => {
       const userAttendance = attendance.filter(a => a.userId === u.id);
 
       const presentDays = new Set(
@@ -96,7 +103,7 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
         attendanceRate: Math.round((presentDays / workingDays.length) * 100),
       };
     });
-  }, [users, attendance, isAdmin, user, monthStart, monthEnd]);
+  }, [users, attendance, isAdmin, user, monthStart, monthEnd, selectedUserId]);
 
   const getAttendanceRateBadge = (rate: number) => {
     if (rate >= 95) return <Badge className="bg-green-500">Excellent</Badge>;
@@ -146,6 +153,34 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* User Filter (Admin only) */}
+        {isAdmin && users && users.length > 0 && (
+          <div className="flex items-center gap-3">
+            <label htmlFor="attendance-user-filter" className="text-sm font-medium whitespace-nowrap">Filter by Employee:</label>
+            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <SelectTrigger id="attendance-user-filter" className="w-[250px]">
+                <SelectValue placeholder="All Employees" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Employees</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {(u as any).fullName || u.email || 'Unknown'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedUserId !== 'all' && (
+              <button
+                onClick={() => setSelectedUserId('all')}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                Clear Filter
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Overall Stats */}
         {totalStats && isAdmin && (
           <div className="grid grid-cols-5 gap-4">

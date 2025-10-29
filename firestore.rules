@@ -191,7 +191,7 @@ service cloud.firestore {
      * @path /leaves/{leaveId}
      * @allow (get) Authenticated users can read leaves.
      * @allow (list) Users can list their own leaves, admins can list all leaves.
-     * @allow (create) Any authenticated user can create their own leave request.
+     * @allow (create) Any authenticated user can create their own leave request, admins can create for anyone.
      * @allow (update) User can update their own pending leave, admin can approve/reject any leave.
      * @allow (delete) User can delete their own pending leave, admin can delete any leave.
      * @principle Users can request leaves, admins can approve/reject and manage all leaves.
@@ -199,7 +199,10 @@ service cloud.firestore {
     match /leaves/{leaveId} {
         allow get: if isSignedIn();
         allow list: if isSignedIn();
-        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        allow create: if isSignedIn() && (
+          request.resource.data.userId == request.auth.uid ||
+          isAdminViaDoc()
+        );
         allow update: if isSignedIn() && (
           (resource.data.userId == request.auth.uid && resource.data.status == 'pending') ||
           isAdminViaDoc()

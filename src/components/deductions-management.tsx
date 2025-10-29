@@ -28,6 +28,7 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
   const users = useUsers(userRole);
 
   const [isDialogOpen, setDialogOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [formData, setFormData] = useState({
     userId: '',
     amount: '',
@@ -59,7 +60,15 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
   }, [firestore, user, isAdmin]);
 
   const { data: deductionsData } = useCollection(deductionsQuery);
-  const deductions = (deductionsData as Deduction[]) || [];
+  const allDeductions = (deductionsData as Deduction[]) || [];
+
+  // Filter deductions by selected user
+  const deductions = useMemo(() => {
+    if (!isAdmin || selectedUserId === 'all') {
+      return allDeductions;
+    }
+    return allDeductions.filter(d => d.userId === selectedUserId);
+  }, [allDeductions, isAdmin, selectedUserId]);
 
   // Query chat messages for auto-extraction (admin only)
   const chatQuery = useMemoFirebase(() => {
@@ -72,11 +81,13 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
 
   // Extract deductions from chat messages
   useEffect(() => {
-    if (!isAdmin || !chatMessages || !users || !firestore) return;
+    if (!isAdmin || !chatMessages || chatMessages.length === 0 || !users || users.length === 0 || !firestore) return;
 
     const processedMessageIds = new Set(deductions.filter(d => d.extractedFromChatMessageId).map(d => d.extractedFromChatMessageId));
 
     chatMessages.forEach((msg) => {
+      // Skip if message doesn't have required fields
+      if (!msg.id || !msg.text || !msg.userId) return;
       // Only process messages from admin users
       const messageUser = users.find(u => u.id === msg.userId);
       if (!messageUser || (messageUser as any).role !== 'admin') return;
@@ -87,16 +98,18 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
       const text = msg.text?.toLowerCase() || '';
 
       // Pattern matching for deductions
-      // Examples: "خصم 100 جنيه من أحمد", "deduct 50 from ahmed", "خصم محمد 200"
+      // Examples: "خصم 100 جنيه من أحمد", "deduct 50 from ahmed", "خصم محمد 200", "خصم 100 من نورا"
       const deductionPatterns = [
-        // Arabic patterns
-        /خصم\s+(\d+)\s+(?:جنيه|ج\.م|ريال)?\s*(?:من|لـ)?\s*([^\s]+)/gi,
-        /خصم\s+([^\s]+)\s+(\d+)/gi,
-        // English patterns
-        /deduct\s+(\d+)\s+(?:egp|pounds|from)?\s*([^\s]+)/gi,
-        /deduct\s+([^\s]+)\s+(\d+)/gi,
-        // Penalty patterns
-        /(?:جزاء|penalty)\s+(\d+)\s+(?:على|for|on)?\s*([^\s]+)/gi,
+        // Arabic patterns - "خصم 100 من نورا" or "خصم 100 جنيه من أحمد"
+        /خصم\s+(\d+)\s+(?:جنيه|ج\.م|ريال)?\s*(?:من|لـ)\s+([^\s،.]+)/gi,
+        // Arabic patterns - "خصم نورا 200" or "خصم محمد 100"
+        /خصم\s+([^\s\d،.]+)\s+(\d+)/gi,
+        // English patterns - "deduct 100 from ahmed"
+        /deduct\s+(\d+)\s+(?:egp|pounds)?\s*from\s+([^\s,.]+)/gi,
+        // English patterns - "deduct ahmed 200"
+        /deduct\s+([^\s\d,.]+)\s+(\d+)/gi,
+        // Penalty patterns - "جزاء 50 على محمد" or "penalty 50 for ahmed"
+        /(?:جزاء|penalty)\s+(\d+)\s+(?:على|for|on)\s+([^\s،.]+)/gi,
       ];
 
       deductionPatterns.forEach((pattern) => {
@@ -114,13 +127,19 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
             amount = Number(match[2]);
           }
 
-          // Find user by name
+          console.log('🔍 Deduction Pattern Match:', { text: msg.text, amount, targetName, allUsers: users.map(u => (u as any).fullName) });
+
+          // Find user by name (match partial names)
           const targetUser = users.find(u => {
             const fullName = (u as any).fullName?.toLowerCase() || '';
-            return fullName.includes(targetName.toLowerCase());
+            const targetNameLower = targetName.toLowerCase().trim();
+            // Check if the full name includes the target name, or if the target name is part of any word
+            return fullName.includes(targetNameLower) ||
+                   fullName.split(/\s+/).some(part => part.startsWith(targetNameLower));
           });
 
           if (targetUser && amount > 0) {
+            console.log('✅ Creating deduction for:', (targetUser as any).fullName, amount);
             // Auto-create deduction
             try {
               addDoc('deductions', {
@@ -137,6 +156,8 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
             } catch (error) {
               console.error('Error creating auto-deduction:', error);
             }
+          } else {
+            console.log('❌ No user found or invalid amount:', { targetName, amount, targetUser: targetUser ? (targetUser as any).fullName : 'NOT FOUND' });
           }
         });
       });
@@ -244,8 +265,33 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
           </div>
         </div>
 
+        {/* User Filter (Admin only) */}
+        {isAdmin && users && users.length > 0 && (
+          <div className="flex items-center gap-3">
+            <Label htmlFor="deduction-user-filter" className="whitespace-nowrap">Filter by Employee:</Label>
+            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <SelectTrigger id="deduction-user-filter" className="w-[250px]">
+                <SelectValue placeholder="All Employees" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Employees</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {(u as any).fullName || u.email || 'Unknown'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedUserId !== 'all' && (
+              <Button variant="ghost" size="sm" onClick={() => setSelectedUserId('all')}>
+                Clear Filter
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Deductions by User */}
-        {isAdmin && stats.byUser.length > 0 && (
+        {isAdmin && stats.byUser.length > 0 && selectedUserId === 'all' && (
           <div className="bg-muted p-4 rounded-lg">
             <h4 className="font-semibold mb-2">Deductions by Employee</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">

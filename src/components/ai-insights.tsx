@@ -13,8 +13,8 @@ import { useLanguage } from '@/context/language-context';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
+import { amiriFont } from '@/lib/fonts/amiri-font-proper';
 
 export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
   const [insights, setInsights] = useState<string | null>(null);
@@ -59,58 +59,52 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
 
   const handleDownloadPdf = async () => {
     if (!insights) return;
-
-    // 1) نتأكد أننا على المتصفح
     if (typeof window === 'undefined') return;
 
     try {
-      // 2) أنشئ عنصر HTML مؤقت للمحتوى
       const reportTarget = targetUser === 'all' ? t('all') : targetUser;
       const reportTypeText = reportType === 'summary' ? t('summary') : t('detailed');
       const title = `${t('ai_powered_insights')} - ${reportTypeText} (${reportTarget})`;
 
-      // إنشاء عنصر div مؤقت
       const element = document.createElement('div');
       element.style.cssText = `
         position: absolute;
         left: -9999px;
         top: -9999px;
-        width: 794px;
+        width: 794px; /* A4 width in pixels */
         padding: 40px;
         background: white;
-        font-family: 'Cairo', 'Amiri', 'Noto Sans Arabic', Arial, sans-serif;
+        font-family: 'Amiri', 'Noto Sans Arabic', Arial, sans-serif;
         direction: rtl;
         color: #000;
       `;
-
       element.innerHTML = `
-        <h1 style="font-size: 24px; margin-bottom: 20px; text-align: right; color: #1a1a1a;">
+        <h1 style="font-size: 24px; margin-bottom: 20px; text-align: right; color: #1a1a1a; font-family: 'Amiri', sans-serif;">
           ${title}
         </h1>
         <div style="font-size: 14px; line-height: 1.8; text-align: right; white-space: pre-wrap;">
           ${insights}
         </div>
       `;
-
       document.body.appendChild(element);
 
-      // 3) تحويل HTML إلى صورة
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         logging: false,
       });
 
-      // 4) إزالة العنصر المؤقت
       document.body.removeChild(element);
 
-      // 5) إنشاء PDF
-      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'px',
         format: 'a4',
       });
+      
+      pdf.addFileToVFS("Amiri-Regular.ttf", amiriFont);
+      pdf.addFont("Amiri-Regular.ttf", "Amiri", "normal");
+      pdf.setFont("Amiri");
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -118,11 +112,9 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
       const imgHeight = canvas.height;
       const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
       const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      const imgY = 0;
+      const imgY = 10;
 
-      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-
-      // 6) حفظ
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
       pdf.save('ai-insights-report.pdf');
     } catch (error) {
       console.error('Error generating PDF:', error);

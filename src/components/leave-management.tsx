@@ -31,6 +31,7 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
   const users = useUsers(userRole);
 
   const [isDialogOpen, setDialogOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [formData, setFormData] = useState({
     type: 'annual' as Leave['type'],
     startDate: '',
@@ -57,9 +58,20 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
   const allLeaves = (leavesData as Leave[]) || [];
   
   const leaves = useMemo(() => {
-    if(isAdmin) return allLeaves;
-    return allLeaves.filter(l => l.userId === user?.uid);
-  }, [allLeaves, isAdmin, user]);
+    let filtered = allLeaves;
+
+    // Filter by user role
+    if (!isAdmin) {
+      filtered = filtered.filter(l => l.userId === user?.uid);
+    }
+
+    // Filter by selected user (admin only)
+    if (isAdmin && selectedUserId !== 'all') {
+      filtered = filtered.filter(l => l.userId === selectedUserId);
+    }
+
+    return filtered;
+  }, [allLeaves, isAdmin, user, selectedUserId]);
 
   // Query chat messages for auto-extraction (admin only)
   const chatQuery = useMemoFirebase(() => {
@@ -83,25 +95,40 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
       if (!messageUser || (messageUser as any).role !== 'admin') return;
 
       const text = msg.text?.toLowerCase() || '';
-      
+
       // Pattern: [name] [wants] [leave] from [date] to [date]
-      // Examples: "أحمد عايز أجازة من بكرة", "leave for mohamed tomorrow", "mohamed requested leave"
+      // Examples: "نورا خالد عايزة بكرة اجازة", "أحمد عايز أجازة من بكرة", "leave for mohamed tomorrow", "mohamed requested leave"
       const leavePatterns = [
-        /(?:إجازة|اجازة|leave for)\s+([^\s]+)/gi,
-        /([^\s]+)\s+(?:طلب|عايز|wants|requested)\s+(?:إجازة|اجaze|leave)/gi,
+        // "نورا خالد عايزة بكرة اجازة" or "أحمد عايز أجازة"
+        /([^\s]+(?:\s+[^\s]+)?)\s+(?:عايز|عايزة|طلب|طلبت|wants?|needs?|requested?)\s+(?:.*?)(?:إجازة|اجازة|أجازة|leave)/gi,
+        // "اجازة لـ نورا" or "leave for ahmed"
+        /(?:إجازة|اجازة|أجازة|leave)\s+(?:لـ|ل|for)\s+([^\s]+(?:\s+[^\s]+)?)/gi,
       ];
       
       for(const pattern of leavePatterns) {
           const matches = [...text.matchAll(pattern)];
           for(const match of matches) {
-            const targetName = match[1];
-            
-            const targetUser = users.find(u => ((u as any).fullName?.toLowerCase() || '').includes(targetName.toLowerCase()));
+            const targetName = match[1]?.trim();
+            if (!targetName) continue;
+
+            console.log('🔍 Leave Pattern Match:', { text: msg.text, targetName, allUsers: users.map(u => (u as any).fullName) });
+
+            // Find user by name (match partial names - first name or full name)
+            const targetUser = users.find(u => {
+              const fullName = (u as any).fullName?.toLowerCase() || '';
+              const targetNameLower = targetName.toLowerCase();
+              // Check if the full name includes the target name, or if any word matches
+              return fullName.includes(targetNameLower) ||
+                     fullName.split(/\s+/).some(part => part.startsWith(targetNameLower)) ||
+                     targetNameLower.split(/\s+/).some(part => fullName.includes(part) && part.length > 2);
+            });
 
             if (targetUser) {
+              console.log('✅ Creating leave request for:', (targetUser as any).fullName);
+
               const startDate = new Date();
               const endDate = new Date();
-              let reason = `Auto-extracted from chat: "${msg.text}"`;
+              let reason = `Auto-extracted from chat: "${msg.text.substring(0, 100)}"`;
 
               // Basic date detection (e.g., "tomorrow", "next week")
               if (text.includes('بكرة') || text.includes('tomorrow')) {
@@ -113,23 +140,29 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
               }
 
               const days = differenceInDays(endDate, startDate) + 1;
-              
-              addDoc('leaves', {
-                userId: targetUser.id,
-                userName: (targetUser as any).fullName,
-                type: 'annual',
-                startDate: Timestamp.fromDate(startDate),
-                endDate: Timestamp.fromDate(endDate),
-                days,
-                reason,
-                status: 'pending',
-                createdAt: serverTimestamp(),
-                extractedFromChatMessageId: msg.id,
-              });
-              
+
+              try {
+                addDoc('leaves', {
+                  userId: targetUser.id,
+                  userName: (targetUser as any).fullName,
+                  type: 'annual',
+                  startDate: Timestamp.fromDate(startDate),
+                  endDate: Timestamp.fromDate(endDate),
+                  days,
+                  reason,
+                  status: 'pending',
+                  createdAt: serverTimestamp(),
+                  extractedFromChatMessageId: msg.id,
+                });
+              } catch (error) {
+                console.error('Error creating auto-leave:', error);
+              }
+
               processedMessageIds.add(msg.id);
-              // Break after first match to avoid multiple deductions from one message
-              return; 
+              // Break after first match to avoid multiple leaves from one message
+              return;
+            } else {
+              console.log('❌ No user found for:', targetName);
             }
         }
       }
@@ -269,6 +302,31 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
           </div>
         </div>
         
+        {/* User Filter (Admin only) */}
+        {isAdmin && users && users.length > 0 && (
+          <div className="flex items-center gap-3">
+            <Label htmlFor="user-filter" className="whitespace-nowrap">Filter by Employee:</Label>
+            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <SelectTrigger id="user-filter" className="w-[250px]">
+                <SelectValue placeholder="All Employees" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Employees</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {(u as any).fullName || u.email || 'Unknown'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedUserId !== 'all' && (
+              <Button variant="ghost" size="sm" onClick={() => setSelectedUserId('all')}>
+                Clear Filter
+              </Button>
+            )}
+          </div>
+        )}
+
         {isAdmin && (
              <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />

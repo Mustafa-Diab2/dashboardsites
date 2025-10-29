@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -44,7 +45,7 @@ const prompt = ai.definePrompt({
   name: 'generateTeamInsightsPrompt',
   input: {schema: GenerateTeamInsightsInputSchema},
   output: {schema: GenerateTeamInsightsOutputSchema},
-  prompt: `You are an expert project manager AI assistant. Your role is to analyze team task distribution and provide actionable insights in Arabic.
+  prompt: `You are an expert project manager AI assistant. Your role is to analyze team task distribution and provide actionable insights in Egyptian Arabic.
 
   **Analyze the following data based on the user's request.**
 
@@ -79,7 +80,7 @@ const prompt = ai.definePrompt({
     {{/if}}
   {{/if}}
 
-  **Output must be in Arabic.**
+  **Output must be in Egyptian Arabic.**
 `,
 });
 

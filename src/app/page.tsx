@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import ReportsDashboard from '@/components/reports-dashboard';
 import { useCollection, useFirebase, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, doc, where } from 'firebase/firestore';
@@ -7,7 +8,12 @@ import { AuthCard } from '@/components/auth-card';
 import type { Task } from '@/lib/data';
 
 export default function Home() {
+  const [isMounted, setIsMounted] = useState(false);
   const { firestore, user, isUserLoading } = useFirebase();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
@@ -34,7 +40,7 @@ export default function Home() {
 
   const isLoading = isUserLoading || isUserDocLoading || (user && isTasksLoading);
 
-  if (isUserLoading) {
+  if (!isMounted || isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <p>Loading...</p>

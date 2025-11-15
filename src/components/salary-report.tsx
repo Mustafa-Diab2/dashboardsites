@@ -21,37 +21,48 @@ interface SalaryReportProps {
 export default function SalaryReport({ users, tasks }: SalaryReportProps) {
   const { t } = useLanguage();
   const { firestore } = useFirebase();
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [insights, setInsights] = useState<Record<string, string | null>>({});
   const [isLoadingInsight, setIsLoadingInsight] = useState<Record<string, boolean>>({});
 
+  useEffect(() => {
+    const now = new Date();
+    setSelectedMonth(now.getMonth());
+    setSelectedYear(now.getFullYear());
+  }, []);
+
   const dateRange = useMemo(() => {
+    if (selectedYear === null || selectedMonth === null) {
+      const now = new Date();
+      return { start: startOfMonth(now), end: endOfMonth(now) };
+    }
     const date = new Date(selectedYear, selectedMonth, 1);
     return { start: startOfMonth(date), end: endOfMonth(date) };
   }, [selectedMonth, selectedYear]);
 
   const attendanceQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || selectedYear === null || selectedMonth === null) return null;
     return query(
       collection(firestore, 'attendance'),
       where('clockIn', '>=', dateRange.start),
       where('clockIn', '<=', dateRange.end)
     );
-  }, [firestore, dateRange]);
+  }, [firestore, dateRange, selectedYear, selectedMonth]);
   const { data: attendanceRecords } = useCollection(attendanceQuery);
 
   const deductionsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || selectedYear === null || selectedMonth === null) return null;
     return query(
       collection(firestore, 'deductions'),
       where('date', '>=', dateRange.start),
       where('date', '<=', dateRange.end)
     );
-  }, [firestore, dateRange]);
+  }, [firestore, dateRange, selectedYear, selectedMonth]);
   const { data: deductions } = useCollection(deductionsQuery);
 
   const salaryData = useMemo(() => {
+    if (selectedYear === null || selectedMonth === null) return [];
     return users.map(user => {
       const userAttendance = attendanceRecords?.filter(rec => rec.userId === user.id) || [];
       const totalHours = userAttendance.reduce((acc, rec) => {
@@ -89,7 +100,7 @@ export default function SalaryReport({ users, tasks }: SalaryReportProps) {
         completedTasks
       };
     });
-  }, [users, attendanceRecords, deductions, tasks, dateRange]);
+  }, [users, attendanceRecords, deductions, tasks, dateRange, selectedYear, selectedMonth]);
   
   const handleGenerateInsight = async (userId: string) => {
     const userData = salaryData.find(d => d.userId === userId);
@@ -120,6 +131,11 @@ export default function SalaryReport({ users, tasks }: SalaryReportProps) {
 
   const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('default', { month: 'long' }));
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+  
+  if (selectedMonth === null || selectedYear === null) {
+    return <Card><CardHeader><CardTitle>{t('loading')}...</CardTitle></CardHeader></Card>;
+  }
+
 
   return (
     <Card>
@@ -198,5 +214,3 @@ export default function SalaryReport({ users, tasks }: SalaryReportProps) {
     </Card>
   );
 }
-
-    

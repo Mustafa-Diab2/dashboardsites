@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Calendar, Clock, User, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -30,13 +30,24 @@ import { useUsers } from "@/hooks/use-users";
 export default function AttendanceAdmin() {
   const { firestore, user } = useFirebase();
   const { t, language } = useLanguage();
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string>("all");
+
+  useEffect(() => {
+    // Set initial date on the client to avoid hydration mismatch
+    const now = new Date();
+    setSelectedMonth(now.getMonth());
+    setSelectedYear(now.getFullYear());
+  }, []);
 
   const users = useUsers('admin');
 
   const dateRange = useMemo(() => {
+    if (selectedYear === null || selectedMonth === null) {
+      const now = new Date();
+      return { start: startOfMonth(now), end: endOfMonth(now) };
+    }
     const date = new Date(selectedYear, selectedMonth, 1);
     return {
       start: startOfMonth(date),
@@ -45,7 +56,7 @@ export default function AttendanceAdmin() {
   }, [selectedMonth, selectedYear]);
 
   const attendanceQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || selectedYear === null || selectedMonth === null) return null;
 
     const constraints = [
       where('clockIn', '>=', dateRange.start),
@@ -58,7 +69,7 @@ export default function AttendanceAdmin() {
     }
 
     return query(collection(firestore, 'attendance'), ...constraints);
-  }, [firestore, dateRange, selectedUserId]);
+  }, [firestore, dateRange, selectedUserId, selectedYear, selectedMonth]);
 
   const { data: attendanceRecords, isLoading } = useCollection(attendanceQuery);
 
@@ -133,6 +144,7 @@ export default function AttendanceAdmin() {
   };
 
   const exportToExcel = () => {
+    if (selectedYear === null || selectedMonth === null) return;
     const data = formattedRecords.map(record => ({
       [t('employee_name')]: record.userName,
       [t('role')]: record.userRole,
@@ -154,6 +166,10 @@ export default function AttendanceAdmin() {
     : ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+  
+  if (selectedMonth === null || selectedYear === null) {
+    return <Card><CardHeader><CardTitle>{t('loading')}...</CardTitle></CardHeader></Card>;
+  }
 
   return (
     <div className="space-y-6">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -18,15 +18,20 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
   const { t } = useLanguage();
   const isAdmin = userRole === 'admin';
 
-  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
 
-  const monthStart = useMemo(() => startOfMonth(new Date(selectedMonth)), [selectedMonth]);
-  const monthEnd = useMemo(() => endOfMonth(new Date(selectedMonth)), [selectedMonth]);
+  useEffect(() => {
+    // Initialize date-sensitive state on the client to avoid hydration mismatch
+    setSelectedMonth(format(new Date(), 'yyyy-MM'));
+  }, []);
+
+  const monthStart = useMemo(() => selectedMonth ? startOfMonth(new Date(selectedMonth)) : new Date(), [selectedMonth]);
+  const monthEnd = useMemo(() => selectedMonth ? endOfMonth(new Date(selectedMonth)) : new Date(), [selectedMonth]);
 
   // Query attendance records for the selected month
   const attendanceQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || !selectedMonth) return null;
 
     if (isAdmin) {
       // Admin sees all attendance
@@ -46,14 +51,14 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
         orderBy('clockIn', 'desc')
       );
     }
-  }, [firestore, user, isAdmin, monthStart, monthEnd]);
+  }, [firestore, user, isAdmin, monthStart, monthEnd, selectedMonth]);
 
   const { data: attendanceData } = useCollection(attendanceQuery);
   const attendance = (attendanceData || []) as any[];
 
   // Calculate summary statistics
   const summary = useMemo(() => {
-    if (!users || users.length === 0) return [];
+    if (!users || users.length === 0 || !selectedMonth) return [];
 
     const usersList = isAdmin ? users : users.filter(u => u.id === user?.uid);
     const allDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
@@ -105,7 +110,7 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
         attendanceRate: workingDays.length > 0 ? Math.round((presentDays / workingDays.length) * 100) : 0,
       };
     });
-  }, [users, attendance, isAdmin, user, monthStart, monthEnd, selectedUserId, t]);
+  }, [users, attendance, isAdmin, user, monthStart, monthEnd, selectedUserId, t, selectedMonth]);
 
   const getAttendanceRateBadge = (rate: number) => {
     if (rate >= 95) return <Badge className="bg-green-500">{t('excellent')}</Badge>;
@@ -127,6 +132,23 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
       avgAttendanceRate: isNaN(avgAttendance) ? 0 : Math.round(avgAttendance),
     };
   }, [summary]);
+  
+  if (!selectedMonth) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline flex items-center gap-2">
+            <CalendarDays className="w-5 h-5" />
+            {t('attendance_summary')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{t('loading')}...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
 
   return (
     <Card>

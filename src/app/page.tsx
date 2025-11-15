@@ -40,7 +40,15 @@ export default function Home() {
 
   const isLoading = isUserLoading || isUserDocLoading || (user && isTasksLoading);
 
-  if (!isMounted || isUserLoading) {
+  if (!isMounted) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <p>Loading...</p>

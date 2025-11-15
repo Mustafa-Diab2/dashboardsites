@@ -13,3 +13,11 @@ runConfig:
 env:
   - variable: NODE_ENV
     value: production
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyD6Wd7U7DOx3FqCNrdi4wVEdE8x2hCrXH8
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: studio-6017697584-aeed8.firebaseapp.com
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: studio-6017697584-aeed8
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:218880186103:web:86c3dd1cc72ff1845465f2"

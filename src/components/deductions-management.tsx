@@ -20,6 +20,14 @@ import { useUsers } from '@/hooks/use-users';
 import type { Deduction } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 
+const INITIAL_FORM_STATE = {
+    userId: '',
+    amount: '',
+    type: 'penalty' as Deduction['type'],
+    reason: '',
+    date: '',
+  };
+
 export function DeductionsManagement({ userRole }: { userRole: string | undefined }) {
   const { firestore, user } = useFirebase();
   const { addDoc } = useMutations();
@@ -29,13 +37,13 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
 
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
-  const [formData, setFormData] = useState({
-    userId: '',
-    amount: '',
-    type: 'penalty' as Deduction['type'],
-    reason: '',
-    date: format(new Date(), 'yyyy-MM-dd'),
-  });
+  const [formData, setFormData] = useState(INITIAL_FORM_STATE);
+
+  useEffect(() => {
+    // Initialize date-sensitive state on the client to avoid hydration mismatch
+    setFormData(prev => ({...prev, date: format(new Date(), 'yyyy-MM-dd')}))
+  }, [])
+
 
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
@@ -175,7 +183,7 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
 
       toast({ title: t('deduction_added_title'), description: t('deduction_added_desc') });
       setDialogOpen(false);
-      setFormData({ userId: '', amount: '', type: 'penalty', reason: '', date: format(new Date(), 'yyyy-MM-dd') });
+      setFormData(INITIAL_FORM_STATE);
     } catch (error) {
       console.error('Error adding deduction:', error);
       toast({ variant: 'destructive', title: t('error_title'), description: t('error_desc') });

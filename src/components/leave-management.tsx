@@ -23,6 +23,13 @@ import { useToast } from '@/hooks/use-toast';
 
 type LeaveAction = 'approve' | 'reject' | null;
 
+const INITIAL_FORM_STATE = {
+    type: 'annual' as Leave['type'],
+    startDate: '',
+    endDate: '',
+    reason: '',
+};
+
 export function LeaveManagement({ userRole }: { userRole: string | undefined }) {
   const { firestore, user } = useFirebase();
   const { addDoc, updateDoc } = useMutations();
@@ -32,12 +39,13 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
 
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
-  const [formData, setFormData] = useState({
-    type: 'annual' as Leave['type'],
-    startDate: '',
-    endDate: '',
-    reason: '',
-  });
+  const [formData, setFormData] = useState(INITIAL_FORM_STATE);
+
+  useEffect(() => {
+    // Initialize date-sensitive state on the client to avoid hydration mismatch
+    setFormData(prev => ({...prev, startDate: format(new Date(), 'yyyy-MM-dd'), endDate: format(new Date(), 'yyyy-MM-dd')}))
+  }, [])
+
 
   const [confirmAction, setConfirmAction] = useState<{ action: LeaveAction; leaveId: string | null }>({ action: null, leaveId: null });
 
@@ -188,7 +196,7 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
 
       toast({ title: t('leave_request_submitted_title'), description: t('leave_request_submitted_desc') });
       setDialogOpen(false);
-      setFormData({ type: 'annual', startDate: '', endDate: '', reason: '' });
+      setFormData(INITIAL_FORM_STATE);
     } catch (error) {
       console.error('Error submitting leave:', error);
       toast({ variant: 'destructive', title: t('error_title'), description: t('error_desc') });

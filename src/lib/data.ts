@@ -39,7 +39,7 @@ export type User = {
     id: string;
     fullName: string;
     email: string;
-    role: 'admin' | 'frontend' | 'backend' | 'trainee' | 'ui_ux' | 'security';
+    role: 'admin' | 'frontend' | 'backend' | 'trainee' | 'ui_ux' | 'security' | 'ai_specialist';
     hourlyRate?: number;
     createdAt: any;
 }

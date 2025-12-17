@@ -65,6 +65,7 @@
     "trainee": "Trainee",
     "ui_ux": "UI/UX",
     "security": "Security",
+    "ai_specialist": "AI Specialist",
     "signing_up": "Signing up...",
     "auth_failed_title": "Authentication Failed",
     "auth_failed_desc": "An unexpected error occurred. Please try again.",
@@ -368,5 +369,13 @@
     "completed_tasks_month": "Completed Tasks (Month)",
     "performance_insight": "AI Performance Insight",
     "analyze": "Analyze",
-    "no_insight_generated": "Could not generate an insight."
+    "no_insight_generated": "Could not generate an insight.",
+    "edit_member": "Edit Member",
+    "edit_member_desc": "Update the details for this team member.",
+    "saving": "Saving...",
+    "user_updated_title": "User Updated",
+    "user_updated_desc": "User {email} has been updated successfully.",
+    "user_deleted_title": "User Deleted",
+    "user_deleted_desc": "The user has been successfully deleted.",
+    "delete_user_confirm": "This will permanently delete the user and all their associated data. This action cannot be undone."
 }

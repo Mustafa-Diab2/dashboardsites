@@ -142,6 +142,67 @@ exports.createNewUser = onCall(async (request) => {
 
 
 /**
+ * Callable Cloud Function: تحديث مستخدم بواسطة الأدمن
+ */
+exports.updateUser = onCall(async (request) => {
+    if (request.auth?.token?.role !== 'admin') {
+        throw new HttpsError('permission-denied', 'Only admins can update users.');
+    }
+
+    const { uid, fullName, role } = request.data;
+
+    if (!uid) {
+        throw new HttpsError('invalid-argument', 'User ID is required.');
+    }
+
+    try {
+        // Update Firebase Auth
+        await admin.auth().updateUser(uid, {
+            displayName: fullName,
+        });
+        await admin.auth().setCustomUserClaims(uid, { role: role });
+
+        // Update Firestore document
+        const userRef = db.collection('users').doc(uid);
+        await userRef.update({ fullName, role });
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating user:', error);
+        throw new HttpsError('internal', error.message);
+    }
+});
+
+/**
+ * Callable Cloud Function: حذف مستخدم بواسطة الأدمن
+ */
+exports.deleteUser = onCall(async (request) => {
+    if (request.auth?.token?.role !== 'admin') {
+        throw new HttpsError('permission-denied', 'Only admins can delete users.');
+    }
+
+    const { uid } = request.data;
+
+    if (!uid) {
+        throw new HttpsError('invalid-argument', 'User ID is required.');
+    }
+
+    try {
+        // Delete from Firebase Auth
+        await admin.auth().deleteUser(uid);
+
+        // Delete from Firestore
+        await db.collection('users').doc(uid).delete();
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        throw new HttpsError('internal', error.message);
+    }
+});
+
+
+/**
  * Scheduled Cloud Function: تسجيل الغياب التلقائي
  * This function runs every day at 11:00 PM (23:00) server time.
  */

@@ -65,6 +65,7 @@
     "trainee": "متدرب",
     "ui_ux": "واجهة وتجربة المستخدم",
     "security": "أمن المعلومات",
+    "ai_specialist": "متخصص ذكاء اصطناعي",
     "signing_up": "جاري إنشاء الحساب...",
     "auth_failed_title": "فشل المصادقة",
     "auth_failed_desc": "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.",
@@ -368,5 +369,13 @@
     "completed_tasks_month": "المهام المنجزة (شهريًا)",
     "performance_insight": "تحليل الأداء بالذكاء الاصطناعي",
     "analyze": "تحليل",
-    "no_insight_generated": "تعذر إنشاء تحليل."
+    "no_insight_generated": "تعذر إنشاء تحليل.",
+    "edit_member": "تعديل عضو",
+    "edit_member_desc": "تحديث بيانات هذا العضو.",
+    "saving": "جاري الحفظ...",
+    "user_updated_title": "تم تحديث المستخدم",
+    "user_updated_desc": "تم تحديث بيانات المستخدم {email} بنجاح.",
+    "user_deleted_title": "تم حذف المستخدم",
+    "user_deleted_desc": "تم حذف المستخدم بنجاح.",
+    "delete_user_confirm": "سيؤدي هذا إلى حذف المستخدم وجميع بياناته بشكل دائم. لا يمكن التراجع عن هذا الإجراء."
 }

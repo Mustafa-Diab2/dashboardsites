@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -26,6 +25,7 @@ import {
 import { utils, writeFile } from 'xlsx';
 import { useLanguage } from "@/context/language-context";
 import { useUsers } from "@/hooks/use-users";
+import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 
 export default function AttendanceAdmin() {
   const { firestore, user } = useFirebase();
@@ -35,7 +35,6 @@ export default function AttendanceAdmin() {
   const [selectedUserId, setSelectedUserId] = useState<string>("all");
 
   useEffect(() => {
-    // Set initial date on the client to avoid hydration mismatch
     const now = new Date();
     setSelectedMonth(now.getMonth());
     setSelectedYear(now.getFullYear());
@@ -58,17 +57,18 @@ export default function AttendanceAdmin() {
   const attendanceQuery = useMemoFirebase(() => {
     if (!firestore || selectedYear === null || selectedMonth === null) return null;
 
-    const constraints = [
+    let q = query(
+      collection(firestore, 'attendance'),
       where('clockIn', '>=', dateRange.start),
       where('clockIn', '<=', dateRange.end),
       orderBy('clockIn', 'desc')
-    ];
-
+    );
+    
     if (selectedUserId !== "all") {
-      constraints.unshift(where('userId', '==', selectedUserId));
+      q = query(q, where('userId', '==', selectedUserId));
     }
 
-    return query(collection(firestore, 'attendance'), ...constraints);
+    return q;
   }, [firestore, dateRange, selectedUserId, selectedYear, selectedMonth]);
 
   const { data: attendanceRecords, isLoading } = useCollection(attendanceQuery);
@@ -181,9 +181,9 @@ export default function AttendanceAdmin() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">{t('month')}</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">{t('month')}</label>
               <Select
                 value={selectedMonth.toString()}
                 onValueChange={(v) => setSelectedMonth(parseInt(v))}
@@ -202,8 +202,8 @@ export default function AttendanceAdmin() {
               </Select>
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">{t('year')}</label>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">{t('year')}</label>
               <Select
                 value={selectedYear.toString()}
                 onValueChange={(v) => setSelectedYear(parseInt(v))}
@@ -222,8 +222,8 @@ export default function AttendanceAdmin() {
               </Select>
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">{t('employee')}</label>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">{t('employee')}</label>
               <Select value={selectedUserId} onValueChange={setSelectedUserId} dir={language === 'ar' ? 'rtl' : 'ltr'}>
                 <SelectTrigger>
                   <SelectValue />
@@ -250,7 +250,7 @@ export default function AttendanceAdmin() {
       </Card>
 
       {statistics.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {statistics.map(stat => (
             <Card key={stat.name}>
               <CardHeader className="pb-3">
@@ -294,15 +294,15 @@ export default function AttendanceAdmin() {
           ) : formattedRecords.length === 0 ? (
             <p className="text-center py-8 text-muted-foreground">{t('no_records_found')}</p>
           ) : (
-            <div className="rounded-md border">
+            <ScrollArea className="w-full whitespace-nowrap rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t('employee_name')}</TableHead>
-                    <TableHead>{t('role')}</TableHead>
-                    <TableHead>{t('clock_in_date')}</TableHead>
-                    <TableHead>{t('clock_out_date')}</TableHead>
-                    <TableHead>{t('work_duration')}</TableHead>
+                    <TableHead className="min-w-[150px]">{t('employee_name')}</TableHead>
+                    <TableHead className="min-w-[100px]">{t('role')}</TableHead>
+                    <TableHead className="min-w-[180px]">{t('clock_in_date')}</TableHead>
+                    <TableHead className="min-w-[180px]">{t('clock_out_date')}</TableHead>
+                    <TableHead className="min-w-[120px]">{t('work_duration')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -321,7 +321,8 @@ export default function AttendanceAdmin() {
                   ))}
                 </TableBody>
               </Table>
-            </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
           )}
         </CardContent>
       </Card>

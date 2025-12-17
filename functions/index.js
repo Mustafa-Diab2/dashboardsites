@@ -90,7 +90,14 @@ exports.onCourseCreated = onDocumentCreated("courses/{courseId}", async (event) 
  * Cloud Function: إنشاء وثيقة المستخدم تلقائياً عند التسجيل
  */
 exports.createUserDocument = functions.auth.user().onCreate(async (user) => {
-    // ... (existing createUserDocument function)
+    const userRef = db.collection('users').doc(user.uid);
+    return userRef.set({
+      id: user.uid,
+      email: user.email,
+      fullName: user.displayName || 'New User',
+      role: 'frontend', // Default role
+      createdAt: FieldValue.serverTimestamp()
+    });
 });
 
 /**
@@ -163,6 +170,73 @@ exports.markAbsentUsers = onSchedule("every day 23:00", async (event) => {
     console.error("❌ Error in automatic absence marking function:", error);
     return { success: false, error: error.message };
   }
+});
+
+/**
+ * Scheduled Cloud Function: تطبيق خصم على من لم يسجل انصراف
+ * Runs every hour to check for employees who forgot to clock out.
+ */
+exports.applyDeductionForNoClockOut = onSchedule("every hour", async (event) => {
+    console.log("⏰ Running deduction check for users who did not clock out...");
+
+    const now = new Date();
+    // 12 hours ago
+    const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+
+    try {
+        const openAttendanceQuery = await db.collection('attendance')
+            .where('clockOut', '==', null)
+            .where('deductionApplied', '!=', true) // Don't process already penalized records
+            .where('clockIn', '<=', twelveHoursAgo)
+            .get();
+
+        if (openAttendanceQuery.empty) {
+            console.log("✅ No users to apply deductions to.");
+            return null;
+        }
+
+        const batch = db.batch();
+        const usersSnapshot = await db.collection('users').get();
+        const users = usersSnapshot.docs.reduce((acc, doc) => {
+            acc[doc.id] = doc.data();
+            return acc;
+        }, {});
+
+        for (const doc of openAttendanceQuery.docs) {
+            const record = doc.data();
+            const user = users[record.userId];
+
+            if (user) {
+                console.log(`Applying deduction to user ${record.userId} for not clocking out.`);
+
+                // 1. Create a deduction document
+                const deductionRef = db.collection('deductions').doc();
+                batch.set(deductionRef, {
+                    userId: record.userId,
+                    userName: user.fullName || user.email,
+                    amount: 500,
+                    reason: "خصم تلقائي لعدم تسجيل الانصراف بعد 12 ساعة",
+                    type: 'penalty',
+                    date: FieldValue.serverTimestamp(),
+                    createdBy: 'system',
+                    createdAt: FieldValue.serverTimestamp(),
+                });
+
+                // 2. Mark the attendance record to prevent future deductions
+                const attendanceRef = doc.ref;
+                batch.update(attendanceRef, { deductionApplied: true });
+            }
+        }
+
+        await batch.commit();
+
+        console.log(`✅ Successfully applied deductions to ${openAttendanceQuery.size} users.`);
+        return { success: true, count: openAttendanceQuery.size };
+
+    } catch (error) {
+        console.error("❌ Error applying deductions for no clock-out:", error);
+        return { success: false, error: error.message };
+    }
 });
 
 

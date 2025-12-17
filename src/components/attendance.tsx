@@ -89,6 +89,7 @@ export default function Attendance() {
       userId: user.uid,
       clockIn: serverTimestamp(),
       clockOut: null,
+      date: new Date().toISOString().split('T')[0]
     });
   };
 
@@ -165,11 +166,11 @@ export default function Attendance() {
                       {statusDetails}
                   </p>
               </div>
-              <div className="flex gap-2 w-full sm:w-auto">
-                <Button onClick={handleClockIn} disabled={!canClockIn} variant={canClockIn ? 'default' : 'secondary'}>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button onClick={handleClockIn} disabled={!canClockIn} variant={canClockIn ? 'default' : 'secondary'} className="w-full">
                   <LogIn className="mr-2" /> {t('clock_in')}
                 </Button>
-                <Button onClick={handleClockOut} disabled={!canClockOut} variant={canClockOut ? 'default' : 'outline'}>
+                <Button onClick={handleClockOut} disabled={!canClockOut} variant={canClockOut ? 'destructive' : 'outline'} className="w-full">
                   <LogOut className="mr-2" /> {t('clock_out')}
                 </Button>
               </div>

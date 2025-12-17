@@ -422,5 +422,3 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
     </>
   );
 }
-
-    

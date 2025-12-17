@@ -4,6 +4,7 @@
 
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const nodemailer = require("nodemailer");
@@ -91,14 +92,54 @@ exports.onCourseCreated = onDocumentCreated("courses/{courseId}", async (event) 
  */
 exports.createUserDocument = functions.auth.user().onCreate(async (user) => {
     const userRef = db.collection('users').doc(user.uid);
+
+    // If the user was created via the admin SDK, the custom claims might already be set
+    const authUser = await admin.auth().getUser(user.uid);
+    const role = authUser.customClaims?.role || 'frontend';
+
     return userRef.set({
       id: user.uid,
       email: user.email,
       fullName: user.displayName || 'New User',
-      role: 'frontend', // Default role
+      role: role,
       createdAt: FieldValue.serverTimestamp()
     });
 });
+
+/**
+ * Callable Cloud Function: إنشاء مستخدم جديد بواسطة الأدمن
+ */
+exports.createNewUser = onCall(async (request) => {
+    // Check if the user is an admin
+    if (request.auth?.token?.role !== 'admin') {
+        throw new HttpsError('permission-denied', 'Only admins can create new users.');
+    }
+
+    const { email, password, fullName, role } = request.data;
+
+    if (!email || !password || !fullName || !role) {
+        throw new HttpsError('invalid-argument', 'Please provide email, password, fullName, and role.');
+    }
+
+    try {
+        const userRecord = await admin.auth().createUser({
+            email: email,
+            password: password,
+            displayName: fullName,
+        });
+
+        // Set custom claims (role) for the new user
+        await admin.auth().setCustomUserClaims(userRecord.uid, { role: role });
+        
+        // The createUserDocument trigger will handle Firestore doc creation.
+        
+        return { success: true, uid: userRecord.uid };
+    } catch (error) {
+        console.error('Error creating new user:', error);
+        throw new HttpsError('internal', error.message);
+    }
+});
+
 
 /**
  * Scheduled Cloud Function: تسجيل الغياب التلقائي

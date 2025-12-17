@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/context/language-context';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useFirebaseApp } from '@/firebase';
+import type { User } from '@/lib/data';
 
 interface AddMemberDialogProps {
   isOpen: boolean;
@@ -37,7 +38,7 @@ export default function AddMemberDialog({ isOpen, onOpenChange }: AddMemberDialo
     fullName: '',
     email: '',
     password: '',
-    role: 'frontend' as 'admin' | 'frontend' | 'backend' | 'trainee',
+    role: 'frontend' as User['role'],
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -129,6 +130,8 @@ export default function AddMemberDialog({ isOpen, onOpenChange }: AddMemberDialo
               <SelectContent>
                 <SelectItem value="frontend">{t('frontend')}</SelectItem>
                 <SelectItem value="backend">{t('backend')}</SelectItem>
+                <SelectItem value="ui_ux">{t('ui_ux')}</SelectItem>
+                <SelectItem value="security">{t('security')}</SelectItem>
                 <SelectItem value="admin">{t('admin')}</SelectItem>
                 <SelectItem value="trainee">{t('trainee')}</SelectItem>
               </SelectContent>

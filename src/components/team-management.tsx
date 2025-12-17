@@ -34,6 +34,11 @@ export default function TeamManagement({ users }: TeamManagementProps) {
       updateDoc('users', userId, { hourlyRate: rate });
     }
   };
+  
+  const getRoleTranslation = (role: User['role']) => {
+    const roleKey = role.replace('_', '-');
+    return t(roleKey as any) || role;
+  }
 
   return (
     <>
@@ -66,7 +71,7 @@ export default function TeamManagement({ users }: TeamManagementProps) {
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.fullName}</TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell>{t(user.role)}</TableCell>
+                    <TableCell>{getRoleTranslation(user.role)}</TableCell>
                     <TableCell>
                       <Input
                         type="number"

@@ -20,7 +20,7 @@
         },
         "role": {
           "type": "string",
-          "enum": ["admin", "backend", "frontend", "trainee"],
+          "enum": ["admin", "backend", "frontend", "trainee", "ui_ux", "security"],
           "description": "The role of the user."
         },
         "hourlyRate": {

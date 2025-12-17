@@ -63,6 +63,8 @@
     "frontend": "Frontend",
     "backend": "Backend",
     "trainee": "Trainee",
+    "ui_ux": "UI/UX",
+    "security": "Security",
     "signing_up": "Signing up...",
     "auth_failed_title": "Authentication Failed",
     "auth_failed_desc": "An unexpected error occurred. Please try again.",

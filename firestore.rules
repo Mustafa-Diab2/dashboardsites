@@ -55,7 +55,7 @@ service cloud.firestore {
      */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdminViaDoc();
-      allow list: if isSignedIn();
+      allow list: if isAdminViaDoc();
       allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow update: if isOwner(userId) || isAdminViaDoc();
       allow delete: if isOwner(userId) || isAdminViaDoc();
@@ -82,8 +82,8 @@ service cloud.firestore {
       allow get: if true;
       allow list: if true;
       allow create: if isSignedIn() && request.resource.data.created_by == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.created_by == request.auth.uid;
-      allow delete: if isSignedIn() && resource.data.created_by == request.auth.uid;
+      allow update: if isSignedIn() && get(/databases/$(database)/documents/tasks/$(taskId)).data.created_by == request.auth.uid;
+      allow delete: if isSignedIn() && get(/databases/$(database)/documents/tasks/$(taskId)).data.created_by == request.auth.uid;
     }
 
     /**
@@ -143,8 +143,8 @@ service cloud.firestore {
         allow get: if isSignedIn();
         allow list: if isSignedIn();
         allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-        allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdminViaDoc());
-        allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdminViaDoc());
+        allow update: if isSignedIn() && (get(/databases/$(database)/documents/attendance/$(attendanceId)).data.userId == request.auth.uid || isAdminViaDoc());
+        allow delete: if isSignedIn() && (get(/databases/$(database)/documents/attendance/$(attendanceId)).data.userId == request.auth.uid || isAdminViaDoc());
     }
 
     /**
@@ -162,8 +162,8 @@ service cloud.firestore {
         allow get: if isSignedIn();
         allow list: if isSignedIn();
         allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdminViaDoc());
-        allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdminViaDoc());
-        allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdminViaDoc());
+        allow update: if isSignedIn() && (get(/databases/$(database)/documents/courses/$(courseId)).data.userId == request.auth.uid || isAdminViaDoc());
+        allow delete: if isSignedIn() && (get(/databases/$(database)/documents/courses/$(courseId)).data.userId == request.auth.uid || isAdminViaDoc());
     }
 
     /**
@@ -204,11 +204,13 @@ service cloud.firestore {
           isAdminViaDoc()
         );
         allow update: if isSignedIn() && (
-          (resource.data.userId == request.auth.uid && resource.data.status == 'pending') ||
+          (get(/databases/$(database)/documents/leaves/$(leaveId)).data.userId == request.auth.uid && 
+           get(/databases/$(database)/documents/leaves/$(leaveId)).data.status == 'pending') ||
           isAdminViaDoc()
         );
         allow delete: if isSignedIn() && (
-          (resource.data.userId == request.auth.uid && resource.data.status == 'pending') ||
+          (get(/databases/$(database)/documents/leaves/$(leaveId)).data.userId == request.auth.uid && 
+           get(/databases/$(database)/documents/leaves/$(leaveId)).data.status == 'pending') ||
           isAdminViaDoc()
         );
     }

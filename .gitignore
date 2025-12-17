@@ -52,3 +52,4 @@ scripts/serviceAccountKey.json
 functions/node_modules/
 functions/.env
 functions/firebase-debug.log
+node_modules

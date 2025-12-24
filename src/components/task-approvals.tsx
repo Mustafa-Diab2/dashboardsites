@@ -32,7 +32,7 @@ export function TaskApprovals({
   const [notes, setNotes] = useState('');
   const [showApprovalForm, setShowApprovalForm] = useState(false);
   const { t } = useLanguage();
-  const { currentUser } = useFirebase();
+  const { user } = useFirebase();
 
   const latestApproval = approvals && approvals.length > 0 ? approvals[approvals.length - 1] : null;
   const isPendingApproval = currentStatus === 'done' && (!latestApproval || latestApproval.status === 'rejected');

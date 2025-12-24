@@ -1,12 +1,6 @@
-
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { FirebaseClientProvider } from "@/firebase/client-provider";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { ClientOnly } from "@/components/client-only";
-import { ThemeProvider } from "@/context/theme-context";
-import { LanguageProvider } from "@/context/language-context";
-import { Toaster } from "@/components/ui/toaster";
+import { Providers } from "@/components/providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,23 +10,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <LanguageProvider>
-            <FirebaseClientProvider>
-              <SidebarProvider>
-                  {children}
-              </SidebarProvider>
-            </FirebaseClientProvider>
-            <Toaster />
-          </LanguageProvider>
-        </ThemeProvider>
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );

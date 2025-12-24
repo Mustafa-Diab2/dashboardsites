@@ -1,30 +1,58 @@
 'use client';
 
-import { AuthCard } from "@/components/auth-card";
-import { HRManagementPage } from "@/components/hr-management-page";
-import TeamManagement from "@/components/team-management";
-import { useAuth } from "@/firebase/provider";
-import { ClientOnly } from '@/components/client-only';
+import type { Task, User } from '@/lib/data';
+import { useEffect, useState } from 'react';
+import ReportsDashboard from '@/components/reports-dashboard';
+import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
+import { AuthCard } from '@/components/auth-card';
+import { useUsers } from '@/hooks/use-users';
 
 export default function Home() {
-  const { user, userRole } = useAuth();
+  const { user, isUserLoading } = useFirebase();
+  const [isMounted, setIsMounted] = useState(false);
+  
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
-  return (
-    <main className="container mx-auto p-4 md:p-8">
-      {user ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-3 space-y-8">
-            <ClientOnly>
-              <HRManagementPage userRole={userRole} />
-            </ClientOnly>
-            {userRole === 'admin' && <TeamManagement />}
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center justify-center min-h-screen bg-background">
-          <AuthCard />
-        </div>
-      )}
-    </main>
+  const userRole = useUsers(user?.uid)?.find(u => u.id === user?.uid)?.role;
+
+  const tasksQuery = useMemoFirebase(
+    () => {
+      if (!user) return null;
+      if (userRole === 'admin') {
+        return query(collection(user.firestore, 'tasks'));
+      }
+      return query(
+        collection(user.firestore, 'tasks'),
+        where('assigned_to', 'array-contains', user.uid)
+      );
+    },
+    [user, userRole]
   );
+  
+  const { data: tasks, isLoading: isTasksLoading } = useCollection(tasksQuery);
+
+  if (!isMounted || isUserLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthCard />;
+  }
+  
+  if (isTasksLoading) {
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-background">
+            <p>Loading Dashboard...</p>
+        </div>
+    )
+  }
+
+  return <ReportsDashboard tasks={tasks as Task[]} userRole={userRole} />;
 }

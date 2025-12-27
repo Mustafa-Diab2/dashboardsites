@@ -1,79 +1,56 @@
 'use client';
 
-import { useFirebase } from '@/firebase';
-import {
-  addDoc as fbAddDoc,
-  updateDoc as fbUpdateDoc,
-  deleteDoc as fbDeleteDoc,
-  collection,
-  doc,
-  CollectionReference,
-  DocumentReference,
-} from 'firebase/firestore';
+import { supabase } from '@/lib/supabase';
 import { useToast } from './use-toast';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { errorEmitter } from '@/firebase/error-emitter';
 
 export function useMutations() {
-  const { firestore } = useFirebase();
   const { toast } = useToast();
 
-  const getCollectionRef = (collectionName: string): CollectionReference => {
-    if (!firestore) throw new Error('Firestore not initialized');
-    return collection(firestore, collectionName);
-  };
-  
-  const getDocRef = (collectionName: string, docId: string): DocumentReference => {
-     if (!firestore) throw new Error('Firestore not initialized');
-    return doc(firestore, collectionName, docId);
-  }
-
-  const addDoc = (collectionName: string, data: object) => {
-    const collRef = getCollectionRef(collectionName);
-    fbAddDoc(collRef, data)
-      .then(() => {
-        toast({ title: 'Success', description: 'Document added successfully.' });
-      })
-      .catch((error) => {
-        const permError = new FirestorePermissionError({
-            path: collRef.path,
-            operation: 'create',
-            requestResourceData: data,
-        });
-        errorEmitter.emit('permission-error', permError);
-        // We no longer show a generic toast here, the global listener will handle it.
+  const addDoc = async (collectionName: string, data: object) => {
+    const { error } = await supabase.from(collectionName).insert([data]);
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message,
       });
+    } else {
+      toast({ title: 'Success', description: 'Document added successfully.' });
+    }
   };
 
-  const updateDoc = (collectionName: string, docId: string, data: object) => {
-    const docRef = getDocRef(collectionName, docId);
-    fbUpdateDoc(docRef, data)
-      .then(() => {
-        toast({ title: 'Success', description: 'Document updated successfully.' });
-      })
-      .catch((error) => {
-         const permError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'update',
-            requestResourceData: data,
-        });
-        errorEmitter.emit('permission-error', permError);
+  const updateDoc = async (collectionName: string, docId: string, data: object) => {
+    const { error } = await supabase
+      .from(collectionName)
+      .update(data)
+      .eq('id', docId);
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message,
       });
+    } else {
+      toast({ title: 'Success', description: 'Document updated successfully.' });
+    }
   };
 
-  const deleteDoc = (collectionName: string, docId: string) => {
-     const docRef = getDocRef(collectionName, docId);
-    fbDeleteDoc(docRef)
-      .then(() => {
-        toast({ title: 'Success', description: 'Document deleted successfully.' });
-      })
-      .catch((error) => {
-        const permError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permError);
+  const deleteDoc = async (collectionName: string, docId: string) => {
+    const { error } = await supabase
+      .from(collectionName)
+      .delete()
+      .eq('id', docId);
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message,
       });
+    } else {
+      toast({ title: 'Success', description: 'Document deleted successfully.' });
+    }
   };
 
   return { addDoc, updateDoc, deleteDoc };

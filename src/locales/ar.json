@@ -1,4 +1,3 @@
-
 {
     "team_analytics": "تحليلات الفريق",
     "my_dashboard": "لوحة التحكم",
@@ -348,6 +347,8 @@
     "deduction_reason_placeholder": "اذكر سببًا لهذا الخصم",
     "deduction_added_title": "تمت إضافة الخصم",
     "deduction_added_desc": "تم تسجيل الخصم بنجاح.",
+    "absence": "غياب",
+    "late": "تأخير",
     "penalty": "جزاء",
     "auto_extracted_from_chat": "مستخلص تلقائيًا من المحادثة",
     "leave_approved_for": "تمت الموافقة على طلب الإجازة لـ @{userName}",

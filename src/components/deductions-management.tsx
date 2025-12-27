@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, orderBy, where, serverTimestamp, Timestamp, doc } from 'firebase/firestore';
+import { useSupabase } from '@/context/supabase-context';
+import { useSupabaseCollection, useSupabaseDoc } from '@/hooks/use-supabase-data';
 import { useMutations } from '@/hooks/use-mutations';
 import { useLanguage } from '@/context/language-context';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -21,87 +21,66 @@ import type { Deduction } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 
 const INITIAL_FORM_STATE = {
-    userId: '',
-    amount: '',
-    type: 'penalty' as Deduction['type'],
-    reason: '',
-    date: '',
-  };
+  userId: '',
+  amount: '',
+  type: 'penalty' as Deduction['type'],
+  reason: '',
+  date: '',
+};
 
 export function DeductionsManagement({ userRole }: { userRole: string | undefined }) {
-  const { firestore, user } = useFirebase();
+  const { user, role: supabaseRole } = useSupabase();
   const { addDoc } = useMutations();
   const { t } = useLanguage();
   const { toast } = useToast();
-  const users = useUsers(userRole);
+  const users = useUsers(userRole || supabaseRole);
 
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
 
   useEffect(() => {
-    // Initialize date-sensitive state on the client to avoid hydration mismatch
-    setFormData(prev => ({...prev, date: format(new Date(), 'yyyy-MM-dd')}))
+    setFormData(prev => ({ ...prev, date: format(new Date(), 'yyyy-MM-dd') }))
   }, [])
 
 
-  const userDocRef = useMemoFirebase(
-    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
-    [firestore, user]
+  const { data: userData } = useSupabaseDoc('profiles', user?.id);
+  const isAdmin = (userData as any)?.role === 'admin' || supabaseRole === 'admin';
+
+  const { data: deductionsData } = useSupabaseCollection(
+    'deductions',
+    (query) => query.order('date', { ascending: false })
   );
-  const { data: userData } = useDoc(userDocRef);
-  const isAdmin = (userData as any)?.role === 'admin';
 
-  // Query deductions
-  const deductionsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+  const allDeductions = (deductionsData as any[]) || [];
 
-    if (isAdmin) {
-      return query(collection(firestore, 'deductions'), orderBy('date', 'desc'));
-    } else {
-      return query(
-        collection(firestore, 'deductions'),
-        where('userId', '==', user.uid),
-        orderBy('date', 'desc')
-      );
-    }
-  }, [firestore, user, isAdmin]);
-
-  const { data: deductionsData } = useCollection(deductionsQuery);
-  const allDeductions = (deductionsData as Deduction[]) || [];
-
-  // Filter deductions by selected user
   const deductions = useMemo(() => {
-    if (!isAdmin || selectedUserId === 'all') {
-      return allDeductions;
+    let filtered = allDeductions;
+    if (!isAdmin && user) {
+      filtered = filtered.filter(d => d.user_id === user.id);
     }
-    return allDeductions.filter(d => d.userId === selectedUserId);
-  }, [allDeductions, isAdmin, selectedUserId]);
+    if (isAdmin && selectedUserId !== 'all') {
+      filtered = filtered.filter(d => d.user_id === selectedUserId);
+    }
+    return filtered;
+  }, [allDeductions, isAdmin, user, selectedUserId]);
 
-  // Query chat messages for auto-extraction (admin only)
-  const chatQuery = useMemoFirebase(() => {
-    if (!firestore || !isAdmin) return null;
-    return query(collection(firestore, 'chat'), orderBy('timestamp', 'desc'));
-  }, [firestore, isAdmin]);
-
-  const { data: chatData } = useCollection(chatQuery);
+  const { data: chatData } = useSupabaseCollection(
+    'chat',
+    (query) => isAdmin ? query.order('timestamp', { ascending: false }) : query.limit(0)
+  );
   const chatMessages = (chatData || []) as any[];
 
-  // Extract deductions from chat messages
   useEffect(() => {
-    if (!isAdmin || !chatMessages || chatMessages.length === 0 || !users || users.length === 0 || !firestore) return;
+    if (!isAdmin || !chatMessages || chatMessages.length === 0 || !users || users.length === 0) return;
 
-    const processedMessageIds = new Set(deductions.filter(d => d.extractedFromChatMessageId).map(d => d.extractedFromChatMessageId));
+    const processedMessageIds = new Set(deductions.filter(d => d.extracted_from_chat_message_id).map(d => d.extracted_from_chat_message_id));
 
     chatMessages.forEach((msg) => {
-      // Skip if message doesn't have required fields
-      if (!msg.id || !msg.text || !msg.userId) return;
-      // Only process messages from admin users
-      const messageUser = users.find(u => u.id === msg.userId);
-      if (!messageUser || (messageUser as any).role !== 'admin') return;
+      if (!msg.id || !msg.text || !msg.user_id || processedMessageIds.has(msg.id)) return;
 
-      // Skip if already processed
-      if (processedMessageIds.has(msg.id)) return;
+      const messageUser = users.find(u => u.id === msg.user_id);
+      if (!messageUser || (messageUser as any).role !== 'admin') return;
 
       const text = msg.text?.toLowerCase() || '';
 
@@ -127,38 +106,32 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
             amount = Number(match[2]);
           }
 
-          // Find user by name (match partial names)
           const targetUser = users.find(u => {
-            const fullName = (u as any).fullName?.toLowerCase() || '';
+            const fullName = (u.full_name || '').toLowerCase();
             const targetNameLower = targetName.toLowerCase().trim();
-            return fullName.includes(targetNameLower) ||
-                   fullName.split(/\s+/).some(part => part.startsWith(targetNameLower));
+            return fullName.includes(targetNameLower);
           });
 
           if (targetUser && amount > 0) {
-            try {
-              addDoc('deductions', {
-                userId: targetUser.id,
-                userName: (targetUser as any).fullName,
-                amount,
-                reason: `${t('auto_extracted_from_chat')}: "${msg.text.substring(0, 100)}"`,
-                type: 'penalty',
-                date: msg.timestamp || serverTimestamp(),
-                extractedFromChatMessageId: msg.id,
-                createdBy: msg.userId,
-                createdAt: serverTimestamp(),
-              });
-            } catch (error) {
-              console.error('Error creating auto-deduction:', error);
-            }
+            addDoc('deductions', {
+              user_id: targetUser.id,
+              user_name: targetUser.full_name,
+              amount,
+              reason: `${t('auto_extracted_from_chat')}: "${msg.text.substring(0, 100)}"`,
+              type: 'penalty',
+              date: msg.timestamp || new Date().toISOString(),
+              extracted_from_chat_message_id: msg.id,
+              created_by: msg.user_id,
+              created_at: new Date().toISOString(),
+            });
           }
         });
       });
     });
-  }, [chatMessages, users, isAdmin, deductions, firestore, addDoc, t]);
+  }, [chatMessages, users, isAdmin, deductions, addDoc, t]);
 
   const handleSubmit = async () => {
-    if (!firestore || !user || !formData.userId || !formData.amount) {
+    if (!user || !formData.userId || !formData.amount) {
       toast({ variant: 'destructive', title: t('error_title'), description: t('please_fill_all_fields') });
       return;
     }
@@ -171,14 +144,14 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
 
     try {
       await addDoc('deductions', {
-        userId: formData.userId,
-        userName: (targetUser as any).fullName,
+        user_id: formData.userId,
+        user_name: targetUser.full_name,
         amount: parseFloat(formData.amount),
         type: formData.type,
         reason: formData.reason,
-        date: Timestamp.fromDate(new Date(formData.date)),
-        createdBy: user.uid,
-        createdAt: serverTimestamp(),
+        date: formData.date,
+        created_by: user.id,
+        created_at: new Date().toISOString(),
       });
 
       toast({ title: t('deduction_added_title'), description: t('deduction_added_desc') });
@@ -190,7 +163,7 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
     }
   };
 
-  const getTypeBadge = (type: Deduction['type']) => {
+  const getTypeBadge = (type: string) => {
     switch (type) {
       case 'absence':
         return <Badge variant="destructive">{t('absence')}</Badge>;
@@ -205,16 +178,17 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
 
   const stats = useMemo(() => {
     const groupedByUser = deductions.reduce((acc, d) => {
-      if (!acc[d.userId]) {
-        acc[d.userId] = { userName: d.userName, total: 0, count: 0 };
+      const uid = d.user_id;
+      if (!acc[uid]) {
+        acc[uid] = { userName: d.user_name, total: 0, count: 0 };
       }
-      acc[d.userId].total += d.amount;
-      acc[d.userId].count += 1;
+      acc[uid].total += d.amount;
+      acc[uid].count += 1;
       return acc;
     }, {} as Record<string, { userName?: string; total: number; count: number }>);
 
     const totalAmount = deductions.reduce((sum, d) => sum + d.amount, 0);
-    const autoExtracted = deductions.filter(d => d.extractedFromChatMessageId).length;
+    const autoExtracted = deductions.filter(d => d.extracted_from_chat_message_id).length;
 
     return { totalAmount, totalCount: deductions.length, autoExtracted, byUser: Object.entries(groupedByUser) };
   }, [deductions]);
@@ -242,7 +216,6 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-muted p-4 rounded-lg">
             <p className="text-sm text-muted-foreground">{t('total_deductions')}</p>
@@ -258,7 +231,6 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
           </div>
         </div>
 
-        {/* User Filter (Admin only) */}
         {isAdmin && users && users.length > 0 && (
           <div className="flex items-center gap-3">
             <Label htmlFor="deduction-user-filter" className="whitespace-nowrap">{t('filter_by_employee')}:</Label>
@@ -270,7 +242,7 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
                 <SelectItem value="all">{t('all_employees')}</SelectItem>
                 {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
-                    {(u as any).fullName || u.email || t('unknown_user')}
+                    {u.full_name || u.email || t('unknown_user')}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -283,12 +255,11 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
           </div>
         )}
 
-        {/* Deductions by User */}
         {isAdmin && stats.byUser.length > 0 && selectedUserId === 'all' && (
           <div className="bg-muted p-4 rounded-lg">
             <h4 className="font-semibold mb-2">{t('deductions_by_employee')}</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {stats.byUser.map(([userId, data]) => (
+              {stats.byUser.map(([userId, data]: [string, any]) => (
                 <div key={userId} className="bg-background p-2 rounded text-sm">
                   <p className="font-medium">{data.userName || t('unknown_user')}</p>
                   <p className="text-red-600 font-bold">{data.total} {t('currency')} ({data.count} {t('items')})</p>
@@ -298,7 +269,6 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
           </div>
         )}
 
-        {/* Info about auto-extraction */}
         {isAdmin && (
           <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
@@ -311,7 +281,6 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
           </div>
         )}
 
-        {/* Deductions Table */}
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
@@ -334,16 +303,16 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
               ) : (
                 deductions.map((deduction) => (
                   <TableRow key={deduction.id}>
-                    {isAdmin && <TableCell className="font-medium">{deduction.userName}</TableCell>}
+                    {isAdmin && <TableCell className="font-medium">{deduction.user_name}</TableCell>}
                     <TableCell>
                       <span className="text-red-600 font-bold">{deduction.amount} {t('currency')}</span>
                     </TableCell>
                     <TableCell>{getTypeBadge(deduction.type)}</TableCell>
-                    <TableCell>{format((deduction.date as Timestamp).toDate(), 'MMM dd, yyyy')}</TableCell>
+                    <TableCell>{format(new Date(deduction.date), 'MMM dd, yyyy')}</TableCell>
                     <TableCell className="max-w-xs truncate">{deduction.reason}</TableCell>
                     {isAdmin && (
                       <TableCell>
-                        {deduction.extractedFromChatMessageId ? (
+                        {deduction.extracted_from_chat_message_id ? (
                           <Badge variant="secondary" className="text-xs">
                             <MessageSquare className="w-3 h-3 mr-1" />
                             {t('chat')}
@@ -363,7 +332,6 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
         </div>
       </CardContent>
 
-      {/* Add Deduction Dialog */}
       {isAdmin && (
         <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent>
@@ -381,7 +349,7 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
                   <SelectContent>
                     {users?.map((u) => (
                       <SelectItem key={u.id} value={u.id}>
-                        {(u as any).fullName || 'Unknown'}
+                        {u.full_name || 'Unknown'}
                       </SelectItem>
                     ))}
                   </SelectContent>

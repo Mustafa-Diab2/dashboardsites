@@ -4,8 +4,8 @@ import { useState, useMemo, useEffect } from "react";
 import { Calendar, Clock, User, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, orderBy, Timestamp } from "firebase/firestore";
+import { useSupabase } from "@/context/supabase-context";
+import { useSupabaseCollection } from "@/hooks/use-supabase-data";
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import {
   Select,
@@ -28,7 +28,7 @@ import { useUsers } from "@/hooks/use-users";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 
 export default function AttendanceAdmin() {
-  const { firestore, user } = useFirebase();
+  const { user, role: supabaseRole } = useSupabase();
   const { t, language } = useLanguage();
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
@@ -40,7 +40,7 @@ export default function AttendanceAdmin() {
     setSelectedYear(now.getFullYear());
   }, []);
 
-  const users = useUsers('admin');
+  const users = useUsers(supabaseRole || 'admin');
 
   const dateRange = useMemo(() => {
     if (selectedYear === null || selectedMonth === null) {
@@ -54,34 +54,31 @@ export default function AttendanceAdmin() {
     };
   }, [selectedMonth, selectedYear]);
 
-  const attendanceQuery = useMemoFirebase(() => {
-    if (!firestore || selectedYear === null || selectedMonth === null) return null;
+  const { data: attendanceRecords, isLoading } = useSupabaseCollection(
+    'attendance',
+    (query) => {
+      let q = query
+        .gte('check_in', dateRange.start.toISOString())
+        .lte('check_in', dateRange.end.toISOString())
+        .order('check_in', { ascending: false });
 
-    let q = query(
-      collection(firestore, 'attendance'),
-      where('clockIn', '>=', dateRange.start),
-      where('clockIn', '<=', dateRange.end),
-      orderBy('clockIn', 'desc')
-    );
-    
-    if (selectedUserId !== "all") {
-      q = query(q, where('userId', '==', selectedUserId));
+      if (selectedUserId !== "all") {
+        q = q.eq('user_id', selectedUserId);
+      }
+      return q;
     }
-
-    return q;
-  }, [firestore, dateRange, selectedUserId, selectedYear, selectedMonth]);
-
-  const { data: attendanceRecords, isLoading } = useCollection(attendanceQuery);
+  );
 
   const formattedRecords = useMemo(() => {
     if (!attendanceRecords || !users) return [];
 
     return attendanceRecords.map(record => {
-      const userInfo = users.find(u => u.id === record.userId);
+      const uid = record.user_id;
+      const userInfo = users.find(u => u.id === uid);
       return {
         ...record,
-        userName: userInfo ? `${(userInfo as any).fullName}` : t('unknown_user'),
-        userRole: userInfo ? `${(userInfo as any).role}` : t('n_a'),
+        userName: userInfo ? userInfo.full_name : t('unknown_user'),
+        userRole: userInfo ? userInfo.role : t('n_a'),
       };
     });
   }, [attendanceRecords, users, t]);
@@ -96,9 +93,11 @@ export default function AttendanceAdmin() {
     }>();
 
     formattedRecords.forEach(record => {
-      if (!record.clockOut) return;
+      const checkIn = record.check_in;
+      const checkOut = record.check_out;
+      if (!checkOut) return;
 
-      const key = record.userId;
+      const key = record.user_id;
       if (!stats.has(key)) {
         stats.set(key, {
           name: record.userName,
@@ -110,9 +109,9 @@ export default function AttendanceAdmin() {
       }
 
       const stat = stats.get(key)!;
-      const clockIn = (record.clockIn as Timestamp).toDate();
-      const clockOut = (record.clockOut as Timestamp).toDate();
-      const hours = (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60);
+      const cin = new Date(checkIn);
+      const cout = new Date(checkOut);
+      const hours = (cout.getTime() - cin.getTime()) / (1000 * 60 * 60);
 
       stat.totalDays++;
       stat.totalHours += hours;
@@ -122,20 +121,16 @@ export default function AttendanceAdmin() {
     return Array.from(stats.values());
   }, [formattedRecords]);
 
-  const formatDateTime = (timestamp: any) => {
-    if (!timestamp) return t('n_a');
-    if (timestamp.toDate) {
-      return format(timestamp.toDate(), 'dd/MM/yyyy hh:mm a');
-    }
-    return t('pending');
+  const formatDateTime = (timeStr: any) => {
+    if (!timeStr) return t('n_a');
+    return format(new Date(timeStr), 'dd/MM/yyyy hh:mm a');
   };
 
-  const formatDuration = (clockIn: any, clockOut: any) => {
-    if (!clockIn || !clockOut) return t('n_a');
-    if (!clockIn.toDate || !clockOut.toDate) return t('calculating');
+  const formatDuration = (checkIn: any, checkOut: any) => {
+    if (!checkIn || !checkOut) return t('n_a');
 
-    const start = clockIn.toDate();
-    const end = clockOut.toDate();
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
     const diff = end.getTime() - start.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -148,9 +143,9 @@ export default function AttendanceAdmin() {
     const data = formattedRecords.map(record => ({
       [t('employee_name')]: record.userName,
       [t('role')]: record.userRole,
-      [t('clock_in_date')]: formatDateTime(record.clockIn),
-      [t('clock_out_date')]: formatDateTime(record.clockOut),
-      [t('work_duration')]: formatDuration(record.clockIn, record.clockOut),
+      [t('clock_in_date')]: formatDateTime(record.check_in),
+      [t('clock_out_date')]: formatDateTime(record.check_out),
+      [t('work_duration')]: formatDuration(record.check_in, record.check_out),
     }));
 
     const ws = utils.json_to_sheet(data);
@@ -161,12 +156,12 @@ export default function AttendanceAdmin() {
     writeFile(wb, fileName);
   };
 
-  const months = language === 'ar' 
+  const months = language === 'ar'
     ? ['يناير', 'فبراير', 'مارس', 'إبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
     : ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
-  
+
   if (selectedMonth === null || selectedYear === null) {
     return <Card><CardHeader><CardTitle>{t('loading')}...</CardTitle></CardHeader></Card>;
   }
@@ -230,9 +225,9 @@ export default function AttendanceAdmin() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('all')}</SelectItem>
-                  {users?.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {(user as any).fullName}
+                  {users?.map(u => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.full_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -310,13 +305,13 @@ export default function AttendanceAdmin() {
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">{record.userName}</TableCell>
                       <TableCell>{record.userRole}</TableCell>
-                      <TableCell>{formatDateTime(record.clockIn)}</TableCell>
+                      <TableCell>{formatDateTime(record.check_in)}</TableCell>
                       <TableCell>
-                        {record.clockOut ? formatDateTime(record.clockOut) : (
+                        {record.check_out ? formatDateTime(record.check_out) : (
                           <span className="text-yellow-600">{t('still_at_work')}</span>
                         )}
                       </TableCell>
-                      <TableCell>{formatDuration(record.clockIn, record.clockOut)}</TableCell>
+                      <TableCell>{formatDuration(record.check_in, record.check_out)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

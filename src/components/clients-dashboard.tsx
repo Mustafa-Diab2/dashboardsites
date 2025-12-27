@@ -48,7 +48,7 @@ export default function ClientsDashboard() {
     setSelectedClient(undefined);
     setClientFormOpen(true);
   };
-  
+
   const handleEditClient = (client: Client) => {
     setSelectedClient(client);
     setClientFormOpen(true);
@@ -59,17 +59,17 @@ export default function ClientsDashboard() {
   };
 
   const handleGeneratePortalLink = (client: Client) => {
-    const token = client.publicToken || crypto.randomUUID();
+    const token = client.public_token || crypto.randomUUID();
     const link = `${window.location.origin}/client-portal/${token}`;
-    
+
     // If the client doesn't have a token, update the document
-    if (!client.publicToken) {
-      updateDoc('clients', client.id, { publicToken: token });
+    if (!client.public_token) {
+      updateDoc('clients', client.id, { public_token: token });
     }
 
     setPortalLink(link);
   };
-  
+
   const calculateBalance = (total?: number, paid?: number) => {
     const balance = (total || 0) - (paid || 0);
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(balance);
@@ -77,12 +77,12 @@ export default function ClientsDashboard() {
 
   return (
     <>
-      <ClientForm 
-        isOpen={isClientFormOpen} 
+      <ClientForm
+        isOpen={isClientFormOpen}
         onOpenChange={setClientFormOpen}
         client={selectedClient}
       />
-      
+
       <AlertDialog open={!!portalLink} onOpenChange={() => setPortalLink(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -91,10 +91,10 @@ export default function ClientsDashboard() {
               Share this secure link with your client for them to view project progress.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <Input 
-            readOnly 
-            value={portalLink || ''} 
-            className="my-4" 
+          <Input
+            readOnly
+            value={portalLink || ''}
+            className="my-4"
             onFocus={(e) => e.target.select()}
           />
           <AlertDialogFooter>
@@ -160,7 +160,7 @@ export default function ClientsDashboard() {
                               <Link className="mr-2 h-4 w-4" />
                               <span>Client Portal</span>
                             </DropdownMenuItem>
-                             <DropdownMenuItem onClick={() => handleDeleteClient(client.id)} className="text-destructive">
+                            <DropdownMenuItem onClick={() => handleDeleteClient(client.id)} className="text-destructive">
                               <Trash2 className="mr-2 h-4 w-4" />
                               <span>{t('delete')}</span>
                             </DropdownMenuItem>

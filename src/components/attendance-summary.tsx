@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { useSupabase } from '@/context/supabase-context';
+import { useSupabaseCollection } from '@/hooks/use-supabase-data';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
@@ -13,103 +13,89 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useLanguage } from '@/context/language-context';
 
 export function AttendanceSummary({ userRole }: { userRole: string | undefined }) {
-  const { firestore, user } = useFirebase();
-  const users = useUsers(userRole);
+  const { user, role: supabaseRole } = useSupabase();
+  const users = useUsers(userRole || supabaseRole);
   const { t } = useLanguage();
-  const isAdmin = userRole === 'admin';
+  const isAdmin = (userRole || supabaseRole) === 'admin';
 
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
 
   useEffect(() => {
-    // Initialize date-sensitive state on the client to avoid hydration mismatch
     setSelectedMonth(format(new Date(), 'yyyy-MM'));
   }, []);
 
   const monthStart = useMemo(() => selectedMonth ? startOfMonth(new Date(selectedMonth)) : new Date(), [selectedMonth]);
   const monthEnd = useMemo(() => selectedMonth ? endOfMonth(new Date(selectedMonth)) : new Date(), [selectedMonth]);
 
-  // Query attendance records for the selected month
-  const attendanceQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !selectedMonth) return null;
+  const { data: attendanceData } = useSupabaseCollection(
+    'attendance',
+    (query) => {
+      let q = query
+        .gte('check_in', monthStart.toISOString())
+        .lte('check_in', monthEnd.toISOString())
+        .order('check_in', { ascending: false });
 
-    if (isAdmin) {
-      // Admin sees all attendance
-      return query(
-        collection(firestore, 'attendance'),
-        where('clockIn', '>=', monthStart),
-        where('clockIn', '<=', monthEnd),
-        orderBy('clockIn', 'desc')
-      );
-    } else {
-      // Regular users see only their attendance
-      return query(
-        collection(firestore, 'attendance'),
-        where('userId', '==', user.uid),
-        where('clockIn', '>=', monthStart),
-        where('clockIn', '<=', monthEnd),
-        orderBy('clockIn', 'desc')
-      );
+      if (!isAdmin && user) {
+        q = q.eq('user_id', user.id);
+      }
+      return q;
     }
-  }, [firestore, user, isAdmin, monthStart, monthEnd, selectedMonth]);
+  );
 
-  const { data: attendanceData } = useCollection(attendanceQuery);
   const attendance = (attendanceData || []) as any[];
 
-  // Calculate summary statistics
   const summary = useMemo(() => {
     if (!users || users.length === 0 || !selectedMonth) return [];
 
-    const usersList = isAdmin ? users : users.filter(u => u.id === user?.uid);
+    const usersList = isAdmin ? users : users.filter(u => u.id === user?.id);
     const allDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
     const workingDays = allDaysInMonth.filter(day => {
       const dayOfWeek = day.getDay();
-      return dayOfWeek !== 5 && dayOfWeek !== 6; // Exclude Friday (5) and Saturday (6)
+      return dayOfWeek !== 5 && dayOfWeek !== 6;
     });
 
     return usersList
       .filter(u => {
-        // Filter by selected user if not 'all'
         if (!isAdmin || selectedUserId === 'all') return true;
         return u.id === selectedUserId;
       })
       .map(u => {
-      const userAttendance = attendance.filter(a => a.userId === u.id);
+        const userAttendance = attendance.filter(a => a.user_id === u.id);
 
-      const presentDays = new Set(
-        userAttendance.map(a => format((a.clockIn as Timestamp).toDate(), 'yyyy-MM-dd'))
-      ).size;
+        const presentDays = new Set(
+          userAttendance.map(a => format(new Date(a.check_in), 'yyyy-MM-dd'))
+        ).size;
 
-      const totalHours = userAttendance.reduce((sum, a) => {
-        if (a.clockOut) {
-          const clockInDate = (a.clockIn as Timestamp).toDate();
-          const clockOutDate = (a.clockOut as Timestamp).toDate();
-          return sum + differenceInMinutes(clockOutDate, clockInDate) / 60;
-        }
-        return sum;
-      }, 0);
+        const totalHours = userAttendance.reduce((sum, a) => {
+          const checkIn = a.check_in;
+          const checkOut = a.check_out;
+          if (checkOut) {
+            return sum + differenceInMinutes(new Date(checkOut), new Date(checkIn)) / 60;
+          }
+          return sum;
+        }, 0);
 
-      // Count late days (after 9:30 AM)
-      const lateDays = userAttendance.filter(a => {
-        const clockInDate = (a.clockIn as Timestamp).toDate();
-        const hours = clockInDate.getHours();
-        const minutes = clockInDate.getMinutes();
-        return hours > 9 || (hours === 9 && minutes > 30);
-      }).length;
+        const lateDays = userAttendance.filter(a => {
+          const clockInDate = new Date(a.check_in);
+          const hours = clockInDate.getHours();
+          const minutes = clockInDate.getMinutes();
+          return hours > 9 || (hours === 9 && minutes > 30);
+        }).length;
 
-      const absentDays = workingDays.length - presentDays;
+        const absentDays = Math.max(0, workingDays.length - presentDays);
 
-      return {
-        userId: u.id,
-        userName: (u as any).fullName || t('unknown_user'),
-        totalDays: workingDays.length,
-        presentDays,
-        absentDays,
-        lateDays,
-        totalHours: Math.round(totalHours * 10) / 10,
-        attendanceRate: workingDays.length > 0 ? Math.round((presentDays / workingDays.length) * 100) : 0,
-      };
-    });
+        return {
+          userId: u.id,
+          userName: u.full_name || t('unknown_user'),
+          totalDays: workingDays.length,
+          presentDays,
+          absentDays,
+          lateDays,
+          totalHours: Math.round(totalHours * 10) / 10,
+          attendanceRate: workingDays.length > 0 ? Math.round((presentDays / workingDays.length) * 100) : 0,
+        };
+      });
   }, [users, attendance, isAdmin, user, monthStart, monthEnd, selectedUserId, t, selectedMonth]);
 
   const getAttendanceRateBadge = (rate: number) => {
@@ -132,7 +118,7 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
       avgAttendanceRate: isNaN(avgAttendance) ? 0 : Math.round(avgAttendance),
     };
   }, [summary]);
-  
+
   if (!selectedMonth) {
     return (
       <Card>
@@ -148,7 +134,6 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
       </Card>
     );
   }
-
 
   return (
     <Card>
@@ -179,7 +164,6 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* User Filter (Admin only) */}
         {isAdmin && users && users.length > 0 && (
           <div className="flex items-center gap-3">
             <label htmlFor="attendance-user-filter" className="text-sm font-medium whitespace-nowrap">{t('filter_by_employee')}:</label>
@@ -191,7 +175,7 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
                 <SelectItem value="all">{t('all_employees')}</SelectItem>
                 {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
-                    {(u as any).fullName || u.email || t('unknown_user')}
+                    {u.full_name || u.email || t('unknown_user')}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -207,7 +191,6 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
           </div>
         )}
 
-        {/* Overall Stats */}
         {totalStats && (isAdmin || summary.length === 1) && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="bg-muted p-4 rounded-lg">
@@ -242,7 +225,6 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
           </div>
         )}
 
-        {/* Summary Table */}
         <div className="border rounded-lg">
           <Table>
             <TableHeader>

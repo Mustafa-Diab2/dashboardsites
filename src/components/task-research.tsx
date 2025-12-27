@@ -47,7 +47,7 @@ export function TaskResearch({ research, onChange, readonly = false }: TaskResea
       url: newItem.url.trim(),
       type: newItem.type as ResearchItem['type'] || 'other',
       notes: newItem.notes?.trim(),
-      createdAt: new Date(),
+      created_at: new Date(),
     };
 
     onChange([...research, item]);

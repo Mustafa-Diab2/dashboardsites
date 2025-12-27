@@ -26,7 +26,7 @@ export function TaskChecklist({ checklist, onChange, readonly = false }: TaskChe
       id: Date.now().toString(),
       title: newItemTitle.trim(),
       done: false,
-      createdAt: new Date(),
+      created_at: new Date(),
     };
 
     onChange([...checklist, newItem]);
@@ -79,9 +79,8 @@ export function TaskChecklist({ checklist, onChange, readonly = false }: TaskChe
               disabled={readonly}
             />
             <span
-              className={`flex-1 ${
-                item.done ? 'line-through text-muted-foreground' : ''
-              }`}
+              className={`flex-1 ${item.done ? 'line-through text-muted-foreground' : ''
+                }`}
             >
               {item.title}
             </span>

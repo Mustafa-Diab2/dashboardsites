@@ -1,9 +1,7 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { supabase } from '@/lib/supabase';
 import { Client, Task } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,33 +21,35 @@ export default function ClientPortalPage({ params }: { params: { token: string }
   async function loadClientData() {
     try {
       // Find client by public token
-      const clientsRef = collection(db, 'clients');
-      const q = query(clientsRef, where('publicToken', '==', params.token));
-      const snapshot = await getDocs(q);
+      const { data: clients, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('public_token', params.token)
+        .single();
 
-      if (snapshot.empty) {
+      if (clientError || !clients) {
         setError('Invalid access token');
         setLoading(false);
         return;
       }
 
-      const clientData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Client;
-      setClient(clientData);
+      setClient(clients as Client);
 
       // Load client's tasks
-      const tasksRef = collection(db, 'tasks');
-      const tasksQuery = query(tasksRef, where('client_id', '==', clientData.id));
-      const tasksSnapshot = await getDocs(tasksQuery);
-      const tasksData = tasksSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Task[];
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('client_id', clients.id);
 
-      setTasks(tasksData);
-      setLoading(false);
+      if (tasksError) {
+        console.error('Error loading tasks:', tasksError);
+      }
+
+      setTasks((tasksData || []) as Task[]);
     } catch (err) {
       console.error('Error loading client data:', err);
       setError('Failed to load data');
+    } finally {
       setLoading(false);
     }
   }
@@ -202,8 +202,8 @@ export default function ClientPortalPage({ params }: { params: { token: string }
                       task.status === 'done'
                         ? 'default'
                         : task.status === 'in_progress'
-                        ? 'secondary'
-                        : 'outline'
+                          ? 'secondary'
+                          : 'outline'
                     }
                   >
                     {task.status.replace('_', ' ')}

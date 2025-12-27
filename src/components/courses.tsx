@@ -3,30 +3,25 @@
 import { useState } from 'react';
 import { BookOpen, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useSupabase } from '@/context/supabase-context';
+import { useSupabaseCollection } from '@/hooks/use-supabase-data';
 import { useLanguage } from '@/context/language-context';
 import CourseForm from './course-form';
 import { Button } from './ui/button';
 
 export default function Courses({ userRole }: { userRole: string }) {
   const { t } = useLanguage();
-  const { firestore, user } = useFirebase();
+  const { user } = useSupabase();
   const [isCourseFormOpen, setCourseFormOpen] = useState(false);
 
-  // Correctly filtered query for the user's courses
-  const coursesQuery = useMemoFirebase(
-    () => {
-      if (!firestore || !user) return null;
-      return query(
-        collection(firestore, 'courses'),
-        where('userId', '==', user.uid)
-      );
-    },
-    [firestore, user]
+  const { data: courses, isLoading } = useSupabaseCollection(
+    'courses',
+    (query) => {
+      if (!user) return query;
+      return query.eq('user_id', user.id);
+    }
   );
 
-  const { data: courses, isLoading } = useCollection(coursesQuery);
   const isAdmin = userRole === 'admin';
 
   return (

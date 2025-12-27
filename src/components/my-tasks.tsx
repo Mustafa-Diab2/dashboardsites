@@ -82,10 +82,10 @@ export default function MyTasks({ tasks }: { tasks: Task[] }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-           <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
             <div className="grid gap-2 w-full">
               <Label htmlFor="status-filter">{t('status')}</Label>
-               <Select value={statusFilter} onValueChange={setStatusFilter} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+              <Select value={statusFilter} onValueChange={setStatusFilter} dir={language === 'ar' ? 'rtl' : 'ltr'}>
                 <SelectTrigger id="status-filter">
                   <SelectValue placeholder={t('all')} />
                 </SelectTrigger>
@@ -100,7 +100,7 @@ export default function MyTasks({ tasks }: { tasks: Task[] }) {
             </div>
             <div className="grid gap-2 w-full">
               <Label htmlFor="priority-filter">{t('priority')}</Label>
-               <Select value={priorityFilter} onValueChange={setPriorityFilter} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+              <Select value={priorityFilter} onValueChange={setPriorityFilter} dir={language === 'ar' ? 'rtl' : 'ltr'}>
                 <SelectTrigger id="priority-filter">
                   <SelectValue placeholder={t('all')} />
                 </SelectTrigger>
@@ -132,7 +132,7 @@ export default function MyTasks({ tasks }: { tasks: Task[] }) {
                       <TableCell className="font-medium">{task.title}</TableCell>
                       <TableCell>{getStatusBadge(task.status)}</TableCell>
                       <TableCell>{getPriorityBadge(task.priority)}</TableCell>
-                      <TableCell>{task.due ? new Date(task.due).toLocaleDateString() : 'N/A'}</TableCell>
+                      <TableCell>{task.due_date ? new Date(task.due_date).toLocaleDateString() : 'N/A'}</TableCell>
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"

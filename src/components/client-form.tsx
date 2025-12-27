@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -13,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useFirebase } from '@/firebase';
+import { useSupabase } from '@/context/supabase-context';
 import { useMutations } from '@/hooks/use-mutations';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/context/language-context';
@@ -38,7 +37,7 @@ export default function ClientForm({
   onOpenChange: (isOpen: boolean) => void;
   client?: Client;
 }) {
-  const { user } = useFirebase();
+  const { user } = useSupabase();
   const { toast } = useToast();
   const { addDoc, updateDoc } = useMutations();
   const { t, language } = useLanguage();
@@ -63,7 +62,7 @@ export default function ClientForm({
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: t('must_be_logged_in_to_create_course'),
+        description: t('must_be_logged_in_to_create_course'), // Using existing translation
       });
       return;
     }
@@ -77,16 +76,23 @@ export default function ClientForm({
     }
 
     const clientData = {
-      ...form,
-      createdBy: user.uid,
+      name: form.name,
+      project_name: form.project_name,
+      total_payment: form.total_payment,
+      paid_amount: form.paid_amount,
+      contact_info: form.contact_info,
+      notes: form.notes,
+      created_by: user.id,
     };
-    
+
     if (client) {
-        updateDoc('clients', client.id, clientData);
+      updateDoc('clients', client.id, clientData);
     } else {
-        addDoc('clients', clientData);
+      addDoc('clients', {
+        ...clientData,
+        created_at: new Date().toISOString(),
+      });
     }
-    
 
     setForm(INITIAL_FORM_STATE);
     onOpenChange(false);
@@ -120,22 +126,22 @@ export default function ClientForm({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-                <Label htmlFor="total_payment">{t('total_payment')}</Label>
-                <Input
+              <Label htmlFor="total_payment">{t('total_payment')}</Label>
+              <Input
                 id="total_payment"
                 type="number"
                 value={form.total_payment || ''}
                 onChange={e => handleFieldChange('total_payment', parseFloat(e.target.value) || 0)}
-                />
+              />
             </div>
-             <div className="grid gap-2">
-                <Label htmlFor="paid_amount">{t('paid_amount')}</Label>
-                <Input
+            <div className="grid gap-2">
+              <Label htmlFor="paid_amount">{t('paid_amount')}</Label>
+              <Input
                 id="paid_amount"
                 type="number"
                 value={form.paid_amount || ''}
                 onChange={e => handleFieldChange('paid_amount', parseFloat(e.target.value) || 0)}
-                />
+              />
             </div>
           </div>
           <div className="grid gap-2">
@@ -146,7 +152,7 @@ export default function ClientForm({
               onChange={e => handleFieldChange('contact_info', e.target.value)}
             />
           </div>
-           <div className="grid gap-2">
+          <div className="grid gap-2">
             <Label htmlFor="notes">{t('notes')}</Label>
             <Textarea
               id="notes"

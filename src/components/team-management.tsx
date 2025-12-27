@@ -27,8 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { useFirebaseApp } from '@/firebase';
+import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
 interface TeamManagementProps {
@@ -37,13 +36,12 @@ interface TeamManagementProps {
 
 export default function TeamManagement({ users }: TeamManagementProps) {
   const { t } = useLanguage();
-  const { updateDoc } = useMutations();
+  const { updateDoc, deleteDoc } = useMutations();
   const [userRates, setUserRates] = useState<Record<string, number | string>>(
-    users.reduce((acc, user) => ({ ...acc, [user.id]: user.hourlyRate || '' }), {})
+    users.reduce((acc, user) => ({ ...acc, [user.id]: user.hourly_rate || '' }), {})
   );
   const [isAddMemberDialogOpen, setAddMemberDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | undefined>(undefined);
-  const app = useFirebaseApp();
   const { toast } = useToast();
 
   const handleRateChange = (userId: string, value: string) => {
@@ -53,7 +51,7 @@ export default function TeamManagement({ users }: TeamManagementProps) {
   const handleSaveRate = (userId: string) => {
     const rate = parseFloat(userRates[userId] as string);
     if (!isNaN(rate)) {
-      updateDoc('users', userId, { hourlyRate: rate });
+      updateDoc('profiles', userId, { hourly_rate: rate });
     }
   };
 
@@ -61,7 +59,7 @@ export default function TeamManagement({ users }: TeamManagementProps) {
     setUserToEdit(user);
     setAddMemberDialogOpen(true);
   };
-  
+
   const handleAddUser = () => {
     setUserToEdit(undefined);
     setAddMemberDialogOpen(true);
@@ -69,9 +67,11 @@ export default function TeamManagement({ users }: TeamManagementProps) {
 
   const handleDeleteUser = async (userId: string) => {
     try {
-      const functions = getFunctions(app);
-      const deleteUserFn = httpsCallable(functions, 'deleteUser');
-      await deleteUserFn({ uid: userId });
+      // Note: Full auth deletion would require a Supabase Edge Function using service_role key
+      // Here we just delete the profile record
+      const { error } = await supabase.from('profiles').delete().eq('id', userId);
+      if (error) throw error;
+
       toast({
         title: t('user_deleted_title'),
         description: t('user_deleted_desc'),
@@ -85,16 +85,16 @@ export default function TeamManagement({ users }: TeamManagementProps) {
       });
     }
   };
-  
+
   const getRoleTranslation = (role: User['role']) => {
-    const roleKey = role.replace(/_/g, '-');
+    const roleKey = role || 'frontend';
     return t(roleKey as any) || role;
   }
 
   return (
     <>
-      <AddMemberDialog 
-        isOpen={isAddMemberDialogOpen} 
+      <AddMemberDialog
+        isOpen={isAddMemberDialogOpen}
         onOpenChange={setAddMemberDialogOpen}
         userToEdit={userToEdit}
       />
@@ -124,61 +124,61 @@ export default function TeamManagement({ users }: TeamManagementProps) {
               <TableBody>
                 {users.map(user => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.fullName}</TableCell>
+                    <TableCell className="font-medium">{user.full_name}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{getRoleTranslation(user.role)}</TableCell>
                     <TableCell>
                       <div className='flex items-center gap-2'>
                         <Input
-                            type="number"
-                            value={userRates[user.id]}
-                            onChange={(e) => handleRateChange(user.id, e.target.value)}
-                            className="w-24"
-                            placeholder={t('not_set')}
+                          type="number"
+                          value={userRates[user.id]}
+                          onChange={(e) => handleRateChange(user.id, e.target.value)}
+                          className="w-24"
+                          placeholder={t('not_set')}
                         />
                         <Button size="sm" variant="outline" onClick={() => handleSaveRate(user.id)}>
-                            <Save className="h-4 w-4" />
+                          <Save className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                       <AlertDialog>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                              <DropdownMenuItem onClick={() => handleEditUser(user)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                <span>{t('edit')}</span>
+                      <AlertDialog>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              <span>{t('edit')}</span>
+                            </DropdownMenuItem>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                <span>{t('delete')}</span>
                               </DropdownMenuItem>
-                               <AlertDialogTrigger asChild>
-                                <DropdownMenuItem className="text-destructive">
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  <span>{t('delete')}</span>
-                                </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                           <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>{t('are_you_sure')}</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                {t('delete_user_confirm')}
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteUser(user.id)}
-                                className="bg-destructive hover:bg-destructive/90"
-                              >
-                                {t('delete')}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
+                            </AlertDialogTrigger>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>{t('are_you_sure')}</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {t('delete_user_confirm')}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteUser(user.id)}
+                              className="bg-destructive hover:bg-destructive/90"
+                            >
+                              {t('delete')}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
                       </AlertDialog>
                     </TableCell>
                   </TableRow>

@@ -3,10 +3,9 @@
 import { Clock, LogIn, LogOut, History } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { useFirebase, useMemoFirebase } from "@/firebase";
+import { useSupabase } from "@/context/supabase-context";
+import { useSupabaseCollection } from "@/hooks/use-supabase-data";
 import { useMutations } from "@/hooks/use-mutations";
-import { collection, query, where, limit, serverTimestamp, orderBy, Timestamp } from "firebase/firestore";
-import { useCollection } from "@/firebase";
 import { useMemo } from "react";
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import {
@@ -20,127 +19,106 @@ import {
 import { useLanguage } from "@/context/language-context";
 
 export default function Attendance() {
-  const { user, firestore } = useFirebase();
+  const { user } = useSupabase();
   const { addDoc, updateDoc } = useMutations();
   const { t } = useLanguage();
 
-  const todayStart = useMemo(() => startOfDay(new Date()), []);
-  const todayEnd = useMemo(() => endOfDay(new Date()), []);
-  const sevenDaysAgo = useMemo(() => subDays(new Date(), 7), []);
+  const todayStart = useMemo(() => startOfDay(new Date()).toISOString(), []);
+  const todayEnd = useMemo(() => endOfDay(new Date()).toISOString(), []);
+  const sevenDaysAgo = useMemo(() => subDays(new Date(), 7).toISOString(), []);
 
-  // Query for an entry today that has been clocked in, but not out.
-  const openAttendanceQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(
-        collection(firestore, 'attendance'),
-        where('userId', '==', user.uid),
-        where('clockOut', '==', null),
-        limit(1)
-    );
-  }, [firestore, user]);
-  
-  // Query for an entry today that is fully completed (clocked in and out).
-  const completedTodayQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(
-      collection(firestore, "attendance"),
-      where("userId", "==", user.uid),
-      where("clockIn", ">=", todayStart),
-      where("clockIn", "<=", todayEnd),
-      where("clockOut", "!=", null),
-      limit(1)
-    );
-  }, [firestore, user, todayStart, todayEnd]);
+  const { data: openAttendanceData, isLoading: isLoadingOpen } = useSupabaseCollection(
+    'attendance',
+    (query) => {
+      if (!user) return query;
+      return query
+        .eq('user_id', user.id)
+        .is('check_out', null)
+        .limit(1);
+    }
+  );
 
-  const { data: openAttendanceData, isLoading: isLoadingOpen } = useCollection(openAttendanceQuery);
-  const { data: completedTodayData, isLoading: isLoadingCompleted } = useCollection(completedTodayQuery);
+  const { data: completedTodayData, isLoading: isLoadingCompleted } = useSupabaseCollection(
+    'attendance',
+    (query) => {
+      if (!user) return query;
+      return query
+        .eq('user_id', user.id)
+        .gte('check_in', todayStart)
+        .lte('check_in', todayEnd)
+        .not('check_out', 'is', null)
+        .limit(1);
+    }
+  );
 
-  const historyQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(
-        collection(firestore, 'attendance'),
-        where('userId', '==', user.uid),
-        where('clockIn', '>=', sevenDaysAgo),
-        orderBy('clockIn', 'desc'),
-        limit(10)
-    );
-  }, [firestore, user, sevenDaysAgo]);
+  const { data: historyData } = useSupabaseCollection(
+    'attendance',
+    (query) => {
+      if (!user) return query;
+      return query
+        .eq('user_id', user.id)
+        .gte('check_in', sevenDaysAgo)
+        .order('check_in', { ascending: false })
+        .limit(10);
+    }
+  );
 
-  const { data: historyData } = useCollection(historyQuery);
-  
   const isLoading = isLoadingOpen || isLoadingCompleted;
 
-  const openAttendance = useMemo(() => {
-    if (!openAttendanceData || openAttendanceData.length === 0) return null;
-    const record = openAttendanceData[0];
-    const clockInDate = (record.clockIn as Timestamp)?.toDate();
-    // Ensure the open record is from today
-    if (clockInDate && clockInDate >= todayStart && clockInDate <= todayEnd) {
-      return record;
-    }
-    return null;
-  }, [openAttendanceData, todayStart, todayEnd]);
-
-  const completedAttendance = useMemo(() => (completedTodayData && completedTodayData.length > 0) ? completedTodayData[0] : null, [completedTodayData]);
+  const openAttendance = openAttendanceData?.[0] || null;
+  const completedAttendance = completedTodayData?.[0] || null;
 
   const handleClockIn = () => {
-    if (!firestore || !user) return;
+    if (!user) return;
     addDoc('attendance', {
-      userId: user.uid,
-      clockIn: serverTimestamp(),
-      clockOut: null,
+      user_id: user.id,
+      check_in: new Date().toISOString(),
+      check_out: null,
       date: new Date().toISOString().split('T')[0]
     });
   };
 
   const handleClockOut = () => {
-    if (!firestore || !openAttendance) return;
+    if (!openAttendance) return;
     updateDoc('attendance', openAttendance.id, {
-      clockOut: serverTimestamp(),
+      check_out: new Date().toISOString(),
     });
   };
-  
+
   const canClockIn = !isLoading && !openAttendance && !completedAttendance;
   const canClockOut = !isLoading && !!openAttendance;
-  
-  const formatTime = (timestamp: any) => {
-    if (!timestamp) return t('n_a');
-    if (timestamp.toDate) {
-      return format(timestamp.toDate(), 'p');
-    }
-    return t('pending');
+
+  const formatTime = (timeStr: string | null) => {
+    if (!timeStr) return t('n_a');
+    return format(new Date(timeStr), 'p');
   };
 
-  const formatDate = (timestamp: any) => {
-    if (!timestamp) return t('n_a');
-    if (timestamp.toDate) {
-      return format(timestamp.toDate(), 'dd/MM/yyyy');
-    }
-    return t('n_a');
+  const formatDate = (timeStr: string | null) => {
+    if (!timeStr) return t('n_a');
+    return format(new Date(timeStr), 'dd/MM/yyyy');
   };
 
-  const formatDuration = (clockIn: any, clockOut: any) => {
-    if (!clockIn || !clockOut) return t('n_a');
-    if (!clockIn.toDate || !clockOut.toDate) return t('in_progress');
+  const formatDuration = (checkIn: string, checkOut: string | null) => {
+    if (!checkIn || !checkOut) return t('n_a');
 
-    const start = clockIn.toDate();
-    const end = clockOut.toDate();
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
     const diff = end.getTime() - start.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
     return `${hours}${t('hours_short')} ${minutes}${t('minutes_short')}`;
   };
-  
+
   let statusText = t('not_clocked_in');
   let statusDetails = t('not_clocked_in_desc');
 
   if (openAttendance) {
     statusText = t('clocked_in');
-    statusDetails = `${t('in')}: ${formatTime(openAttendance.clockIn)} | ${t('out')}: ${t('pending')}`;
+    statusDetails = `${t('in')}: ${formatTime(openAttendance.check_in)} | ${t('out')}: ${t('pending')}`;
   } else if (completedAttendance) {
     statusText = t('clocked_out');
-    statusDetails = `${t('in')}: ${formatTime(completedAttendance.clockIn)} | ${t('out')}: ${formatTime(completedAttendance.clockOut)}`;
+    statusDetails = `${t('in')}: ${formatTime(completedAttendance.check_in)} | ${t('out')}: ${formatTime(completedAttendance.check_out)}`;
   }
 
 
@@ -159,19 +137,19 @@ export default function Attendance() {
           ) : (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-lg bg-muted/50">
               <div className="text-center sm:text-left">
-                  <p className="font-medium">
-                    {t('status')}: {statusText}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                      {statusDetails}
-                  </p>
+                <p className="font-medium">
+                  {t('status')}: {statusText}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {statusDetails}
+                </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <Button onClick={handleClockIn} disabled={!canClockIn} variant={canClockIn ? 'default' : 'secondary'} className="w-full">
-                  <LogIn className="mr-2" /> {t('clock_in')}
+                  <LogIn className="mr-2 h-4 w-4" /> {t('clock_in')}
                 </Button>
                 <Button onClick={handleClockOut} disabled={!canClockOut} variant={canClockOut ? 'destructive' : 'outline'} className="w-full">
-                  <LogOut className="mr-2" /> {t('clock_out')}
+                  <LogOut className="mr-2 h-4 w-4" /> {t('clock_out')}
                 </Button>
               </div>
             </div>
@@ -201,14 +179,14 @@ export default function Attendance() {
                 <TableBody>
                   {historyData.map((record) => (
                     <TableRow key={record.id}>
-                      <TableCell className="font-medium">{formatDate(record.clockIn)}</TableCell>
-                      <TableCell>{formatTime(record.clockIn)}</TableCell>
+                      <TableCell className="font-medium">{formatDate(record.check_in)}</TableCell>
+                      <TableCell>{formatTime(record.check_in)}</TableCell>
                       <TableCell>
-                        {record.clockOut ? formatTime(record.clockOut) : (
+                        {record.check_out ? formatTime(record.check_out) : (
                           <span className="text-yellow-600">{t('in_progress')}</span>
                         )}
                       </TableCell>
-                      <TableCell>{formatDuration(record.clockIn, record.clockOut)}</TableCell>
+                      <TableCell>{formatDuration(record.check_in, record.check_out)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

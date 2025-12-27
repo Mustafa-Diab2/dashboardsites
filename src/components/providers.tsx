@@ -2,7 +2,7 @@
 
 import { ThemeProvider } from "@/context/theme-context";
 import { LanguageProvider } from "@/context/language-context";
-import { FirebaseClientProvider } from "@/firebase/client-provider";
+import { SupabaseProvider } from "@/context/supabase-context";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toaster";
 import { ClientOnly } from "@/components/client-only";
@@ -17,9 +17,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         disableTransitionOnChange
       >
         <LanguageProvider>
-          <FirebaseClientProvider>
+          <SupabaseProvider>
             <SidebarProvider>{children}</SidebarProvider>
-          </FirebaseClientProvider>
+          </SupabaseProvider>
         </LanguageProvider>
       </ThemeProvider>
       <ClientOnly>

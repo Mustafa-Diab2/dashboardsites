@@ -21,8 +21,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { type Task } from '@/lib/data';
-import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, serverTimestamp, query, doc } from 'firebase/firestore';
+import { useSupabase } from '@/context/supabase-context';
+import { useSupabaseCollection, useSupabaseDoc } from '@/hooks/use-supabase-data';
 import { useToast } from '@/hooks/use-toast';
 import { useMutations } from '@/hooks/use-mutations';
 import { useLanguage } from '@/context/language-context';
@@ -32,11 +32,9 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { TaskChecklist } from './task-checklist';
 import { TaskResearch } from './task-research';
-import { ChecklistItem, ResearchItem, Approval } from '@/lib/data';
 import { TaskDependencies } from './task-dependencies';
-import { TaskApprovals } from './task-approvals';
 
-type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'assigned_to'> & { assigned_to: string[] };
+type TaskFormData = Omit<Task, 'id' | 'created_at' | 'updated_at' | 'assigned_to'> & { assigned_to: string[] };
 
 const INITIAL_FORM_STATE: TaskFormData = {
   title: '',
@@ -81,47 +79,37 @@ export function TaskForm({
   task?: Task;
   initialData?: Partial<Task>;
 }) {
-  const { firestore, user } = useFirebase();
+  const { user, role: userRole } = useSupabase();
   const { addDoc: addTask, updateDoc } = useMutations();
   const { toast } = useToast();
   const { t, language } = useLanguage();
   const [form, setForm] = useState<TaskFormData>(INITIAL_FORM_STATE);
 
-  const userDocRef = useMemoFirebase(
-    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
-    [firestore, user]
-  );
-  const { data: userData } = useDoc(userDocRef);
-  const userRole = (userData as any)?.role;
-  
-  const users = useUsers(userRole);
+  const { data: userData } = useSupabaseDoc('profiles', user?.id);
 
-  const allTasksQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'tasks')) : null), [firestore]);
-  const { data: allTasksData } = useCollection(allTasksQuery);
+  const users = useUsers(userRole || (userData as any)?.role);
+
+  const { data: allTasksData } = useSupabaseCollection('tasks');
   const allTasks = (allTasksData as Task[]) || [];
-  
-  const clientsQuery = useMemoFirebase(() => {
-    // Only fetch clients if the user is an admin
-    if (firestore && userRole === 'admin') {
-      return query(collection(firestore, 'clients'));
-    }
-    return null;
-  }, [firestore, userRole]);
-  const { data: clients } = useCollection(clientsQuery);
+
+  const { data: clients } = useSupabaseCollection(
+    'clients',
+    (query) => userRole === 'admin' ? query : query.eq('id', 'null')
+  );
 
   useEffect(() => {
     if (isOpen) {
       if (task) {
         setForm({
           ...(task as any),
-          start_date: task.start_date ? task.start_date.split('T')[0] : '',
-          due_date: task.due_date ? task.due_date.split('T')[0] : '',
+          start_date: task.start_date ? new Date(task.start_date).toISOString().split('T')[0] : '',
+          due_date: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '',
         });
       } else {
         setForm({ ...INITIAL_FORM_STATE, ...initialData });
       }
     } else {
-      setForm(INITIAL_FORM_STATE); // Reset form when dialog closes
+      setForm(INITIAL_FORM_STATE);
     }
   }, [task, initialData, isOpen]);
 
@@ -132,17 +120,17 @@ export function TaskForm({
 
   const handleMultiSelectChange = (field: keyof TaskFormData, value: string) => {
     setForm(prev => {
-        const existing = (prev[field] as string[]) || [];
-        if (existing.includes(value)) {
-            return { ...prev, [field]: existing.filter(item => item !== value) };
-        } else {
-            return { ...prev, [field]: [...existing, value] };
-        }
+      const existing = (prev[field] as string[]) || [];
+      if (existing.includes(value)) {
+        return { ...prev, [field]: existing.filter(item => item !== value) };
+      } else {
+        return { ...prev, [field]: [...existing, value] };
+      }
     });
   };
 
   const handleSubmit = async () => {
-    if (!firestore || !user) {
+    if (!user) {
       toast({ variant: 'destructive', title: 'Error', description: t('must_be_logged_in_to_create_task') });
       return;
     }
@@ -151,23 +139,23 @@ export function TaskForm({
       return;
     }
     if ((form.backend_share_pct || 0) + (form.frontend_share_pct || 0) > 100) {
-        toast({ variant: 'destructive', title: t('error_title'), description: t('share_percentage_error') });
-        return;
+      toast({ variant: 'destructive', title: t('error_title'), description: t('share_percentage_error') });
+      return;
     }
 
     try {
-      const taskData: Omit<Task, 'id'> = {
+      const taskData = {
         ...form,
-        created_by: user.uid,
-        updatedAt: serverTimestamp(),
+        created_by: user.id,
+        updated_at: new Date().toISOString(),
       };
-      
-      if(task) {
-          updateDoc('tasks', task.id, taskData)
+
+      if (task) {
+        updateDoc('tasks', task.id, taskData)
       } else {
-          addTask('tasks', { ...taskData, createdAt: serverTimestamp() });
+        addTask('tasks', { ...taskData, created_at: new Date().toISOString() });
       }
-      
+
       toast({ title: t('task_created_title'), description: `${t('task_created_desc')} "${form.title}"` });
       onOpenChange(false);
     } catch (error) {
@@ -194,117 +182,115 @@ export function TaskForm({
             </TabsList>
 
             <TabsContent value="basic" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
-            {/* Left Column */}
-            <div className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="title">{t('title')}*</Label>
-                <Input id="title" value={form.title} onChange={e => handleFieldChange('title', e.target.value)} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
+                <div className="space-y-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="title">{t('title')}*</Label>
+                    <Input id="title" value={form.title} onChange={e => handleFieldChange('title', e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">{t('description')}</Label>
+                    <Textarea id="description" value={form.description || ''} onChange={e => handleFieldChange('description', e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="status">{t('status')}</Label>
+                      <Select value={form.status} onValueChange={value => handleFieldChange('status', value)} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                        <SelectTrigger id="status"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="backlog">{t('backlog')}</SelectItem>
+                          <SelectItem value="in_progress">{t('in_progress')}</SelectItem>
+                          <SelectItem value="review">{t('review')}</SelectItem>
+                          <SelectItem value="done">{t('done')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="type">{t('type')}*</Label>
+                      <Select value={form.type} onValueChange={value => handleFieldChange('type', value)} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                        <SelectTrigger id="type"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="work">{t('work')}</SelectItem>
+                          <SelectItem value="training">{t('training')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="priority">{t('priority')}</Label>
+                      <Select value={form.priority} onValueChange={value => handleFieldChange('priority', value)} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                        <SelectTrigger id="priority"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">{t('low')}</SelectItem>
+                          <SelectItem value="medium">{t('medium')}</SelectItem>
+                          <SelectItem value="high">{t('high')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="assignee">{t('assignees')}</Label>
+                      <Select onValueChange={value => handleMultiSelectChange('assigned_to', value)} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                        <SelectTrigger id="assignee">
+                          <SelectValue placeholder={t('select_members')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users?.map(member => (
+                            <SelectItem key={member.id} value={member.id}>{member.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="flex flex-wrap gap-1">
+                        {form.assigned_to.map(id => {
+                          const member = users?.find(u => u.id === id);
+                          return member ? <Badge key={id} variant="secondary">{member.full_name}</Badge> : null;
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="start-date">{t('start_date')}</Label>
+                      <Input id="start-date" type="date" value={form.start_date || ''} onChange={e => handleFieldChange('start_date', e.target.value)} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="due-date">{t('due_date')}</Label>
+                      <Input id="due-date" type="date" value={form.due_date || ''} onChange={e => handleFieldChange('due_date', e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="client">{t('client')}</Label>
+                    <Select value={form.client_id || ''} onValueChange={value => handleFieldChange('client_id', value || undefined)} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                      <SelectTrigger id="client"><SelectValue placeholder={t('select_client')} /></SelectTrigger>
+                      <SelectContent>
+                        {clients?.map(client => (
+                          <SelectItem key={client.id} value={client.id}>{(client as any).name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="client_payment">{t('client_payment')}</Label>
+                      <Input id="client_payment" type="number" value={form.client_payment || 0} onChange={e => handleFieldChange('client_payment', parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="backend_share_pct">{t('backend_share')}</Label>
+                      <Input id="backend_share_pct" type="number" value={form.backend_share_pct || 0} onChange={e => handleFieldChange('backend_share_pct', parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="frontend_share_pct">{t('frontend_share')}</Label>
+                      <Input id="frontend_share_pct" type="number" value={form.frontend_share_pct || 0} onChange={e => handleFieldChange('frontend_share_pct', parseFloat(e.target.value) || 0)} />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="payment_schedule">{t('payment_schedule')}</Label>
+                    <Input id="payment_schedule" value={form.payment_schedule || ''} onChange={e => handleFieldChange('payment_schedule', e.target.value)} />
+                  </div>
+                </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">{t('description')}</Label>
-                <Textarea id="description" value={form.description || ''} onChange={e => handleFieldChange('description', e.target.value)} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="status">{t('status')}</Label>
-                  <Select value={form.status} onValueChange={value => handleFieldChange('status', value)} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                    <SelectTrigger id="status"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="backlog">{t('backlog')}</SelectItem>
-                      <SelectItem value="in_progress">{t('in_progress')}</SelectItem>
-                      <SelectItem value="review">{t('review')}</SelectItem>
-                      <SelectItem value="done">{t('done')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="type">{t('type')}*</Label>
-                  <Select value={form.type} onValueChange={value => handleFieldChange('type', value)} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                    <SelectTrigger id="type"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="work">{t('work')}</SelectItem>
-                      <SelectItem value="training">{t('training')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="priority">{t('priority')}</Label>
-                  <Select value={form.priority} onValueChange={value => handleFieldChange('priority', value)} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                    <SelectTrigger id="priority"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">{t('low')}</SelectItem>
-                      <SelectItem value="medium">{t('medium')}</SelectItem>
-                      <SelectItem value="high">{t('high')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="assignee">{t('assignees')}</Label>
-                   <Select onValueChange={value => handleMultiSelectChange('assigned_to', value)} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                    <SelectTrigger id="assignee">
-                      <SelectValue placeholder={t('select_members')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {users?.map(member => (
-                        <SelectItem key={member.id} value={member.id}>{(member as any).fullName}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                   <div className="flex flex-wrap gap-1">
-                    {form.assigned_to.map(id => {
-                        const member = users?.find(u => u.id === id);
-                        return member ? <Badge key={id} variant="secondary">{(member as any).fullName}</Badge> : null;
-                    })}
-                   </div>
-                </div>
-              </div>
-               <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="start-date">{t('start_date')}</Label>
-                  <Input id="start-date" type="date" value={form.start_date || ''} onChange={e => handleFieldChange('start_date', e.target.value)} />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="due-date">{t('due_date')}</Label>
-                  <Input id="due-date" type="date" value={form.due_date || ''} onChange={e => handleFieldChange('due_date', e.target.value)} />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                  <Label htmlFor="client">{t('client')}</Label>
-                  <Select value={form.client_id || ''} onValueChange={value => handleFieldChange('client_id', value || undefined)} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                    <SelectTrigger id="client"><SelectValue placeholder={t('select_client')} /></SelectTrigger>
-                    <SelectContent>
-                      {clients?.map(client => (
-                        <SelectItem key={client.id} value={client.id}>{(client as any).name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-              </div>
-            </div>
-            {/* Right Column */}
-            <div className="space-y-4">
-               <div className="grid grid-cols-3 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="client_payment">{t('client_payment')}</Label>
-                  <Input id="client_payment" type="number" value={form.client_payment || 0} onChange={e => handleFieldChange('client_payment', parseFloat(e.target.value) || 0)} />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="backend_share_pct">{t('backend_share')}</Label>
-                  <Input id="backend_share_pct" type="number" value={form.backend_share_pct || 0} onChange={e => handleFieldChange('backend_share_pct', parseFloat(e.target.value) || 0)} />
-                </div>
-                 <div className="grid gap-2">
-                  <Label htmlFor="frontend_share_pct">{t('frontend_share')}</Label>
-                  <Input id="frontend_share_pct" type="number" value={form.frontend_share_pct || 0} onChange={e => handleFieldChange('frontend_share_pct', parseFloat(e.target.value) || 0)} />
-                </div>
-              </div>
-               <div className="grid gap-2">
-                <Label htmlFor="payment_schedule">{t('payment_schedule')}</Label>
-                <Input id="payment_schedule" value={form.payment_schedule || ''} onChange={e => handleFieldChange('payment_schedule', e.target.value)} />
-              </div>
-            </div>
-          </div>
             </TabsContent>
 
             <TabsContent value="details" className="p-4 space-y-4">
@@ -349,14 +335,14 @@ export function TaskForm({
             </TabsContent>
 
             <TabsContent value="dependencies" className="p-4">
-                <TaskDependencies 
-                    task={form as Task} 
-                    allTasks={allTasks}
-                    onChange={(blocked_by, blocks) => {
-                        handleFieldChange('blocked_by', blocked_by);
-                        handleFieldChange('blocks', blocks);
-                    }}
-                />
+              <TaskDependencies
+                task={form as Task}
+                allTasks={allTasks}
+                onChange={(blocked_by, blocks) => {
+                  handleFieldChange('blocked_by', blocked_by);
+                  handleFieldChange('blocks', blocks);
+                }}
+              />
             </TabsContent>
 
             <TabsContent value="research" className="p-4">

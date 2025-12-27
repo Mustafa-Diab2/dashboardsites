@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { useLanguage } from '@/context/language-context';
 import { Badge } from './ui/badge';
 import { useState } from 'react';
-import { useFirebase } from '@/firebase';
+import { useSupabase } from '@/context/supabase-context';
 
 interface TaskApprovalsProps {
   taskId: string;
@@ -32,7 +32,7 @@ export function TaskApprovals({
   const [notes, setNotes] = useState('');
   const [showApprovalForm, setShowApprovalForm] = useState(false);
   const { t } = useLanguage();
-  const { user } = useFirebase();
+  const { user } = useSupabase();
 
   const latestApproval = approvals && approvals.length > 0 ? approvals[approvals.length - 1] : null;
   const isPendingApproval = currentStatus === 'done' && (!latestApproval || latestApproval.status === 'rejected');
@@ -90,11 +90,10 @@ export function TaskApprovals({
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">
-                      {approval.byName || approval.by}
+                      {approval.by_name || approval.by}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {approval.at?.toDate?.()?.toLocaleDateString() ||
-                        new Date(approval.at).toLocaleDateString()}
+                      {new Date(approval.at).toLocaleDateString()}
                     </span>
                   </div>
                   {approval.notes && (

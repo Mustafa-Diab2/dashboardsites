@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -20,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useFirebase } from '@/firebase';
+import { useSupabase } from '@/context/supabase-context';
 import { useMutations } from '@/hooks/use-mutations';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/context/language-context';
@@ -40,14 +39,13 @@ export default function CourseForm({
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }) {
-  const { firestore, user } = useFirebase();
+  const { user, role: supabaseRole } = useSupabase();
   const { toast } = useToast();
   const { addDoc } = useMutations();
   const { t, language } = useLanguage();
   const [form, setForm] = useState(INITIAL_FORM_STATE);
 
-  // We can assume if this form is open, the user is an admin.
-  const users = useUsers('admin');
+  const users = useUsers(supabaseRole || 'admin');
 
   useEffect(() => {
     if (!isOpen) {
@@ -60,7 +58,7 @@ export default function CourseForm({
   };
 
   const handleSubmit = async () => {
-    if (!firestore || !user) {
+    if (!user) {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -78,8 +76,12 @@ export default function CourseForm({
     }
 
     addDoc('courses', {
-      ...form,
+      name: form.name,
+      link: form.link,
+      duration: form.duration,
+      user_id: form.userId,
       status: 'not_started',
+      created_at: new Date().toISOString(),
     });
 
     setForm(INITIAL_FORM_STATE);
@@ -136,7 +138,7 @@ export default function CourseForm({
               <SelectContent>
                 {users?.map(member => (
                   <SelectItem key={member.id} value={member.id}>
-                    {(member as any).fullName}
+                    {member.full_name}
                   </SelectItem>
                 ))}
               </SelectContent>

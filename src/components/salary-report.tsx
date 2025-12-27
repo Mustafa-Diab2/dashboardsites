@@ -6,11 +6,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Button } from './ui/button';
 import { useLanguage } from '@/context/language-context';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, Timestamp } from 'firebase/firestore';
+import { useSupabase } from '@/context/supabase-context';
+import { useSupabaseCollection } from '@/hooks/use-supabase-data';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import type { User, Task, Deduction } from '@/lib/data';
-import { Banknote, FileDown, Sparkles, Loader2 } from 'lucide-react';
+import { Banknote, Loader2, Sparkles } from 'lucide-react';
 import { generateSalaryInsight, GenerateSalaryInsightInput } from '@/ai/flows/generate-salary-insights';
 
 interface SalaryReportProps {
@@ -20,7 +20,7 @@ interface SalaryReportProps {
 
 export default function SalaryReport({ users, tasks }: SalaryReportProps) {
   const { t } = useLanguage();
-  const { firestore } = useFirebase();
+  const { user } = useSupabase();
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [insights, setInsights] = useState<Record<string, string | null>>({});
@@ -41,67 +41,63 @@ export default function SalaryReport({ users, tasks }: SalaryReportProps) {
     return { start: startOfMonth(date), end: endOfMonth(date) };
   }, [selectedMonth, selectedYear]);
 
-  const attendanceQuery = useMemoFirebase(() => {
-    if (!firestore || selectedYear === null || selectedMonth === null) return null;
-    return query(
-      collection(firestore, 'attendance'),
-      where('clockIn', '>=', dateRange.start),
-      where('clockIn', '<=', dateRange.end)
-    );
-  }, [firestore, dateRange, selectedYear, selectedMonth]);
-  const { data: attendanceRecords } = useCollection(attendanceQuery);
+  const { data: attendanceRecords } = useSupabaseCollection(
+    'attendance',
+    (query) => query
+      .gte('check_in', dateRange.start.toISOString())
+      .lte('check_in', dateRange.end.toISOString())
+  );
 
-  const deductionsQuery = useMemoFirebase(() => {
-    if (!firestore || selectedYear === null || selectedMonth === null) return null;
-    return query(
-      collection(firestore, 'deductions'),
-      where('date', '>=', dateRange.start),
-      where('date', '<=', dateRange.end)
-    );
-  }, [firestore, dateRange, selectedYear, selectedMonth]);
-  const { data: deductions } = useCollection(deductionsQuery);
+  const { data: deductions } = useSupabaseCollection(
+    'deductions',
+    (query) => query
+      .gte('date', dateRange.start.toISOString().split('T')[0])
+      .lte('date', dateRange.end.toISOString().split('T')[0])
+  );
 
   const salaryData = useMemo(() => {
     if (selectedYear === null || selectedMonth === null) return [];
     return users.map(user => {
-      const userAttendance = attendanceRecords?.filter(rec => rec.userId === user.id) || [];
+      const userAttendance = attendanceRecords?.filter(rec => rec.user_id === user.id) || [];
       const totalHours = userAttendance.reduce((acc, rec) => {
-        if (rec.clockIn && rec.clockOut) {
-          const clockIn = (rec.clockIn as Timestamp).toDate();
-          const clockOut = (rec.clockOut as Timestamp).toDate();
-          return acc + (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60);
+        const checkIn = rec.check_in;
+        const checkOut = rec.check_out;
+        if (checkIn && checkOut) {
+          const cin = new Date(checkIn);
+          const cout = new Date(checkOut);
+          return acc + (cout.getTime() - cin.getTime()) / (1000 * 60 * 60);
         }
         return acc;
       }, 0);
 
-      const userDeductions = deductions?.filter(d => d.userId === user.id) as Deduction[] || [];
-      const totalDeductions = userDeductions.reduce((acc, d) => acc + d.amount, 0);
+      const userDeductions = (deductions?.filter(d => d.user_id === user.id) as any[]) || [];
+      const totalDeductionsAmount = userDeductions.reduce((acc, d) => acc + d.amount, 0);
 
-      const hourlyRate = user.hourlyRate || 0;
+      const hourlyRate = user.hourly_rate || 0;
       const grossSalary = totalHours * hourlyRate;
-      const netSalary = grossSalary - totalDeductions;
-      
-      const completedTasks = tasks.filter(task => 
+      const netSalary = grossSalary - totalDeductionsAmount;
+
+      const completedTasks = tasks.filter(task =>
         task.assigned_to.includes(user.id) &&
         task.status === 'done' &&
-        task.updatedAt &&
-        (task.updatedAt as Timestamp).toDate() >= dateRange.start &&
-        (task.updatedAt as Timestamp).toDate() <= dateRange.end
+        task.updated_at &&
+        new Date(task.updated_at as any) >= dateRange.start &&
+        new Date(task.updated_at as any) <= dateRange.end
       ).length;
 
       return {
         userId: user.id,
-        userName: user.fullName,
+        userName: user.full_name,
         hourlyRate,
         totalHours: parseFloat(totalHours.toFixed(2)),
         grossSalary: parseFloat(grossSalary.toFixed(2)),
-        totalDeductions: parseFloat(totalDeductions.toFixed(2)),
+        totalDeductions: parseFloat(totalDeductionsAmount.toFixed(2)),
         netSalary: parseFloat(netSalary.toFixed(2)),
         completedTasks
       };
     });
   }, [users, attendanceRecords, deductions, tasks, dateRange, selectedYear, selectedMonth]);
-  
+
   const handleGenerateInsight = async (userId: string) => {
     const userData = salaryData.find(d => d.userId === userId);
     if (!userData) return;
@@ -131,7 +127,7 @@ export default function SalaryReport({ users, tasks }: SalaryReportProps) {
 
   const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('default', { month: 'long' }));
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
-  
+
   if (selectedMonth === null || selectedYear === null) {
     return <Card><CardHeader><CardTitle>{t('loading')}...</CardTitle></CardHeader></Card>;
   }
@@ -188,21 +184,21 @@ export default function SalaryReport({ users, tasks }: SalaryReportProps) {
                   <TableCell>{row.completedTasks}</TableCell>
                   <TableCell className="text-right">
                     {insights[row.userId] ? (
-                        <p className="text-xs text-left">{insights[row.userId]}</p>
+                      <p className="text-xs text-left">{insights[row.userId]}</p>
                     ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleGenerateInsight(row.userId)}
-                          disabled={isLoadingInsight[row.userId]}
-                        >
-                          {isLoadingInsight[row.userId] ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-4 w-4 mr-2" />
-                          )}
-                          {t('analyze')}
-                        </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleGenerateInsight(row.userId)}
+                        disabled={isLoadingInsight[row.userId]}
+                      >
+                        {isLoadingInsight[row.userId] ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4 mr-2" />
+                        )}
+                        {t('analyze')}
+                      </Button>
                     )}
                   </TableCell>
                 </TableRow>

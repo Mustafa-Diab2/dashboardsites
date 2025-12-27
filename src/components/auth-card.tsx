@@ -1,10 +1,7 @@
 'use client';
 import { useState } from 'react';
-import { LogIn } from 'lucide-react';
-import {
-  signInWithEmailAndPassword,
-} from 'firebase/auth';
-import { useAuth } from '@/firebase';
+import { LogIn, UserPlus } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,58 +18,56 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { FirebaseError } from 'firebase/app';
 import { useLanguage } from '@/context/language-context';
 
 export function AuthCard() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
-  const auth = useAuth();
   const { toast } = useToast();
   const { t } = useLanguage();
 
   const handleAuthError = (error: any) => {
-    let title = t('auth_failed_title');
-    let description = t('auth_failed_desc');
-
-    if (error instanceof FirebaseError) {
-      switch (error.code) {
-        case 'auth/user-not-found':
-          title = t('user_not_found_title');
-          description = t('user_not_found_desc');
-          break;
-        case 'auth/wrong-password':
-          title = t('invalid_password_title');
-          description = t('invalid_password_desc');
-          break;
-        case 'auth/invalid-email':
-          title = t('invalid_email_title');
-          description = t('invalid_email_desc');
-          break;
-        case 'auth/invalid-credential':
-          title = t('invalid_credential_title');
-          description = t('invalid_credential_desc');
-          break;
-        default:
-          description = error.message;
-      }
-    } else if (error instanceof Error) {
-      description = error.message;
-    }
-
     toast({
       variant: 'destructive',
-      title: title,
-      description: description,
+      title: t('auth_failed_title'),
+      description: error.message || t('auth_failed_desc'),
     });
   };
 
   const login = async () => {
     setLoading(true);
     try {
-      if (!auth) throw new Error('Auth service not available');
-      await signInWithEmailAndPassword(auth, email, password);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+    } catch (e: any) {
+      handleAuthError(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signUp = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
+        },
+      });
+      if (error) throw error;
+      toast({
+        title: t('signup_success_title'),
+        description: t('signup_success_desc'),
+      });
     } catch (e: any) {
       handleAuthError(e);
     } finally {
@@ -82,17 +77,19 @@ export function AuthCard() {
 
   const handleKeyDown = (
     event: React.KeyboardEvent<HTMLInputElement>,
+    action: () => void
   ) => {
     if (event.key === 'Enter') {
-      login();
+      action();
     }
   };
 
   return (
     <section className="flex items-center justify-center min-h-screen bg-background p-4">
       <Tabs defaultValue="signin" className="w-full max-w-md">
-        <TabsList className="grid w-full grid-cols-1">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="signin">{t('sign_in')}</TabsTrigger>
+          <TabsTrigger value="signup">{t('sign_up')}</TabsTrigger>
         </TabsList>
         <TabsContent value="signin">
           <Card>
@@ -112,7 +109,7 @@ export function AuthCard() {
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     placeholder="you@company.com"
-                    onKeyDown={handleKeyDown}
+                    onKeyDown={(e) => handleKeyDown(e, login)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -122,13 +119,64 @@ export function AuthCard() {
                     type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    onKeyDown={handleKeyDown}
+                    onKeyDown={(e) => handleKeyDown(e, login)}
                     placeholder="••••••••"
                   />
                 </div>
                 <Button onClick={login} disabled={loading} className="w-full">
-                  <LogIn className="mr-2" />
+                  <LogIn className="mr-2 h-4 w-4" />
                   {loading ? t('signing_in') : t('sign_in')}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="signup">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserPlus className="w-5 h-5" />
+                {t('create_account')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fullname-signup">{t('full_name')}</Label>
+                  <Input
+                    id="fullname-signup"
+                    type="text"
+                    value={fullName}
+                    onChange={e => setFullName(e.target.value)}
+                    placeholder="John Doe"
+                    onKeyDown={(e) => handleKeyDown(e, signUp)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email-signup">{t('email')}</Label>
+                  <Input
+                    id="email-signup"
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    onKeyDown={(e) => handleKeyDown(e, signUp)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password-signup">{t('password')}</Label>
+                  <Input
+                    id="password-signup"
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, signUp)}
+                    placeholder="••••••••"
+                  />
+                </div>
+                <Button onClick={signUp} disabled={loading} className="w-full">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  {loading ? t('signing_up') : t('sign_up')}
                 </Button>
               </div>
             </CardContent>

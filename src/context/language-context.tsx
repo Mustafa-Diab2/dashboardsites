@@ -11,7 +11,7 @@ type Language = 'ar' | 'en';
 interface LanguageContextType {
   language: Language;
   setLanguage: (language: Language) => void;
-  t: (key: keyof typeof en) => string;
+  t: (key: keyof typeof en, variables?: Record<string, string | number>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -26,8 +26,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       document.documentElement.lang = storedLang;
       document.documentElement.dir = storedLang === 'ar' ? 'rtl' : 'ltr';
     } else {
-        document.documentElement.lang = 'en';
-        document.documentElement.dir = 'ltr';
+      document.documentElement.lang = 'en';
+      document.documentElement.dir = 'ltr';
     }
   }, []);
 
@@ -38,8 +38,16 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
   };
 
-  const t = useCallback((key: keyof typeof en): string => {
-    return translations[language][key] || translations.en[key] || key;
+  const t = useCallback((key: keyof typeof en, variables?: Record<string, string | number>): string => {
+    let translation = translations[language][key] || translations.en[key] || key;
+
+    if (variables) {
+      Object.entries(variables).forEach(([vKey, vValue]) => {
+        translation = translation.replace(`{${vKey}}`, vValue.toString());
+      });
+    }
+
+    return translation;
   }, [language]);
 
   return (

@@ -3,7 +3,7 @@ export type ChecklistItem = {
   id: string;
   title: string;
   done: boolean;
-  createdAt?: any;
+  created_at?: any;
 };
 
 export type ResearchItem = {
@@ -12,12 +12,12 @@ export type ResearchItem = {
   url: string;
   type: 'ui' | 'tech' | 'competitor' | 'other';
   notes?: string;
-  createdAt?: any;
+  created_at?: any;
 };
 
 export type Approval = {
   by: string;
-  byName?: string;
+  by_name?: string;
   at: any;
   status: 'approved' | 'rejected';
   notes?: string;
@@ -25,23 +25,23 @@ export type Approval = {
 
 export type AuditLogEntry = {
   id: string;
-  taskId: string;
-  userId: string;
-  userName?: string;
+  task_id: string;
+  user_id: string;
+  user_name?: string;
   action: 'created' | 'updated' | 'deleted' | 'status_changed' | 'assigned' | 'approved' | 'rejected';
   field?: string;
-  oldValue?: any;
-  newValue?: any;
+  old_value?: any;
+  new_value?: any;
   timestamp: any;
 };
 
 export type User = {
-    id: string;
-    fullName: string;
-    email: string;
-    role: 'admin' | 'frontend' | 'backend' | 'trainee' | 'ui_ux' | 'security' | 'ai_specialist';
-    hourlyRate?: number;
-    createdAt: any;
+  id: string;
+  full_name: string;
+  email: string;
+  role: 'admin' | 'frontend' | 'backend' | 'trainee' | 'ui_ux' | 'security' | 'ai_specialist';
+  hourly_rate?: number;
+  created_at: any;
 }
 
 export type Task = {
@@ -57,6 +57,7 @@ export type Task = {
   priority: 'low' | 'medium' | 'high';
   start_date?: string;
   due_date?: string;
+  due?: string; // Some components use 'due' instead of 'due_date'
   deliverable_location?: string;
   delivery_method?: 'in_person' | 'upload' | 'link';
   deliverable_details?: string;
@@ -68,8 +69,8 @@ export type Task = {
   frontend_conditions?: string;
   ux_requirements?: string;
   market_research_link?: string;
-  createdAt?: any;
-  updatedAt?: any;
+  created_at?: any;
+  updated_at?: any;
   tags?: string[];
   checklist?: ChecklistItem[];
   blocked_by?: string[];
@@ -89,7 +90,7 @@ export type Client = {
   paid_amount?: number;
   contact_info?: string;
   notes?: string;
-  publicToken?: string;
+  public_token?: string;
   billing_notes?: string;
   default_requirements?: string;
   payment_terms?: string;
@@ -97,13 +98,13 @@ export type Client = {
 
 export type File = {
   id: string;
-  taskId: string;
+  task_id: string;
   name: string;
   size: number;
-  contentType: string;
+  content_type: string;
   url: string;
-  uploadedBy: string;
-  uploadedAt: any;
+  uploaded_by: string;
+  uploaded_at: any;
 };
 
 export type TaskTemplate = {
@@ -112,16 +113,16 @@ export type TaskTemplate = {
   description: string;
   type: 'work' | 'training';
   category: 'backend' | 'frontend' | 'fullstack' | 'design' | 'other';
-  defaultFields: Partial<Task>;
-  defaultChecklist?: Omit<ChecklistItem, 'id' | 'createdAt'>[];
-  createdBy: string;
-  createdAt: any;
+  default_fields: Partial<Task>;
+  default_checklist?: Omit<ChecklistItem, 'id' | 'created_at'>[];
+  created_by: string;
+  created_at: any;
 };
 
 export type SavedView = {
   id: string;
   name: string;
-  userId: string;
+  user_id: string;
   filters: {
     status?: Task['status'][];
     priority?: Task['priority'][];
@@ -130,10 +131,10 @@ export type SavedView = {
     search?: string;
     date_range?: { start?: string; end?: string };
   };
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  isPublic?: boolean;
-  createdAt: any;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+  is_public?: boolean;
+  created_at: any;
 };
 
 export type Report = {
@@ -150,33 +151,33 @@ export type Report = {
 
 export type Leave = {
   id: string;
-  userId: string;
-  userName?: string;
+  user_id: string;
+  user_name?: string;
   type: 'sick' | 'annual' | 'unpaid' | 'emergency' | 'other';
-  startDate: any;
-  endDate: any;
+  start_date: any;
+  end_date: any;
   days: number;
   reason?: string;
   status: 'pending' | 'approved' | 'rejected';
-  approvedBy?: string;
-  approvedAt?: any;
+  approved_by?: string;
+  approved_at?: any;
   notes?: string;
-  createdAt: any;
-  updatedAt?: any;
-  extractedFromChatMessageId?: string;
+  created_at: any;
+  updated_at?: any;
+  extracted_from_chat_message_id?: string;
 };
 
 export type Deduction = {
   id: string;
-  userId: string;
-  userName?: string;
+  user_id: string;
+  user_name?: string;
   amount: number;
   reason: string;
   type: 'absence' | 'late' | 'penalty' | 'other';
   date: any;
-  extractedFromChatMessageId?: string;
-  createdBy: string;
-  createdAt: any;
+  extracted_from_chat_message_id?: string;
+  created_by: string;
+  created_at: any;
   notes?: string;
 };
 
@@ -194,4 +195,4 @@ export type AttendanceSummary = {
   };
 };
 
-    
+

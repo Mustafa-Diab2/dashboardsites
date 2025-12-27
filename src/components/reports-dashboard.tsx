@@ -10,8 +10,8 @@ import { CompletionRatioPieChart } from './charts/completion-ratio-pie-chart';
 import { DetailedBreakdownTable } from './detailed-breakdown-table';
 import AIInsights from './ai-insights';
 import { TaskForm } from './task-form';
-import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { signOut } from 'firebase/auth';
+import { useSupabase } from '@/context/supabase-context';
+import { supabase } from '@/lib/supabase';
 import Attendance from './attendance';
 import AttendanceAdmin from './attendance-admin';
 import Courses from './courses';
@@ -33,7 +33,6 @@ import {
   SidebarInset,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
-import CourseForm from './course-form';
 import ClientsDashboard from './clients-dashboard';
 import { CommandPalette } from './command-palette';
 import { WorkloadHeatmap } from './workload-heatmap';
@@ -63,8 +62,8 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
   const [isClientFormOpen, setClientFormOpen] = useState(false);
   const [isTemplateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [initialTaskData, setInitialTaskData] = useState<Partial<Task> | undefined>(undefined);
-  
-  const { auth } = useFirebase();
+
+  const { user } = useSupabase();
   const { t } = useLanguage();
   const users = useUsers(userRole);
   const clients = useClients();
@@ -74,16 +73,14 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
   const byUser = useMemo(() => {
     const nameOf = (uid?: string) => {
       if (!uid) return 'Unassigned';
-      // If users aren't loaded yet, just return the ID.
       if (!users) return uid;
       const found = users?.find(m => m.id === uid);
-      return found ? `${(found as any).fullName}` : uid;
+      return found ? found.full_name : uid;
     };
     const map = new Map<string, UserReport>();
-    
-    // Initialize map with all users
+
     users?.forEach(user => {
-        map.set(user.id, { name: nameOf(user.id), total: 0, backlog: 0, in_progress: 0, review: 0, done: 0 });
+      map.set(user.id, { name: nameOf(user.id), total: 0, backlog: 0, in_progress: 0, review: 0, done: 0 });
     });
 
 
@@ -96,10 +93,10 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
           (rec as any)[t.status]++;
         });
       } else {
-         if (!map.has('unassigned')) map.set('unassigned', { name: nameOf(undefined), total: 0, backlog: 0, in_progress: 0, review: 0, done: 0 });
-          const rec = map.get('unassigned')!;
-          rec.total++;
-          (rec as any)[t.status]++;
+        if (!map.has('unassigned')) map.set('unassigned', { name: nameOf(undefined), total: 0, backlog: 0, in_progress: 0, review: 0, done: 0 });
+        const rec = map.get('unassigned')!;
+        rec.total++;
+        (rec as any)[t.status]++;
       }
     });
 
@@ -107,21 +104,19 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
   }, [tasks, users]);
 
   const handleSignOut = async () => {
-    if (auth) {
-      await signOut(auth);
-    }
+    await supabase.auth.signOut();
   };
-  
+
   const handleOpenTaskForm = (template?: Partial<Task>) => {
     setTemplateDialogOpen(false);
     setInitialTaskData(template);
     setTaskFormOpen(true);
   };
-  
+
   const handleSelectTemplate = (template: TaskTemplate) => {
     const taskDataFromTemplate = {
-      ...template.defaultFields,
-      checklist: template.defaultChecklist?.map(item => ({...item, id: crypto.randomUUID(), createdAt: new Date() })),
+      ...template.default_fields,
+      checklist: template.default_checklist?.map(item => ({ ...item, id: crypto.randomUUID(), created_at: new Date() })),
       title: template.name,
       description: template.description,
     };
@@ -131,7 +126,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
   const isAdmin = userRole === 'admin';
 
   const renderContent = () => {
-    switch(activeView) {
+    switch (activeView) {
       case 'my-tasks':
         return <MyTasks tasks={tasks} />;
       case 'reports':
@@ -170,7 +165,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
               <>
                 <WorkloadHeatmap
                   tasks={tasks}
-                  users={users?.map(u => ({ id: u.id, name: (u as any).fullName || 'Unknown' })) || []}
+                  users={users?.map(u => ({ id: u.id, name: u.full_name || 'Unknown' })) || []}
                 />
 
                 <PaymentManagement
@@ -202,7 +197,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
             {isAdmin && (
               <>
                 <AIInsights byUser={byUser} />
-                
+
                 <div className="grid md:grid-cols-2 gap-6">
                   <Card>
                     <CardHeader>
@@ -212,7 +207,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                       <MemberTasksBarChart data={byUser} />
                     </CardContent>
                   </Card>
-                  
+
                   <Card>
                     <CardHeader>
                       <CardTitle className="font-headline">{t('tasks_completion_ratio')}</CardTitle>
@@ -233,9 +228,9 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                 </Card>
               </>
             )}
-            
+
             {!isAdmin && (
-               <div className="grid grid-cols-1 gap-6">
+              <div className="grid grid-cols-1 gap-6">
                 <h2 className="font-semibold text-2xl font-headline">{t('welcome_back')}</h2>
                 <Attendance />
                 <Courses userRole={userRole as string} />
@@ -258,10 +253,8 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
         setActiveView(data as View);
         break;
       case 'filter':
-        // Handle filters
         break;
       case 'export-pdf':
-        // exportPDF(); // This needs to be reimplemented without autotable.
         break;
       default:
         break;
@@ -271,13 +264,13 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
   return (
     <>
       <CommandPalette onAction={handleCommandAction} />
-      <TaskForm 
-        isOpen={isTaskFormOpen} 
+      <TaskForm
+        isOpen={isTaskFormOpen}
         onOpenChange={setTaskFormOpen}
         initialData={initialTaskData}
       />
       <ClientForm isOpen={isClientFormOpen} onOpenChange={setClientFormOpen} />
-      
+
       <Dialog open={isTemplateDialogOpen} onOpenChange={setTemplateDialogOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
@@ -289,7 +282,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
           <div className="py-4">
             <TaskTemplates templates={[]} onSelectTemplate={handleSelectTemplate} />
           </div>
-           <DialogFooter>
+          <DialogFooter>
             <Button variant="outline" onClick={() => handleOpenTaskForm()}>
               <FilePlus className="mr-2" />
               {t('start_from_scratch')}
@@ -300,124 +293,124 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
 
 
       <SidebarProvider>
-          <Sidebar>
-            <SidebarHeader>
-              <div className="flex items-center gap-2">
-                 <SidebarTrigger />
-                 <h2 className="font-semibold text-lg font-headline group-data-[collapsible=icon]:hidden">Xfuse Sites</h2>
-              </div>
-            </SidebarHeader>
-            <SidebarContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                   <SidebarMenuButton isActive={activeView === 'dashboard'} onClick={() => setActiveView('dashboard')}>
-                    <LayoutDashboard />
-                    <span>{t('my_dashboard')}</span>
-                   </SidebarMenuButton>
-                </SidebarMenuItem>
-                 <SidebarMenuItem>
-                   <SidebarMenuButton isActive={activeView === 'my-tasks'} onClick={() => setActiveView('my-tasks')}>
-                    <ListTodo />
-                    <span>{t('my_tasks')}</span>
-                   </SidebarMenuButton>
-                </SidebarMenuItem>
-                 <SidebarMenuItem>
-                   <SidebarMenuButton isActive={activeView === 'chat'} onClick={() => setActiveView('chat')}>
-                    <MessageSquare />
-                    <span>{t('chat')}</span>
-                   </SidebarMenuButton>
-                </SidebarMenuItem>
-                 <SidebarMenuItem>
-                   <SidebarMenuButton isActive={activeView === 'attendance'} onClick={() => setActiveView('attendance')}>
-                    <Clock />
-                    <span>{t('attendance')}</span>
-                   </SidebarMenuButton>
-                </SidebarMenuItem>
-                 <SidebarMenuItem>
-                   <SidebarMenuButton isActive={activeView === 'courses'} onClick={() => setActiveView('courses')}>
-                    <BookOpen />
-                    <span>{t('courses')}</span>
-                   </SidebarMenuButton>
-                </SidebarMenuItem>
-                {isAdmin && (
-                  <>
-                    <SidebarMenuItem>
-                    <SidebarMenuButton isActive={activeView === 'reports'} onClick={() => setActiveView('reports')}>
-                        <BarChart />
-                        <span>{t('reports')}</span>
-                    </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                    <SidebarMenuButton isActive={activeView === 'clients'} onClick={() => setActiveView('clients')}>
-                        <Briefcase />
-                        <span>{t('clients')}</span>
-                    </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                    <SidebarMenuButton isActive={activeView === 'team'} onClick={() => setActiveView('team')}>
-                        <Users />
-                        <span>{t('team')}</span>
-                    </SidebarMenuButton>
-                    </SidebarMenuItem>
-                     <SidebarMenuItem>
-                    <SidebarMenuButton isActive={activeView === 'hr'} onClick={() => setActiveView('hr')}>
-                        <UserCog />
-                        <span>{t('hr_management')}</span>
-                    </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton isActive={activeView === 'salary'} onClick={() => setActiveView('salary')}>
-                            <Banknote />
-                            <span>{t('salary_report')}</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  </>
-                )}
-              </SidebarMenu>
-            </SidebarContent>
-            <SidebarFooter>
-               <SidebarSeparator />
-               <div className="flex items-center gap-2">
-                  <ThemeSwitcher />
-                  <LanguageSwitcher />
-                  <Button variant="outline" size="icon" onClick={handleSignOut}><LogOut /></Button>
-               </div>
-            </SidebarFooter>
-          </Sidebar>
-          <SidebarInset>
-            <div className="p-4 sm:p-6 lg:p-8 space-y-8">
-               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-2">
-                    <SidebarTrigger className="md:hidden"/>
-                    <div>
-                      <h2 className="font-semibold text-2xl font-headline">
-                         {activeView === 'dashboard' && t('team_analytics')}
-                         {activeView === 'my-tasks' && t('my_tasks')}
-                         {activeView === 'attendance' && t('attendance')}
-                         {activeView === 'courses' && t('my_courses')}
-                         {activeView === 'reports' && t('reports')}
-                         {activeView === 'clients' && t('clients')}
-                         {activeView === 'chat' && t('team_chat')}
-                         {activeView === 'hr' && t('hr_management')}
-                         {activeView === 'team' && t('team_management')}
-                         {activeView === 'salary' && t('salary_report')}
-                      </h2>
-                      <p className="text-muted-foreground">
-                        {isAdmin ? t('home_page_description') : t('welcome_back_desc')}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    {isAdmin && (
-                      <Button onClick={() => setTemplateDialogOpen(true)} className="w-full sm:w-auto">
-                        <Plus /> {t('add_task')}
-                      </Button>
-                    )}
-                  </div>
-              </div>
-              {renderContent()}
+        <Sidebar>
+          <SidebarHeader>
+            <div className="flex items-center gap-2">
+              <SidebarTrigger />
+              <h2 className="font-semibold text-lg font-headline group-data-[collapsible=icon]:hidden">Xfuse Sites</h2>
             </div>
-          </SidebarInset>
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeView === 'dashboard'} onClick={() => setActiveView('dashboard')}>
+                  <LayoutDashboard />
+                  <span>{t('my_dashboard')}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeView === 'my-tasks'} onClick={() => setActiveView('my-tasks')}>
+                  <ListTodo />
+                  <span>{t('my_tasks')}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeView === 'chat'} onClick={() => setActiveView('chat')}>
+                  <MessageSquare />
+                  <span>{t('chat')}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeView === 'attendance'} onClick={() => setActiveView('attendance')}>
+                  <Clock />
+                  <span>{t('attendance')}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeView === 'courses'} onClick={() => setActiveView('courses')}>
+                  <BookOpen />
+                  <span>{t('courses')}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {isAdmin && (
+                <>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'reports'} onClick={() => setActiveView('reports')}>
+                      <BarChart />
+                      <span>{t('reports')}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'clients'} onClick={() => setActiveView('clients')}>
+                      <Briefcase />
+                      <span>{t('clients')}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'team'} onClick={() => setActiveView('team')}>
+                      <Users />
+                      <span>{t('team')}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'hr'} onClick={() => setActiveView('hr')}>
+                      <UserCog />
+                      <span>{t('hr_management')}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'salary'} onClick={() => setActiveView('salary')}>
+                      <Banknote />
+                      <span>{t('salary_report')}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </>
+              )}
+            </SidebarMenu>
+          </SidebarContent>
+          <SidebarFooter>
+            <SidebarSeparator />
+            <div className="flex items-center gap-2">
+              <ThemeSwitcher />
+              <LanguageSwitcher />
+              <Button variant="outline" size="icon" onClick={handleSignOut}><LogOut /></Button>
+            </div>
+          </SidebarFooter>
+        </Sidebar>
+        <SidebarInset>
+          <div className="p-4 sm:p-6 lg:p-8 space-y-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <SidebarTrigger className="md:hidden" />
+                <div>
+                  <h2 className="font-semibold text-2xl font-headline">
+                    {activeView === 'dashboard' && t('team_analytics')}
+                    {activeView === 'my-tasks' && t('my_tasks')}
+                    {activeView === 'attendance' && t('attendance')}
+                    {activeView === 'courses' && t('my_courses')}
+                    {activeView === 'reports' && t('reports')}
+                    {activeView === 'clients' && t('clients')}
+                    {activeView === 'chat' && t('team_chat')}
+                    {activeView === 'hr' && t('hr_management')}
+                    {activeView === 'team' && t('team_management')}
+                    {activeView === 'salary' && t('salary_report')}
+                  </h2>
+                  <p className="text-muted-foreground">
+                    {isAdmin ? t('home_page_description') : t('welcome_back_desc')}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                {isAdmin && (
+                  <Button onClick={() => setTemplateDialogOpen(true)} className="w-full sm:w-auto">
+                    <Plus /> {t('add_task')}
+                  </Button>
+                )}
+              </div>
+            </div>
+            {renderContent()}
+          </div>
+        </SidebarInset>
       </SidebarProvider>
     </>
   );

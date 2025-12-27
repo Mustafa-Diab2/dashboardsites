@@ -21,8 +21,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/context/language-context';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { useFirebaseApp } from '@/firebase';
+import { supabase } from '@/lib/supabase';
 import type { User } from '@/lib/data';
 
 interface AddMemberDialogProps {
@@ -34,32 +33,31 @@ interface AddMemberDialogProps {
 export default function AddMemberDialog({ isOpen, onOpenChange, userToEdit }: AddMemberDialogProps) {
   const { t, language } = useLanguage();
   const { toast } = useToast();
-  const app = useFirebaseApp();
   const [formData, setFormData] = useState({
-    fullName: '',
+    full_name: '',
     email: '',
     password: '',
     role: 'frontend' as User['role'],
   });
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const isEditing = !!userToEdit;
 
   useEffect(() => {
     if (isOpen) {
       if (isEditing) {
         setFormData({
-            fullName: userToEdit.fullName,
-            email: userToEdit.email,
-            password: '',
-            role: userToEdit.role,
+          full_name: userToEdit.full_name,
+          email: userToEdit.email,
+          password: '',
+          role: userToEdit.role,
         });
       } else {
         setFormData({
-            fullName: '',
-            email: '',
-            password: '',
-            role: 'frontend' as User['role'],
+          full_name: '',
+          email: '',
+          password: '',
+          role: 'frontend' as User['role'],
         });
       }
     }
@@ -72,55 +70,67 @@ export default function AddMemberDialog({ isOpen, onOpenChange, userToEdit }: Ad
 
   const handleSubmit = async () => {
     setIsLoading(true);
-    
+
     try {
-        const functions = getFunctions(app);
-        if (isEditing) {
-            const updateUser = httpsCallable(functions, 'updateUser');
-            await updateUser({ 
-                uid: userToEdit.id,
-                fullName: formData.fullName, 
-                role: formData.role
-            });
-            toast({
-                title: t('user_updated_title'),
-                description: t('user_updated_desc', { email: userToEdit.email }),
-            });
-        } else {
-            const { email, password, fullName, role } = formData;
+      if (isEditing) {
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            full_name: formData.full_name,
+            role: formData.role
+          })
+          .eq('id', userToEdit.id);
 
-            if (!email || !password || !fullName || !role) {
-              toast({
-                variant: 'destructive',
-                title: t('error_title'),
-                description: t('please_fill_all_fields'),
-              });
-              setIsLoading(false);
-              return;
-            }
+        if (error) throw error;
 
-            const createNewUser = httpsCallable(functions, 'createNewUser');
-            const result = await createNewUser({ email, password, fullName, role });
-
-            if ((result.data as any).success) {
-                toast({
-                    title: t('user_created_title'),
-                    description: t('user_created_desc', { email }),
-                });
-            } else {
-                throw new Error((result.data as any).error || 'Failed to create user.');
-            }
-        }
-        onOpenChange(false);
-    } catch (error: any) {
-        console.error('Error processing user:', error);
         toast({
+          title: t('user_updated_title'),
+          description: t('user_updated_desc', { email: userToEdit.email }),
+        });
+      } else {
+        const { email, password, full_name, role } = formData;
+
+        if (!email || !password || !full_name || !role) {
+          toast({
             variant: 'destructive',
             title: t('error_title'),
-            description: error.message || t('error_desc'),
+            description: t('please_fill_all_fields'),
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Note: In Supabase, creating a user as an admin usually requires the service_role key
+        // For this frontend-only migration, we'll use regular signUp.
+        // WARNING: This may sign out the current admin depending on Supabase settings.
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: full_name,
+              role: role
+            }
+          }
         });
+
+        if (error) throw error;
+
+        toast({
+          title: t('user_created_title'),
+          description: t('user_created_desc', { email }),
+        });
+      }
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error('Error processing user:', error);
+      toast({
+        variant: 'destructive',
+        title: t('error_title'),
+        description: error.message || t('error_desc'),
+      });
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -133,11 +143,11 @@ export default function AddMemberDialog({ isOpen, onOpenChange, userToEdit }: Ad
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="fullName">{t('full_name')}</Label>
+            <Label htmlFor="full_name">{t('full_name')}</Label>
             <Input
-              id="fullName"
-              value={formData.fullName}
-              onChange={e => handleFieldChange('fullName', e.target.value)}
+              id="full_name"
+              value={formData.full_name}
+              onChange={e => handleFieldChange('full_name', e.target.value)}
             />
           </div>
           <div className="grid gap-2">
@@ -152,18 +162,18 @@ export default function AddMemberDialog({ isOpen, onOpenChange, userToEdit }: Ad
           </div>
           {!isEditing && (
             <div className="grid gap-2">
-                <Label htmlFor="password">{t('password')}</Label>
-                <Input
+              <Label htmlFor="password">{t('password')}</Label>
+              <Input
                 id="password"
                 type="password"
                 value={formData.password}
                 onChange={e => handleFieldChange('password', e.target.value)}
-                />
+              />
             </div>
           )}
           <div className="grid gap-2">
             <Label htmlFor="role">{t('role')}</Label>
-            <Select value={formData.role} onValueChange={value => handleFieldChange('role', value)}>
+            <Select value={formData.role} onValueChange={value => handleFieldChange('role', value as any)}>
               <SelectTrigger id="role">
                 <SelectValue />
               </SelectTrigger>

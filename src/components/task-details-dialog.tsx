@@ -17,7 +17,7 @@ import { CheckSquare, Forward, Play, Link, User, DollarSign, Briefcase, Code, Pa
 import { useLanguage } from '@/context/language-context';
 import { TaskChecklist } from './task-checklist';
 import { TaskApprovals } from './task-approvals';
-import { useFirebase } from '@/firebase';
+import { useSupabase } from '@/context/supabase-context';
 
 type StatusTransition = {
   nextStatus: Task['status'];
@@ -36,7 +36,7 @@ export function TaskDetailsDialog({
 }) {
   const { updateDoc } = useMutations();
   const { t } = useLanguage();
-  const { user } = useFirebase();
+  const { user } = useSupabase();
 
 
   const statusTransitions: Record<Task['status'], StatusTransition | null> = {
@@ -55,7 +55,7 @@ export function TaskDetailsDialog({
       onOpenChange(false);
     }
   };
-  
+
   const transition = statusTransitions[task.status];
 
   const getPriorityBadge = (priority: string) => {
@@ -100,45 +100,45 @@ export function TaskDetailsDialog({
             {t('due_by')} {task.due_date ? new Date(task.due_date).toLocaleDateString() : t('n_a')}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-6 py-4 max-h-[70vh] overflow-y-auto pr-4">
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
-                <span className="font-semibold">{t('status')}:</span>
-                <Badge variant={task.status === 'done' ? 'default' : 'secondary'}>{getStatusText(task.status)}</Badge>
-            </div>
-             <div className="flex items-center gap-2">
-                <span className="font-semibold">{t('priority')}:</span>
-                {getPriorityBadge(task.priority)}
+              <span className="font-semibold">{t('status')}:</span>
+              <Badge variant={task.status === 'done' ? 'default' : 'secondary'}>{getStatusText(task.status)}</Badge>
             </div>
             <div className="flex items-center gap-2">
-                <span className="font-semibold">{t('type')}:</span>
-                <Badge variant="outline">{task.type === 'work' ? t('work') : t('training')}</Badge>
+              <span className="font-semibold">{t('priority')}:</span>
+              {getPriorityBadge(task.priority)}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold">{t('type')}:</span>
+              <Badge variant="outline">{task.type === 'work' ? t('work') : t('training')}</Badge>
             </div>
           </div>
-          
-          <Separator />
-          
-           {(task.checklist && task.checklist.length > 0) && (
-            <>
-                <TaskChecklist checklist={task.checklist || []} onChange={() => {}} readonly/>
-                <Separator />
-            </>
-           )}
 
-            {(task.approvals && task.approvals.length > 0) && (
+          <Separator />
+
+          {(task.checklist && task.checklist.length > 0) && (
             <>
-                <TaskApprovals 
-                    taskId={task.id}
-                    approvals={task.approvals || []}
-                    currentStatus={task.status}
-                    onApprove={() => {}}
-                    onReject={() => {}}
-                    readonly
-                />
-                <Separator />
+              <TaskChecklist checklist={task.checklist || []} onChange={() => { }} readonly />
+              <Separator />
             </>
-           )}
+          )}
+
+          {(task.approvals && task.approvals.length > 0) && (
+            <>
+              <TaskApprovals
+                taskId={task.id}
+                approvals={task.approvals || []}
+                currentStatus={task.status}
+                onApprove={() => { }}
+                onReject={() => { }}
+                readonly
+              />
+              <Separator />
+            </>
+          )}
 
 
           <div>
@@ -151,7 +151,7 @@ export function TaskDetailsDialog({
           <div className="grid md:grid-cols-2 gap-6">
             {/* Technical Requirements */}
             <div className="space-y-4">
-              <h4 className="font-semibold flex items-center gap-2"><Code/>{t('technical_requirements')}</h4>
+              <h4 className="font-semibold flex items-center gap-2"><Code />{t('technical_requirements')}</h4>
               <div className="p-3 bg-muted/50 rounded-lg">
                 <h5 className="text-sm font-medium mb-1">{t('backend_conditions')}</h5>
                 <div className="text-xs text-muted-foreground whitespace-pre-wrap">{renderLinks(task.backend_conditions) || t('n_a')}</div>
@@ -160,7 +160,7 @@ export function TaskDetailsDialog({
                 <h5 className="text-sm font-medium mb-1">{t('frontend_conditions')}</h5>
                 <div className="text-xs text-muted-foreground whitespace-pre-wrap">{renderLinks(task.frontend_conditions) || t('n_a')}</div>
               </div>
-               <div className="p-3 bg-muted/50 rounded-lg">
+              <div className="p-3 bg-muted/50 rounded-lg">
                 <h5 className="text-sm font-medium mb-1">{t('ux_requirements')}</h5>
                 <div className="text-xs text-muted-foreground whitespace-pre-wrap">{renderLinks(task.ux_requirements) || t('n_a')}</div>
               </div>
@@ -168,25 +168,25 @@ export function TaskDetailsDialog({
 
             {/* Deliverables */}
             <div className="space-y-4">
-               <h4 className="font-semibold flex items-center gap-2"><Briefcase />{t('deliverables')}</h4>
-               <div className="p-3 bg-muted/50 rounded-lg">
-                  <p className="text-sm"><span className="font-medium">{t('delivery_method')}:</span> {task.delivery_method ? t(task.delivery_method) : t('n_a')}</p>
-                  <p className="text-sm"><span className="font-medium">{t('deliverable_location')}:</span> <span className="text-primary break-all">{renderLinks(task.deliverable_location) || t('n_a')}</span></p>
-               </div>
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <h5 className="text-sm font-medium mb-1">{t('deliverable_details')}</h5>
-                  <div className="text-xs text-muted-foreground whitespace-pre-wrap">{renderLinks(task.deliverable_details) || t('n_a')}</div>
-                </div>
-                 <div className="p-3 bg-muted/50 rounded-lg">
-                  <h5 className="text-sm font-medium mb-1">{t('market_research')}</h5>
-                  <div className="text-xs text-muted-foreground whitespace-pre-wrap">{renderLinks(task.market_research_link) || t('n_a')}</div>
-                </div>
+              <h4 className="font-semibold flex items-center gap-2"><Briefcase />{t('deliverables')}</h4>
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-sm"><span className="font-medium">{t('delivery_method')}:</span> {task.delivery_method ? t(task.delivery_method) : t('n_a')}</p>
+                <p className="text-sm"><span className="font-medium">{t('deliverable_location')}:</span> <span className="text-primary break-all">{renderLinks(task.deliverable_location) || t('n_a')}</span></p>
+              </div>
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <h5 className="text-sm font-medium mb-1">{t('deliverable_details')}</h5>
+                <div className="text-xs text-muted-foreground whitespace-pre-wrap">{renderLinks(task.deliverable_details) || t('n_a')}</div>
+              </div>
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <h5 className="text-sm font-medium mb-1">{t('market_research')}</h5>
+                <div className="text-xs text-muted-foreground whitespace-pre-wrap">{renderLinks(task.market_research_link) || t('n_a')}</div>
+              </div>
             </div>
           </div>
-          
+
           <Separator />
 
-           {/* Financials */}
+          {/* Financials */}
           <div className="space-y-4">
             <h4 className="font-semibold flex items-center gap-2"><DollarSign />{t('financials')}</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -194,15 +194,15 @@ export function TaskDetailsDialog({
                 <p className="font-medium">{t('client_payment')}</p>
                 <p>{task.client_payment ? `$${task.client_payment}` : t('n_a')}</p>
               </div>
-               <div className="p-3 bg-muted/50 rounded-lg">
+              <div className="p-3 bg-muted/50 rounded-lg">
                 <p className="font-medium">{t('backend_share')}</p>
                 <p>{task.backend_share_pct ? `${task.backend_share_pct}%` : t('n_a')}</p>
               </div>
-               <div className="p-3 bg-muted/50 rounded-lg">
+              <div className="p-3 bg-muted/50 rounded-lg">
                 <p className="font-medium">{t('frontend_share')}</p>
                 <p>{task.frontend_share_pct ? `${task.frontend_share_pct}%` : t('n_a')}</p>
               </div>
-               <div className="p-3 bg-muted/50 rounded-lg">
+              <div className="p-3 bg-muted/50 rounded-lg">
                 <p className="font-medium">{t('payment_schedule')}</p>
                 <p className="whitespace-pre-wrap">{task.payment_schedule || t('n_a')}</p>
               </div>

@@ -19,11 +19,19 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { useLanguage } from '@/context/language-context';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export function AuthCard() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState('trainee');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -60,6 +68,7 @@ export function AuthCard() {
         options: {
           data: {
             full_name: fullName,
+            role: role,
           },
         },
       });
@@ -173,6 +182,23 @@ export function AuthCard() {
                     onKeyDown={(e) => handleKeyDown(e, signUp)}
                     placeholder="••••••••"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role-signup">{t('role')}</Label>
+                  <Select value={role} onValueChange={setRole}>
+                    <SelectTrigger id="role-signup">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="trainee">{t('trainee')}</SelectItem>
+                      <SelectItem value="frontend">{t('frontend')}</SelectItem>
+                      <SelectItem value="backend">{t('backend')}</SelectItem>
+                      <SelectItem value="ui_ux">UI/UX Designer</SelectItem>
+                      <SelectItem value="ai_specialist">AI Specialist</SelectItem>
+                      <SelectItem value="security">Security</SelectItem>
+                      <SelectItem value="admin">{t('admin')}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <Button onClick={signUp} disabled={loading} className="w-full">
                   <UserPlus className="mr-2 h-4 w-4" />

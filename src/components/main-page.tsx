@@ -15,7 +15,16 @@ export default function MainPage() {
     user?.id
   );
 
-  const userRole = role || (userData as any)?.role;
+  // Prefer userData role because useSupabaseDoc uses real-time subscriptions
+  const userRole = (userData as any)?.role || role;
+
+  console.log('Current User Debug:', {
+    id: user?.id,
+    email: user?.email,
+    contextRole: role,
+    dbRole: (userData as any)?.role,
+    finalRole: userRole
+  });
 
   const fetchTasks = useCallback((query: any) => {
     if (!user) return query;

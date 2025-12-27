@@ -93,9 +93,7 @@ export function TaskForm({
   const { data: allTasksData } = useSupabaseCollection('tasks');
   const allTasks = (allTasksData as Task[]) || [];
 
-  const fetchClients = useCallback((query: any) =>
-    userRole === 'admin' ? query : query.eq('id', '00000000-0000-0000-0000-000000000000'),
-    [userRole]);
+  const fetchClients = useCallback((query: any) => query.order('name'), []);
 
   const { data: clients } = useSupabaseCollection(
     'clients',

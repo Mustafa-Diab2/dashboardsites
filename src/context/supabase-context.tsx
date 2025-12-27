@@ -20,6 +20,17 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+            console.error('CRITICAL: NEXT_PUBLIC_SUPABASE_URL is missing! Auth will not work.');
+        }
+        // Safety timeout to prevent hanging UI indefinitely
+        const timeout = setTimeout(() => {
+            if (isLoading) {
+                console.warn('Supabase initialization took too long, forcing load completion...');
+                setIsLoading(false);
+            }
+        }, 8000);
+
         const getSession = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
@@ -42,6 +53,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 console.error('Supabase Auth Error:', error);
             } finally {
                 setIsLoading(false);
+                clearTimeout(timeout);
             }
         };
 
@@ -66,11 +78,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 console.error('Auth State Change Error:', error);
             } finally {
                 setIsLoading(false);
+                clearTimeout(timeout);
             }
         });
 
         return () => {
             subscription.unsubscribe();
+            clearTimeout(timeout);
         };
     }, []);
 

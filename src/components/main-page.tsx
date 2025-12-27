@@ -32,10 +32,24 @@ export default function MainPage() {
   // Other data (tasks, profile) can load progressively.
   if (isAuthLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <p className="text-muted-foreground animate-pulse">Loading Identity...</p>
+      <div className="flex items-center justify-center min-h-screen bg-background p-4 text-center">
+        <div className="flex flex-col items-center gap-6 max-w-sm">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+          <div className="space-y-2">
+            <p className="text-xl font-medium animate-pulse">Loading Identity...</p>
+            <p className="text-sm text-muted-foreground">
+              If this takes too long, your browser might be blocking storage or the connection is unstable.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              localStorage.clear();
+              window.location.reload();
+            }}
+            className="text-xs text-muted-foreground underline hover:text-primary transition-colors"
+          >
+            Clear Browser Cache & Retry
+          </button>
         </div>
       </div>
     );

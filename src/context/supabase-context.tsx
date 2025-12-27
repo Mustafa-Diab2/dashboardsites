@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { User, Session } from '@supabase/supabase-js';
 
@@ -62,8 +62,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         };
     }, []);
 
+    const contextValue = useMemo(() => ({ user, session, isLoading, role }), [user, session, isLoading, role]);
+
     return (
-        <SupabaseContext.Provider value={{ user, session, isLoading, role }}>
+        <SupabaseContext.Provider value={contextValue}>
             {children}
         </SupabaseContext.Provider>
     );

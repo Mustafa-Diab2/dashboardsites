@@ -30,6 +30,7 @@ import { useUsers } from '@/hooks/use-users';
 import { ScrollArea } from './ui/scroll-area';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { useCallback } from 'react';
 import { TaskChecklist } from './task-checklist';
 import { TaskResearch } from './task-research';
 import { TaskDependencies } from './task-dependencies';
@@ -92,9 +93,13 @@ export function TaskForm({
   const { data: allTasksData } = useSupabaseCollection('tasks');
   const allTasks = (allTasksData as Task[]) || [];
 
+  const fetchClients = useCallback((query: any) =>
+    userRole === 'admin' ? query : query.eq('id', 'null'),
+    [userRole]);
+
   const { data: clients } = useSupabaseCollection(
     'clients',
-    (query) => userRole === 'admin' ? query : query.eq('id', 'null')
+    fetchClients
   );
 
   useEffect(() => {

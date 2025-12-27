@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/context/supabase-context';
 import { useSupabaseCollection } from '@/hooks/use-supabase-data';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -28,19 +28,21 @@ export function AttendanceSummary({ userRole }: { userRole: string | undefined }
   const monthStart = useMemo(() => selectedMonth ? startOfMonth(new Date(selectedMonth)) : new Date(), [selectedMonth]);
   const monthEnd = useMemo(() => selectedMonth ? endOfMonth(new Date(selectedMonth)) : new Date(), [selectedMonth]);
 
+  const fetchAttendance = useCallback((query: any) => {
+    let q = query
+      .gte('check_in', monthStart.toISOString())
+      .lte('check_in', monthEnd.toISOString())
+      .order('check_in', { ascending: false });
+
+    if (!isAdmin && user) {
+      q = q.eq('user_id', user.id);
+    }
+    return q;
+  }, [monthStart, monthEnd, isAdmin, user]);
+
   const { data: attendanceData } = useSupabaseCollection(
     'attendance',
-    (query) => {
-      let q = query
-        .gte('check_in', monthStart.toISOString())
-        .lte('check_in', monthEnd.toISOString())
-        .order('check_in', { ascending: false });
-
-      if (!isAdmin && user) {
-        q = q.eq('user_id', user.id);
-      }
-      return q;
-    }
+    fetchAttendance
   );
 
   const attendance = (attendanceData || []) as any[];

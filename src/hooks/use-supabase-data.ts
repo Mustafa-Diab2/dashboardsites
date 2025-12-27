@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export function useSupabaseCollection<T = any>(
@@ -10,10 +10,13 @@ export function useSupabaseCollection<T = any>(
     const [data, setData] = useState<T[] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<any>(null);
+    const isInitialLoad = useRef(true);
 
     useEffect(() => {
         const fetchData = async () => {
-            setIsLoading(true);
+            if (isInitialLoad.current) {
+                setIsLoading(true);
+            }
             let query = supabase.from(table).select('*');
 
             if (queryFn) {
@@ -30,6 +33,7 @@ export function useSupabaseCollection<T = any>(
                 setError(null);
             }
             setIsLoading(false);
+            isInitialLoad.current = false;
         };
 
         fetchData();
@@ -41,6 +45,9 @@ export function useSupabaseCollection<T = any>(
             })
             .subscribe();
 
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [table, queryFn]);
 
     return { data, isLoading, error };
@@ -53,6 +60,7 @@ export function useSupabaseDoc<T = any>(
     const [data, setData] = useState<T | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<any>(null);
+    const isInitialLoad = useRef(true);
 
     useEffect(() => {
         if (!id) {
@@ -62,7 +70,9 @@ export function useSupabaseDoc<T = any>(
         }
 
         const fetchData = async () => {
-            setIsLoading(true);
+            if (isInitialLoad.current) {
+                setIsLoading(true);
+            }
             const { data, error } = await supabase
                 .from(table)
                 .select('*')
@@ -77,6 +87,7 @@ export function useSupabaseDoc<T = any>(
                 setError(null);
             }
             setIsLoading(false);
+            isInitialLoad.current = false;
         };
 
         fetchData();

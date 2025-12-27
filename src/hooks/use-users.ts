@@ -2,6 +2,7 @@
 
 import { useSupabase } from '@/context/supabase-context';
 import { useSupabaseCollection, useSupabaseDoc } from '@/hooks/use-supabase-data';
+import { useCallback } from 'react';
 
 export function useUsers(userRole: string | null | undefined) {
   const { user } = useSupabase();
@@ -9,9 +10,13 @@ export function useUsers(userRole: string | null | undefined) {
   const shouldFetchAllUsers = userRole === 'admin';
   const shouldFetchOwnUser = user && userRole && userRole !== 'admin';
 
+  const fetchUsers = useCallback((query: any) =>
+    shouldFetchAllUsers ? query : query.eq('id', 'non-existent-id'),
+    [shouldFetchAllUsers]);
+
   const { data: allUsers } = useSupabaseCollection(
     'profiles',
-    (query) => shouldFetchAllUsers ? query : query.eq('id', 'non-existent-id') // effectively null query
+    fetchUsers
   );
 
   const { data: singleUser } = useSupabaseDoc(

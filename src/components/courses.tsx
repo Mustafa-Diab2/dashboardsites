@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { BookOpen, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { useSupabase } from '@/context/supabase-context';
@@ -14,12 +14,14 @@ export default function Courses({ userRole }: { userRole: string }) {
   const { user } = useSupabase();
   const [isCourseFormOpen, setCourseFormOpen] = useState(false);
 
+  const fetchCourses = useCallback((query: any) => {
+    if (!user) return query;
+    return query.eq('user_id', user.id);
+  }, [user]);
+
   const { data: courses, isLoading } = useSupabaseCollection(
     'courses',
-    (query) => {
-      if (!user) return query;
-      return query.eq('user_id', user.id);
-    }
+    fetchCourses
   );
 
   const isAdmin = userRole === 'admin';

@@ -65,17 +65,29 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
             try {
                 if (session?.user) {
-                    const { data: profile } = await supabase
+                    // Try to get the profile. If it's a new user, it might take a moment for the trigger to run.
+                    // We retry once if not found.
+                    let { data: profile } = await supabase
                         .from('profiles')
                         .select('role')
                         .eq('id', session.user.id)
                         .single();
-                    setRole(profile?.role ?? 'frontend');
+
+                    if (!profile) {
+                        // Fallback to metadata if profile record isn't ready yet
+                        setRole(session.user.user_metadata?.role ?? 'trainee');
+                    } else {
+                        setRole(profile.role);
+                    }
                 } else {
                     setRole(null);
                 }
             } catch (error) {
                 console.error('Auth State Change Error:', error);
+                // Fallback to metadata if reachable
+                if (session?.user) {
+                    setRole(session.user.user_metadata?.role ?? 'trainee');
+                }
             } finally {
                 setIsLoading(false);
                 clearTimeout(timeout);

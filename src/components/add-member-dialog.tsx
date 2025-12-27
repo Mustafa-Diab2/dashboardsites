@@ -21,8 +21,9 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/context/language-context';
-import { supabase } from '@/lib/supabase';
 import type { User } from '@/lib/data';
+import { supabase } from '@/lib/supabase';
+import { adminCreateUser } from '@/lib/admin-actions';
 
 interface AddMemberDialogProps {
   isOpen: boolean;
@@ -100,21 +101,14 @@ export default function AddMemberDialog({ isOpen, onOpenChange, userToEdit }: Ad
           return;
         }
 
-        // Note: In Supabase, creating a user as an admin usually requires the service_role key
-        // For this frontend-only migration, we'll use regular signUp.
-        // WARNING: This may sign out the current admin depending on Supabase settings.
-        const { data, error } = await supabase.auth.signUp({
+        const result = await adminCreateUser({
           email,
           password,
-          options: {
-            data: {
-              full_name: full_name,
-              role: role
-            }
-          }
+          full_name,
+          role
         });
 
-        if (error) throw error;
+        if (!result.success) throw new Error(result.error);
 
         toast({
           title: t('user_created_title'),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useSupabase } from '@/context/supabase-context';
 import { useSupabaseCollection } from '@/hooks/use-supabase-data';
 import { useMutations } from '@/hooks/use-mutations';
@@ -19,9 +19,11 @@ export default function TeamChat() {
   const { t } = useLanguage();
   const [newMessage, setNewMessage] = useState('');
 
+  const fetchMessages = useCallback((query: any) => query.order('timestamp', { ascending: true }).limit(50), []);
+
   const { data: messages, isLoading } = useSupabaseCollection(
     'chat',
-    (query) => query.order('timestamp', { ascending: true }).limit(50)
+    fetchMessages
   );
 
   const handleSendMessage = async () => {
@@ -68,8 +70,8 @@ export default function TeamChat() {
                 )}
                 <div
                   className={`rounded-lg p-3 max-w-xs ${msg.user_id === user?.id
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted'
                     }`}
                 >
                   <p className="text-sm font-medium">{msg.user_name}</p>

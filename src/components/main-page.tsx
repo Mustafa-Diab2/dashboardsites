@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import type { Task } from '@/lib/data';
 import ReportsDashboard from '@/components/reports-dashboard';
 import { useSupabase } from '@/context/supabase-context';
@@ -16,13 +17,15 @@ export default function MainPage() {
 
   const userRole = role || (userData as any)?.role;
 
+  const fetchTasks = useCallback((query: any) => {
+    if (!user) return query;
+    if (userRole === 'admin') return query;
+    return query.contains('assigned_to', [user.id]);
+  }, [user, userRole]);
+
   const { data: tasks, isLoading: isTasksLoading } = useSupabaseCollection(
     'tasks',
-    (query) => {
-      if (!user) return query;
-      if (userRole === 'admin') return query;
-      return query.contains('assigned_to', [user.id]);
-    }
+    fetchTasks
   );
 
   const isLoading = isAuthLoading || isUserDocLoading || (user && isTasksLoading);

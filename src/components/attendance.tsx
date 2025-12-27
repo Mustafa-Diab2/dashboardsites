@@ -6,7 +6,7 @@ import { Button } from "./ui/button";
 import { useSupabase } from "@/context/supabase-context";
 import { useSupabaseCollection } from "@/hooks/use-supabase-data";
 import { useMutations } from "@/hooks/use-mutations";
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import {
   Table,
@@ -27,40 +27,46 @@ export default function Attendance() {
   const todayEnd = useMemo(() => endOfDay(new Date()).toISOString(), []);
   const sevenDaysAgo = useMemo(() => subDays(new Date(), 7).toISOString(), []);
 
+  const fetchOpenAttendance = useCallback((query: any) => {
+    if (!user) return query;
+    return query
+      .eq('user_id', user.id)
+      .is('check_out', null)
+      .limit(1);
+  }, [user]);
+
   const { data: openAttendanceData, isLoading: isLoadingOpen } = useSupabaseCollection(
     'attendance',
-    (query) => {
-      if (!user) return query;
-      return query
-        .eq('user_id', user.id)
-        .is('check_out', null)
-        .limit(1);
-    }
+    fetchOpenAttendance
   );
+
+  const fetchCompletedToday = useCallback((query: any) => {
+    if (!user) return query;
+    return query
+      .eq('user_id', user.id)
+      .gte('check_in', todayStart)
+      .lte('check_in', todayEnd)
+      .not('check_out', 'is', null)
+      .limit(1);
+  }, [user, todayStart, todayEnd]);
 
   const { data: completedTodayData, isLoading: isLoadingCompleted } = useSupabaseCollection(
     'attendance',
-    (query) => {
-      if (!user) return query;
-      return query
-        .eq('user_id', user.id)
-        .gte('check_in', todayStart)
-        .lte('check_in', todayEnd)
-        .not('check_out', 'is', null)
-        .limit(1);
-    }
+    fetchCompletedToday
   );
+
+  const fetchHistory = useCallback((query: any) => {
+    if (!user) return query;
+    return query
+      .eq('user_id', user.id)
+      .gte('check_in', sevenDaysAgo)
+      .order('check_in', { ascending: false })
+      .limit(10);
+  }, [user, sevenDaysAgo]);
 
   const { data: historyData } = useSupabaseCollection(
     'attendance',
-    (query) => {
-      if (!user) return query;
-      return query
-        .eq('user_id', user.id)
-        .gte('check_in', sevenDaysAgo)
-        .order('check_in', { ascending: false })
-        .limit(10);
-    }
+    fetchHistory
   );
 
   const isLoading = isLoadingOpen || isLoadingCompleted;

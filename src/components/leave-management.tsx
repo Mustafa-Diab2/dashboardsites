@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/context/supabase-context';
 import { useSupabaseCollection, useSupabaseDoc } from '@/hooks/use-supabase-data';
 import { useMutations } from '@/hooks/use-mutations';
@@ -51,9 +51,11 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
   const { data: userData } = useSupabaseDoc('profiles', user?.id);
   const isAdmin = (userData as any)?.role === 'admin' || supabaseRole === 'admin';
 
+  const fetchLeaves = useCallback((query: any) => query.order('created_at', { ascending: false }), []);
+
   const { data: leavesData } = useSupabaseCollection(
     'leaves',
-    (query) => query.order('created_at', { ascending: false })
+    fetchLeaves
   );
 
   const allLeaves = (leavesData as any[]) || [];

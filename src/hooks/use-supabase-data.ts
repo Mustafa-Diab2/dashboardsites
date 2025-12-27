@@ -34,7 +34,6 @@ export function useSupabaseCollection<T = any>(
 
         fetchData();
 
-        // Subscribe to changes
         const channel = supabase
             .channel(`public:${table}`)
             .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
@@ -42,9 +41,6 @@ export function useSupabaseCollection<T = any>(
             })
             .subscribe();
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [table, queryFn]);
 
     return { data, isLoading, error };

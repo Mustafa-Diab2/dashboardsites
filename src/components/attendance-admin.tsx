@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Calendar, Clock, User, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -54,19 +54,21 @@ export default function AttendanceAdmin() {
     };
   }, [selectedMonth, selectedYear]);
 
+  const fetchAttendance = useCallback((query: any) => {
+    let q = query
+      .gte('check_in', dateRange.start.toISOString())
+      .lte('check_in', dateRange.end.toISOString())
+      .order('check_in', { ascending: false });
+
+    if (selectedUserId !== "all") {
+      q = q.eq('user_id', selectedUserId);
+    }
+    return q;
+  }, [dateRange, selectedUserId]);
+
   const { data: attendanceRecords, isLoading } = useSupabaseCollection(
     'attendance',
-    (query) => {
-      let q = query
-        .gte('check_in', dateRange.start.toISOString())
-        .lte('check_in', dateRange.end.toISOString())
-        .order('check_in', { ascending: false });
-
-      if (selectedUserId !== "all") {
-        q = q.eq('user_id', selectedUserId);
-      }
-      return q;
-    }
+    fetchAttendance
   );
 
   const formattedRecords = useMemo(() => {

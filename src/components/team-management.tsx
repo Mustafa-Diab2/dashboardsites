@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { adminDeleteUser } from '@/lib/admin-actions';
 
 interface TeamManagementProps {
   users: User[];
@@ -67,10 +68,8 @@ export default function TeamManagement({ users }: TeamManagementProps) {
 
   const handleDeleteUser = async (userId: string) => {
     try {
-      // Note: Full auth deletion would require a Supabase Edge Function using service_role key
-      // Here we just delete the profile record
-      const { error } = await supabase.from('profiles').delete().eq('id', userId);
-      if (error) throw error;
+      const result = await adminDeleteUser(userId);
+      if (!result.success) throw new Error(result.error);
 
       toast({
         title: t('user_deleted_title'),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -41,18 +41,22 @@ export default function SalaryReport({ users, tasks }: SalaryReportProps) {
     return { start: startOfMonth(date), end: endOfMonth(date) };
   }, [selectedMonth, selectedYear]);
 
+  const fetchAttendance = useCallback((query: any) => query
+    .gte('check_in', dateRange.start.toISOString())
+    .lte('check_in', dateRange.end.toISOString()), [dateRange]);
+
   const { data: attendanceRecords } = useSupabaseCollection(
     'attendance',
-    (query) => query
-      .gte('check_in', dateRange.start.toISOString())
-      .lte('check_in', dateRange.end.toISOString())
+    fetchAttendance
   );
+
+  const fetchDeductions = useCallback((query: any) => query
+    .gte('date', dateRange.start.toISOString().split('T')[0])
+    .lte('date', dateRange.end.toISOString().split('T')[0]), [dateRange]);
 
   const { data: deductions } = useSupabaseCollection(
     'deductions',
-    (query) => query
-      .gte('date', dateRange.start.toISOString().split('T')[0])
-      .lte('date', dateRange.end.toISOString().split('T')[0])
+    fetchDeductions
   );
 
   const salaryData = useMemo(() => {

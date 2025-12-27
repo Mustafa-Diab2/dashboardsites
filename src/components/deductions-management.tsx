@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/context/supabase-context';
 import { useSupabaseCollection, useSupabaseDoc } from '@/hooks/use-supabase-data';
 import { useMutations } from '@/hooks/use-mutations';
@@ -47,9 +47,11 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
   const { data: userData } = useSupabaseDoc('profiles', user?.id);
   const isAdmin = (userData as any)?.role === 'admin' || supabaseRole === 'admin';
 
+  const fetchDeductions = useCallback((query: any) => query.order('date', { ascending: false }), []);
+
   const { data: deductionsData } = useSupabaseCollection(
     'deductions',
-    (query) => query.order('date', { ascending: false })
+    fetchDeductions
   );
 
   const allDeductions = (deductionsData as any[]) || [];

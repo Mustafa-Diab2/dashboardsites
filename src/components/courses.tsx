@@ -44,7 +44,10 @@ export default function Courses({ userRole }: { userRole: string }) {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p>{t('loading')}</p>
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <p className="text-sm text-muted-foreground">{t('loading')}</p>
+            </div>
           ) : courses && courses.length > 0 ? (
             <ul className="space-y-2">
               {courses.map(course => (

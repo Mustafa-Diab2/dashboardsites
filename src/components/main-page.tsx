@@ -28,26 +28,21 @@ export default function MainPage() {
     fetchTasks
   );
 
-  const isLoading = isAuthLoading || isUserDocLoading || (user && isTasksLoading);
-
+  // We only block the entire dashboard if auth is still loading.
+  // Other data (tasks, profile) can load progressively.
   if (isAuthLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <p>Loading...</p>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p className="text-muted-foreground animate-pulse">Loading Identity...</p>
+        </div>
       </div>
     );
   }
 
   if (!user) {
     return <AuthCard />;
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <p>Loading Dashboard...</p>
-      </div>
-    );
   }
 
   const taskData: Task[] = (tasks as Task[]) || [];

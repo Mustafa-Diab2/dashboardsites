@@ -21,20 +21,28 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         const getSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            setSession(session);
-            setUser(session?.user ?? null);
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                setSession(session);
+                setUser(session?.user ?? null);
 
-            if (session?.user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('role')
-                    .eq('id', session.user.id)
-                    .single();
-                setRole(profile?.role ?? 'frontend');
+                if (session?.user) {
+                    const { data: profile, error } = await supabase
+                        .from('profiles')
+                        .select('role')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    if (error) {
+                        console.error('Error fetching profile:', error);
+                    }
+                    setRole(profile?.role ?? 'frontend');
+                }
+            } catch (error) {
+                console.error('Supabase Auth Error:', error);
+            } finally {
+                setIsLoading(false);
             }
-
-            setIsLoading(false);
         };
 
         getSession();
@@ -43,18 +51,22 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             setSession(session);
             setUser(session?.user ?? null);
 
-            if (session?.user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('role')
-                    .eq('id', session.user.id)
-                    .single();
-                setRole(profile?.role ?? 'frontend');
-            } else {
-                setRole(null);
+            try {
+                if (session?.user) {
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('role')
+                        .eq('id', session.user.id)
+                        .single();
+                    setRole(profile?.role ?? 'frontend');
+                } else {
+                    setRole(null);
+                }
+            } catch (error) {
+                console.error('Auth State Change Error:', error);
+            } finally {
+                setIsLoading(false);
             }
-
-            setIsLoading(false);
         });
 
         return () => {

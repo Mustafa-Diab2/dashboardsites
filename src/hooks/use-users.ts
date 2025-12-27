@@ -11,7 +11,7 @@ export function useUsers(userRole: string | null | undefined) {
   const shouldFetchOwnUser = user && userRole && userRole !== 'admin';
 
   const fetchUsers = useCallback((query: any) =>
-    shouldFetchAllUsers ? query : query.eq('id', 'non-existent-id'),
+    shouldFetchAllUsers ? query : query.eq('id', '00000000-0000-0000-0000-000000000000'),
     [shouldFetchAllUsers]);
 
   const { data: allUsers } = useSupabaseCollection(

@@ -94,6 +94,8 @@ export type Client = {
   billing_notes?: string;
   default_requirements?: string;
   payment_terms?: string;
+  created_by?: string;
+  created_at?: any;
 };
 
 export type File = {

@@ -3,7 +3,7 @@
 create extension if not exists "uuid-ossp";
 
 -- 1. Profiles (for users)
-create table profiles (
+create table if not exists profiles (
   id uuid references auth.users on delete cascade primary key,
   full_name text,
   email text,
@@ -12,29 +12,25 @@ create table profiles (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Enable RLS on profiles
 alter table profiles enable row level security;
 
--- Profiles Policies
-create policy "Public profiles are viewable by everyone." on profiles
-  for select using (true);
+-- Clear old policies to avoid conflicts
+drop policy if exists "Public profiles are viewable by everyone." on profiles;
+drop policy if exists "Profiles are viewable by everyone" on profiles;
+drop policy if exists "Admins can update any profile." on profiles;
+drop policy if exists "Users can update own profile." on profiles;
+drop policy if exists "Users can insert their own profile." on profiles;
+drop policy if exists "Profiles are viewable by authenticated" on profiles;
+drop policy if exists "Admins full access to profiles" on profiles;
 
-create policy "Users can insert their own profile." on profiles
-  for insert with check (auth.uid() = id);
-
-create policy "Users can update own profile." on profiles
-  for update using (auth.uid() = id);
-
-create policy "Admins can update any profile." on profiles
-  for update using (
-    exists (
-      select 1 from profiles
-      where id = auth.uid() and role = 'admin'
-    )
-  );
+-- New robust policies using JWT metadata to avoid recursion
+create policy "Profiles_Select" on profiles for select to authenticated using (true);
+create policy "Profiles_Update_Own" on profiles for update to authenticated using (auth.uid() = id);
+create policy "Profiles_Admin_All" on profiles for all to authenticated 
+  using ( (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin' );
 
 -- 2. Clients
-create table clients (
+create table if not exists clients (
   id uuid default uuid_generate_v4() primary key,
   name text not null,
   project_name text not null,
@@ -46,33 +42,32 @@ create table clients (
   billing_notes text,
   default_requirements text,
   payment_terms text,
+  created_by uuid references auth.users,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
+-- Add created_by if it doesn't exist (in case table already existed)
+do $$ 
+begin 
+  if not exists (select 1 from information_schema.columns where table_name='clients' and column_name='created_by') then
+    alter table clients add column created_by uuid references auth.users;
+  end if;
+end $$;
+
 alter table clients enable row level security;
 
--- Clients Policies
-create policy "Clients are viewable by admins." on clients
-  for select using (
-    exists (
-      select 1 from profiles
-      where id = auth.uid() and role = 'admin'
-    )
-  );
+drop policy if exists "Clients are viewable by admins." on clients;
+drop policy if exists "Admins can manage clients." on clients;
+drop policy if exists "Public can view client via public token." on clients;
+drop policy if exists "Clients_Select" on clients;
+drop policy if exists "Clients_Admin_All" on clients;
 
-create policy "Public can view client via public token." on clients
-  for select using (true);
-
-create policy "Admins can manage clients." on clients
-  for all using (
-    exists (
-      select 1 from profiles
-      where id = auth.uid() and role = 'admin'
-    )
-  );
+create policy "Clients_Select" on clients for select to authenticated using (true);
+create policy "Clients_Admin_All" on clients for all to authenticated 
+  using ( (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin' );
 
 -- 3. Tasks
-create table tasks (
+create table if not exists tasks (
   id uuid default uuid_generate_v4() primary key,
   title text not null,
   description text,
@@ -111,155 +106,85 @@ create table tasks (
 
 alter table tasks enable row level security;
 
--- Tasks Policies
-create policy "Users can view tasks they are assigned to or created." on tasks
-  for select using (
-    auth.uid() = created_by or 
-    auth.uid() = any(assigned_to) or
-    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
-  );
+drop policy if exists "Users can view tasks they are assigned to or created." on tasks;
+drop policy if exists "Staff can manage tasks." on tasks;
+drop policy if exists "Public can view tasks via client public token." on tasks;
+drop policy if exists "Tasks_Select_All" on tasks;
+drop policy if exists "Tasks_Insert_Admin" on tasks;
+drop policy if exists "Tasks_Update_Admin" on tasks;
+drop policy if exists "Tasks_Delete_Admin" on tasks;
 
-create policy "Public can view tasks via client public token." on tasks
-  for select using (
-    exists (
-      select 1 from clients
-      where clients.id = tasks.client_id
-    )
-  );
-
-create policy "Staff can manage tasks." on tasks
-  for all using (
-    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'backend', 'frontend'))
-  );
+create policy "Tasks_Select_All" on tasks for select to authenticated using (true);
+create policy "Tasks_Admin_Manage" on tasks for all to authenticated 
+  using ( (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin' OR auth.uid()::uuid = created_by OR auth.uid()::uuid = ANY(assigned_to) );
 
 -- 4. Courses
-create table courses (
-  id uuid default uuid_generate_v4() primary key,
-  name text not null,
-  duration text,
-  status text,
-  link text,
-  user_id uuid references auth.users not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
 alter table courses enable row level security;
+drop policy if exists "Users can view their own courses." on courses;
+drop policy if exists "Admins can manage courses." on courses;
+drop policy if exists "Courses_Own_Select" on courses;
+drop policy if exists "Courses_Admin_All" on courses;
 
-create policy "Users can view their own courses." on courses
-  for select using (auth.uid() = user_id or exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
-
-create policy "Admins can manage courses." on courses
-  for all using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
+create policy "Courses_Select" on courses for select to authenticated using (auth.uid() = user_id OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
+create policy "Courses_Admin_All" on courses for all to authenticated using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 5. Leaves
-create table leaves (
-  id uuid default uuid_generate_v4() primary key,
-  user_id uuid references auth.users not null,
-  type text check (type in ('sick', 'annual', 'unpaid', 'emergency', 'other')),
-  start_date timestamp with time zone not null,
-  end_date timestamp with time zone not null,
-  days integer,
-  reason text,
-  status text check (status in ('pending', 'approved', 'rejected')) default 'pending',
-  approved_by uuid references auth.users,
-  approved_at timestamp with time zone,
-  notes text,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  updated_at timestamp with time zone default timezone('utc'::text, now())
-);
-
 alter table leaves enable row level security;
+drop policy if exists "Users can view/create their own leaves." on leaves;
+drop policy if exists "Users can insert their own leaves." on leaves;
+drop policy if exists "Admins can manage all leaves." on leaves;
+drop policy if exists "HR_ReadOnly_Member" on leaves;
+drop policy if exists "HR_Admin_All_Leaves" on leaves;
 
-create policy "Users can view/create their own leaves." on leaves
-  for select using (auth.uid() = user_id or exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
-
-create policy "Users can insert their own leaves." on leaves
-  for insert with check (auth.uid() = user_id);
-
-create policy "Admins can manage all leaves." on leaves
-  for all using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
+create policy "Leaves_Select" on leaves for select to authenticated using (auth.uid() = user_id OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
+create policy "Leaves_Insert" on leaves for insert to authenticated with check (auth.uid() = user_id);
+create policy "Leaves_Admin_All" on leaves for all to authenticated using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 6. Deductions
-create table deductions (
-  id uuid default uuid_generate_v4() primary key,
-  user_id uuid references auth.users not null,
-  amount decimal(12, 2) not null,
-  reason text not null,
-  type text check (type in ('absence', 'late', 'penalty', 'other')),
-  date date not null,
-  created_by uuid references auth.users not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  notes text
-);
-
 alter table deductions enable row level security;
+drop policy if exists "Users can view their own deductions." on deductions;
+drop policy if exists "Admins can manage deductions." on deductions;
+drop policy if exists "HR_Admin_All_Deductions" on deductions;
 
-create policy "Users can view their own deductions." on deductions
-  for select using (auth.uid() = user_id or exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
-
-create policy "Admins can manage deductions." on deductions
-  for all using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
+create policy "Deductions_Select" on deductions for select to authenticated using (auth.uid() = user_id OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
+create policy "Deductions_Admin_All" on deductions for all to authenticated using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- 7. Audit Logs
-create table audit_logs (
-  id uuid default uuid_generate_v4() primary key,
-  task_id uuid references tasks on delete cascade,
-  user_id uuid references auth.users,
-  action text,
-  field text,
-  old_value jsonb,
-  new_value jsonb,
-  timestamp timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
 alter table audit_logs enable row level security;
+drop policy if exists "Everyone can view audit logs." on audit_logs;
+create policy "Audit_Logs_Select" on audit_logs for select to authenticated using (true);
 
-create policy "Everyone can view audit logs." on audit_logs
-  for select using (true);
-
--- 8. Attendance (Simplified for start)
-create table attendance (
-  id uuid default uuid_generate_v4() primary key,
-  user_id uuid references auth.users not null,
-  date date not null,
-  check_in timestamp with time zone,
-  check_out timestamp with time zone,
-  status text default 'present',
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
+-- 8. Attendance
 alter table attendance enable row level security;
-
-create policy "Users can view/manage their own attendance." on attendance
-  for all using (auth.uid() = user_id or exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
+drop policy if exists "Users can view/manage their own attendance." on attendance;
+drop policy if exists "Attendance_Own_All" on attendance;
+create policy "Attendance_All_Authenticated" on attendance for all to authenticated 
+  using ( auth.uid() = user_id OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin' );
 
 -- 9. Chat
-create table chat (
-  id uuid default uuid_generate_v4() primary key,
-  user_id uuid references auth.users not null,
-  user_name text,
-  text text not null,
-  timestamp timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
 alter table chat enable row level security;
+drop policy if exists "Everyone can view chat." on chat;
+drop policy if exists "Authenticated users can post to chat." on chat;
+drop policy if exists "Chat_Select" on chat;
+drop policy if exists "Chat_Insert" on chat;
 
-create policy "Everyone can view chat." on chat
-  for select using (true);
+create policy "Chat_Select" on chat for select to authenticated using (true);
+create policy "Chat_Insert" on chat for insert to authenticated with check (auth.uid() = user_id);
 
-create policy "Authenticated users can post to chat." on chat
-  for insert with check (auth.uid() = user_id);
-
--- Function to handle profile creation on signup
-create function public.handle_new_user()
+-- 10. Update handle_new_user to ensure metadata role is respected
+create or replace function public.handle_new_user()
 returns trigger as $$
 begin
   insert into public.profiles (id, full_name, email, role)
-  values (new.id, new.raw_user_meta_data->>'full_name', new.email, 'frontend');
+  values (
+    new.id, 
+    coalesce(new.raw_user_meta_data->>'full_name', 'Unknown'), 
+    new.email, 
+    coalesce(new.raw_user_meta_data->>'role', 'frontend')
+  )
+  on conflict (id) do update set
+    role = excluded.role,
+    full_name = excluded.full_name;
   return new;
 end;
 $$ language plpgsql security definer;
-
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();

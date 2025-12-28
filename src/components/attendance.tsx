@@ -130,7 +130,7 @@ export default function Attendance() {
 
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className="glass-card">
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <Clock />
@@ -164,7 +164,7 @@ export default function Attendance() {
       </Card>
 
       {historyData && historyData.length > 0 && (
-        <Card>
+        <Card className="glass-card">
           <CardHeader>
             <CardTitle className="font-headline flex items-center gap-2 text-base">
               <History className="h-4 w-4" />

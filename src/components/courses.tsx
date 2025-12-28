@@ -29,7 +29,7 @@ export default function Courses({ userRole }: { userRole: string }) {
   return (
     <>
       <CourseForm isOpen={isCourseFormOpen} onOpenChange={setCourseFormOpen} />
-      <Card>
+      <Card className="glass-card">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="font-headline flex items-center gap-2">
             <BookOpen />

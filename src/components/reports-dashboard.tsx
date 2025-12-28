@@ -215,7 +215,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                 <AIInsights byUser={byUser} />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card>
+                  <Card className="glass-card">
                     <CardHeader>
                       <CardTitle className="font-headline">{t('tasks_by_member')}</CardTitle>
                     </CardHeader>
@@ -224,7 +224,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card className="glass-card">
                     <CardHeader>
                       <CardTitle className="font-headline">{t('tasks_completion_ratio')}</CardTitle>
                     </CardHeader>
@@ -234,7 +234,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                   </Card>
                 </div>
 
-                <Card className="mt-6">
+                <Card className="mt-6 glass-card">
                   <CardHeader>
                     <CardTitle className="font-headline">{t('detailed_member_breakdown')}</CardTitle>
                   </CardHeader>
@@ -309,14 +309,19 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
 
 
       <SidebarProvider>
-        <Sidebar>
-          <SidebarHeader>
-            <div className="flex items-center gap-2">
-              <SidebarTrigger />
-              <h2 className="font-semibold text-lg font-headline group-data-[collapsible=icon]:hidden">Xfuse Sites</h2>
+        <Sidebar className="border-r border-white/10 bg-background/20 backdrop-blur-xl">
+          <SidebarHeader className="p-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/20">
+                <LayoutDashboard className="text-white h-6 w-6" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight font-headline">NEXUS</h1>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest leading-none">Management</p>
+              </div>
             </div>
           </SidebarHeader>
-          <SidebarContent>
+          <SidebarContent className="px-3">
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton isActive={activeView === 'dashboard'} onClick={() => setActiveView('dashboard')}>
@@ -414,22 +419,24 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
-          <SidebarFooter>
-            <SidebarSeparator />
-            <div className="flex items-center gap-2">
+          <SidebarFooter className="p-4 mt-auto">
+            <SidebarSeparator className="opacity-10 mb-4" />
+            <div className="flex items-center justify-around bg-muted/30 rounded-2xl p-2 backdrop-blur-sm border border-white/5">
               <ThemeSwitcher />
               <LanguageSwitcher />
-              <Button variant="outline" size="icon" onClick={handleSignOut}><LogOut /></Button>
+              <Button variant="ghost" size="icon" onClick={handleSignOut} className="hover:bg-destructive/10 hover:text-destructive transition-colors">
+                <LogOut className="h-5 w-5" />
+              </Button>
             </div>
           </SidebarFooter>
         </Sidebar>
-        <SidebarInset className="overflow-x-hidden">
-          <div className="p-3 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <SidebarTrigger className="mb-0" />
+        <SidebarInset className="overflow-x-hidden mesh-gradient min-h-screen">
+          <div className="p-4 sm:p-6 lg:p-8 space-y-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-6 border-b border-white/5">
+              <div className="flex items-center gap-4">
+                <SidebarTrigger className="h-10 w-10 glass-card rounded-xl hover:bg-primary/10 transition-colors" />
                 <div>
-                  <h2 className="font-semibold text-xl sm:text-2xl font-headline">
+                  <h2 className="font-bold text-2xl sm:text-3xl font-headline tracking-tight">
                     {activeView === 'dashboard' && t('team_analytics')}
                     {activeView === 'my-tasks' && t('my_tasks')}
                     {activeView === 'attendance' && t('attendance')}
@@ -454,8 +461,13 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <NotificationCenter />
                 {isAdmin && (
-                  <Button onClick={() => setTemplateDialogOpen(true)} className="w-full sm:w-auto">
-                    <Plus /> {t('add_task')}
+                  <Button
+                    onClick={() => setTemplateDialogOpen(true)}
+                    className="w-full sm:w-auto h-11 bg-gradient-to-r from-primary to-purple-600 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/20 font-medium"
+                  >
+                    <Plus className="mr-2 h-5 w-5" />
+                    <span className="hidden sm:inline">{t('add_task')}</span>
+                    <span className="inline sm:hidden">{t('add')}</span>
                   </Button>
                 )}
               </div>
@@ -463,7 +475,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
             {renderContent()}
           </div>
         </SidebarInset>
-      </SidebarProvider>
+      </SidebarProvider >
     </>
   );
 }

@@ -28,12 +28,12 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     setIsLoading(true);
     setError(null);
     setInsights(null);
-    
+
     // Filter out 'Unassigned' tasks and any users that might not have a name yet before sending to the AI
     const filteredTaskDistribution = byUser.filter(
       user => user.name && user.name !== 'Unassigned' && !user.name.startsWith('user-') && user.name !== 'undefined'
     );
-    
+
     const input: GenerateTeamInsightsInput = {
       taskDistribution: filteredTaskDistribution,
       reportType: reportType as 'summary' | 'detailed',
@@ -43,17 +43,17 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
     };
 
     try {
-        const result = await generateTeamInsights(input);
-        if (result.insights) {
-            setInsights(result.insights);
-        } else {
-            setError(t('failed_to_generate_insights'));
-        }
-    } catch(e: any) {
-        console.error("Error in generateTeamInsights action:", e);
-        setError(e.message || t('failed_to_generate_insights'));
+      const result = await generateTeamInsights(input);
+      if (result.insights) {
+        setInsights(result.insights);
+      } else {
+        setError(t('failed_to_generate_insights'));
+      }
+    } catch (e: any) {
+      console.error("Error in generateTeamInsights action:", e);
+      setError(e.message || t('failed_to_generate_insights'));
     }
-    
+
     setIsLoading(false);
   };
 
@@ -101,7 +101,7 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
         unit: 'px',
         format: 'a4',
       });
-      
+
       pdf.addFileToVFS("Amiri-Regular.ttf", amiriFont);
       pdf.addFont("Amiri-Regular.ttf", "Amiri", "normal");
       pdf.setFont("Amiri");
@@ -121,22 +121,28 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
       setError('Failed to generate PDF');
     }
   };
-  
+
   const selectableUsers = byUser.filter(user => user.name && user.name !== 'Unassigned' && !user.name.startsWith('user-') && user.name !== 'undefined');
 
   return (
-    <Card className="bg-card/50 border-primary/20 border-2 shadow-lg">
+    <Card className="glass-card neon-border overflow-hidden">
       <CardHeader>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <CardTitle className="font-headline flex items-center gap-2">
-              <Sparkles className="text-primary" />
+            <CardTitle className="font-headline flex items-center gap-2 text-xl sm:text-2xl">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Sparkles className="text-primary animate-pulse" />
+              </div>
               {t('ai_powered_insights')}
             </CardTitle>
             <CardDescription>{t('ai_powered_insights_desc')}</CardDescription>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-             <Button onClick={handleGenerateInsights} disabled={isLoading} className="w-full sm:w-auto">
+            <Button
+              onClick={handleGenerateInsights}
+              disabled={isLoading}
+              className="w-full sm:w-auto bg-gradient-to-r from-primary to-purple-600 hover:shadow-lg hover:shadow-primary/30 transition-all"
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -150,7 +156,7 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
               )}
             </Button>
             {insights && (
-               <Button onClick={handleDownloadPdf} variant="outline">
+              <Button onClick={handleDownloadPdf} variant="outline">
                 <FileDown className="mr-2 h-4 w-4" />
                 {t('download_pdf')}
               </Button>
@@ -160,32 +166,32 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            <div className='grid gap-2'>
-                <Label htmlFor="report-type">{t('report_type')}</Label>
-                <Select value={reportType} onValueChange={setReportType} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                    <SelectTrigger id="report-type">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="summary">{t('summary')}</SelectItem>
-                        <SelectItem value="detailed">{t('detailed')}</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className='grid gap-2'>
-                <Label htmlFor="report-target">{t('report_target')}</Label>
-                <Select value={targetUser} onValueChange={setTargetUser} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                    <SelectTrigger id="report-target">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">{t('all')}</SelectItem>
-                        {selectableUsers.map(user => (
-                            <SelectItem key={user.name} value={user.name}>{user.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
+          <div className='grid gap-2'>
+            <Label htmlFor="report-type">{t('report_type')}</Label>
+            <Select value={reportType} onValueChange={setReportType} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+              <SelectTrigger id="report-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="summary">{t('summary')}</SelectItem>
+                <SelectItem value="detailed">{t('detailed')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className='grid gap-2'>
+            <Label htmlFor="report-target">{t('report_target')}</Label>
+            <Select value={targetUser} onValueChange={setTargetUser} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+              <SelectTrigger id="report-target">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('all')}</SelectItem>
+                {selectableUsers.map(user => (
+                  <SelectItem key={user.name} value={user.name}>{user.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <AnimatePresence>
           {(isLoading || insights || error) && (
@@ -195,23 +201,23 @@ export default function AIInsights({ byUser }: { byUser: UserReport[] }) {
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.3 }}
             >
-                {isLoading && (
-                  <div className="flex items-center gap-4 text-muted-foreground p-4 rounded-lg bg-muted/50">
-                    <Loader2 className="animate-spin" />
-                    <p>{t('ai_analyzing_data')}</p>
-                  </div>
-                )}
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertTitle>{t('error')}</AlertTitle>
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                {insights && (
-                  <div className="prose prose-sm dark:prose-invert max-w-none p-4 rounded-lg bg-muted/50 whitespace-pre-wrap font-body">
-                    {insights}
-                  </div>
-                )}
+              {isLoading && (
+                <div className="flex items-center gap-4 text-muted-foreground p-4 rounded-lg bg-muted/50">
+                  <Loader2 className="animate-spin" />
+                  <p>{t('ai_analyzing_data')}</p>
+                </div>
+              )}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertTitle>{t('error')}</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              {insights && (
+                <div className="prose prose-sm dark:prose-invert max-w-none p-4 rounded-lg bg-muted/50 whitespace-pre-wrap font-body">
+                  {insights}
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

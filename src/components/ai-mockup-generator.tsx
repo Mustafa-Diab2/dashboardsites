@@ -92,6 +92,37 @@ const STYLES = [
     { value: 'futuristic', label: 'Futuristic' },
 ];
 
+const MOCKUP_SAMPLES: Record<string, string[]> = {
+    ecommerce: [
+        'https://images.unsplash.com/photo-1557821552-17105176677c?auto=format&fit=crop&q=80&w=1200',
+        'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&q=80&w=1200',
+    ],
+    portfolio: [
+        'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=1200',
+        'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&q=80&w=1200',
+    ],
+    landing: [
+        'https://images.unsplash.com/photo-1467232004584-a241de8bcf5d?auto=format&fit=crop&q=80&w=1200',
+        'https://images.unsplash.com/photo-1541462608143-67571c6738dd?auto=format&fit=crop&q=80&w=1200',
+    ],
+    blog: [
+        'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&q=80&w=1200',
+        'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&q=80&w=1200',
+    ],
+    dashboard: [
+        'https://images.unsplash.com/photo-1551288049-bbbda536639a?auto=format&fit=crop&q=80&w=1200',
+        'https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&q=80&w=1200',
+    ],
+    corporate: [
+        'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=1200',
+        'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1200',
+    ],
+    saas: [
+        'https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&q=80&w=1200',
+        'https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&q=80&w=1200',
+    ],
+};
+
 const FEATURES = [
     'Hero Section',
     'Navigation Bar',
@@ -175,11 +206,12 @@ High-quality UI/UX design, modern, clean, professional layout. Figma style mocku
             // In production, this would call an actual AI image generation API
             const prompt = generatePrompt();
 
-            // For demo purposes, we'll use a placeholder image
-            // In real implementation, you would call DALL-E or Stable Diffusion API
+            const samples = MOCKUP_SAMPLES[settings.projectType] || MOCKUP_SAMPLES.landing;
+            const randomSample = samples[Math.floor(Math.random() * samples.length)];
+
             const mockup: GeneratedMockup = {
                 id: crypto.randomUUID(),
-                imageUrl: `https://placehold.co/1200x800/1a1a2e/e94560?text=${encodeURIComponent(settings.projectName || 'Mockup')}`,
+                imageUrl: randomSample,
                 prompt,
                 settings: { ...settings },
                 createdAt: new Date(),
@@ -239,7 +271,7 @@ High-quality UI/UX design, modern, clean, professional layout. Figma style mocku
 
     return (
         <div className="space-y-6">
-            <Card>
+            <Card className="glass-card">
                 <CardHeader>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">

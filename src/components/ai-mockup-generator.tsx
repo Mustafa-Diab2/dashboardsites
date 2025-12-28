@@ -177,14 +177,14 @@ export function AIMockupGenerator() {
         const colorSchemeLabel = COLOR_SCHEMES.find(c => c.value === settings.colorScheme)?.label || settings.colorScheme;
         const styleLabel = STYLES.find(s => s.value === settings.style)?.label || settings.style;
 
-        return `Professional website mockup design for a ${projectTypeLabel} website. 
-Style: ${styleLabel} design with ${colorSchemeLabel} color scheme.
-${settings.projectName ? `Project: ${settings.projectName}.` : ''}
-${settings.description ? `Description: ${settings.description}.` : ''}
-Features: ${settings.features.join(', ')}.
-${settings.targetAudience ? `Target audience: ${settings.targetAudience}.` : ''}
-Device: ${settings.deviceType === 'desktop' ? 'Desktop browser view' : 'Mobile phone view'}.
-High-quality UI/UX design, modern, clean, professional layout. Figma style mockup.`;
+        return `Ultra-realistic, high-fidelity UI/UX website mockup for ${settings.projectName || projectTypeLabel}. 
+Category: ${projectTypeLabel}. 
+Design Style: ${styleLabel}, modern, professional, sleek. 
+Color Palette: ${colorSchemeLabel}. 
+Layout Features: ${settings.features.join(', ')}. 
+Description: ${settings.description || `A premium ${projectTypeLabel} website for ${settings.targetAudience || 'professionals'}`}. 
+Viewing on: ${settings.deviceType === 'desktop' ? 'Wide Cinema Display' : 'Modern Smartphone'}. 
+Rendering: 8k resolution, Unreal Engine 5 style lighting, glassmorphism elements, clean typography, highly detailed user interface, trending on Dribbble and Behance.`;
     };
 
     const handleGenerate = async () => {
@@ -202,32 +202,43 @@ High-quality UI/UX design, modern, clean, professional layout. Figma style mocku
         setIsGenerating(true);
 
         try {
-            // Simulate AI generation with a placeholder
-            // In production, this would call an actual AI image generation API
             const prompt = generatePrompt();
+            const seed = Math.floor(Math.random() * 1000000);
 
-            const samples = MOCKUP_SAMPLES[settings.projectType] || MOCKUP_SAMPLES.landing;
-            const randomSample = samples[Math.floor(Math.random() * samples.length)];
+            // Using Pollinations AI for real-time generation
+            // This is a free, high-quality image generation API that doesn't require a key
+            const encodedPrompt = encodeURIComponent(prompt);
+            const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1200&height=800&seed=${seed}&nologo=true&model=flux`;
 
             const mockup: GeneratedMockup = {
                 id: crypto.randomUUID(),
-                imageUrl: randomSample,
+                imageUrl,
                 prompt,
                 settings: { ...settings },
                 createdAt: new Date(),
             };
 
-            // Simulate delay for AI processing
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // We add a small delay to simulate the "processing" feel of the AI
+            await new Promise(resolve => setTimeout(resolve, 3000));
 
             setGeneratedMockups(prev => [mockup, ...prev]);
             setActiveTab('results');
 
+            // Save the generation to Supabase
+            if (user) {
+                await addDoc('ai_mockups', {
+                    user_id: user.id,
+                    prompt: prompt,
+                    image_url: imageUrl,
+                    created_at: new Date().toISOString()
+                });
+            }
+
             toast({
-                title: language === 'ar' ? 'تم التوليد بنجاح!' : 'Generated Successfully!',
+                title: language === 'ar' ? 'تم استخراج الموكب بنجاح!' : 'Mockup Extracted Successfully!',
                 description: language === 'ar'
-                    ? 'تم إنشاء الـ Mockup بنجاح'
-                    : 'Your mockup has been generated',
+                    ? 'تم توليد تصميم كامل وفريد للمشروع'
+                    : 'A complete and unique design for your project has been generated',
             });
         } catch (error) {
             console.error('Generation error:', error);
@@ -235,8 +246,8 @@ High-quality UI/UX design, modern, clean, professional layout. Figma style mocku
                 variant: 'destructive',
                 title: language === 'ar' ? 'خطأ في التوليد' : 'Generation Error',
                 description: language === 'ar'
-                    ? 'حدث خطأ أثناء توليد الـ Mockup'
-                    : 'An error occurred while generating the mockup',
+                    ? 'حدث خطأ أثناء الاتصال بمحرك التوليد'
+                    : 'An error occurred while connecting to the generation engine',
             });
         } finally {
             setIsGenerating(false);

@@ -94,121 +94,67 @@ export function AuthCard() {
   };
 
   return (
-    <section className="flex items-center justify-center min-h-screen bg-background p-4">
-      <Tabs defaultValue="signin" className="w-full max-w-md">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="signin">{t('sign_in')}</TabsTrigger>
-          <TabsTrigger value="signup">{t('sign_up')}</TabsTrigger>
-        </TabsList>
-        <TabsContent value="signin">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <LogIn className="w-5 h-5" />
-                {t('sign_in_continue')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email-signin">{t('email')}</Label>
-                  <Input
-                    id="email-signin"
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="you@company.com"
-                    onKeyDown={(e) => handleKeyDown(e, login)}
-                  />
+    <div className="flex items-center justify-center min-h-screen w-full bg-background p-4">
+      <Card className="w-full max-w-md shadow-2xl border-primary/20 backdrop-blur-sm bg-card/80">
+        <CardHeader className="text-center pb-2">
+          <div className="flex justify-center mb-4">
+            <div className="p-3 bg-primary/10 rounded-full">
+              <LogIn className="w-8 h-8 text-primary" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl font-bold font-headline">
+            {t('sign_in_continue')}
+          </CardTitle>
+          <p className="text-muted-foreground text-sm mt-1">
+            {t('welcome_back_desc')}
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="email-signin">{t('email')}</Label>
+              <Input
+                id="email-signin"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                onKeyDown={(e) => handleKeyDown(e, login)}
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password-signin">{t('password')}</Label>
+              <Input
+                id="password-signin"
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, login)}
+                placeholder="••••••••"
+                className="h-11"
+              />
+            </div>
+            <Button
+              onClick={login}
+              disabled={loading}
+              className="w-full h-11 text-lg mt-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                  {t('signing_in')}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password-signin">{t('password')}</Label>
-                  <Input
-                    id="password-signin"
-                    type="password"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, login)}
-                    placeholder="••••••••"
-                  />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <LogIn className="h-5 w-5" />
+                  {t('sign_in')}
                 </div>
-                <Button onClick={login} disabled={loading} className="w-full">
-                  <LogIn className="mr-2 h-4 w-4" />
-                  {loading ? t('signing_in') : t('sign_in')}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="signup">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UserPlus className="w-5 h-5" />
-                {t('create_account')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fullname-signup">{t('full_name')}</Label>
-                  <Input
-                    id="fullname-signup"
-                    type="text"
-                    value={fullName}
-                    onChange={e => setFullName(e.target.value)}
-                    placeholder="John Doe"
-                    onKeyDown={(e) => handleKeyDown(e, signUp)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email-signup">{t('email')}</Label>
-                  <Input
-                    id="email-signup"
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="you@company.com"
-                    onKeyDown={(e) => handleKeyDown(e, signUp)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password-signup">{t('password')}</Label>
-                  <Input
-                    id="password-signup"
-                    type="password"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, signUp)}
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role-signup">{t('role')}</Label>
-                  <Select value={role} onValueChange={setRole}>
-                    <SelectTrigger id="role-signup">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="trainee">{t('trainee')}</SelectItem>
-                      <SelectItem value="frontend">{t('frontend')}</SelectItem>
-                      <SelectItem value="backend">{t('backend')}</SelectItem>
-                      <SelectItem value="ui_ux">UI/UX Designer</SelectItem>
-                      <SelectItem value="ai_specialist">AI Specialist</SelectItem>
-                      <SelectItem value="security">Security</SelectItem>
-                      <SelectItem value="admin">{t('admin')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={signUp} disabled={loading} className="w-full">
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  {loading ? t('signing_up') : t('sign_up')}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </section>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

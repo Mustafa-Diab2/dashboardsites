@@ -48,11 +48,15 @@ export function TaskDetailsDialog({
 
   if (!task) return null;
 
-  const handleStatusChange = () => {
+  const handleStatusChange = async () => {
     const transition = statusTransitions[task.status];
     if (transition) {
-      updateDoc('tasks', task.id, { status: transition.nextStatus });
-      onOpenChange(false);
+      try {
+        await updateDoc('tasks', task.id, { status: transition.nextStatus });
+        onOpenChange(false);
+      } catch (error) {
+        console.error("Failed to update status", error);
+      }
     }
   };
 

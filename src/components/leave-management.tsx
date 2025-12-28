@@ -186,37 +186,46 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
     }
   };
 
-  const handleConfirmAction = () => {
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleConfirmAction = async () => {
     const { action, leaveId } = confirmAction;
     if (!leaveId || !user) return;
 
     const leave = allLeaves.find(l => l.id === leaveId);
     if (!leave) return;
 
-    const status = action === 'approve' ? 'approved' : 'rejected';
-    const notificationMessage = action === 'approve'
-      ? `${t('leave_approved_for')} @${leave.user_name}`
-      : `${t('leave_rejected_for')} @${leave.user_name}`;
+    setIsProcessing(true);
+    try {
+      const status = action === 'approve' ? 'approved' : 'rejected';
+      const notificationMessage = action === 'approve'
+        ? `${t('leave_approved_for')} @${leave.user_name}`
+        : `${t('leave_rejected_for')} @${leave.user_name}`;
 
-    updateDoc('leaves', leaveId, {
-      status,
-      approved_by: user.id,
-      approved_at: new Date().toISOString(),
-    });
+      await updateDoc('leaves', leaveId, {
+        status,
+        approved_by: user.id,
+        approved_at: new Date().toISOString(),
+      });
 
-    addDoc('chat', {
-      user_id: user.id,
-      user_name: user.user_metadata?.full_name || user.email,
-      text: notificationMessage,
-      timestamp: new Date().toISOString(),
-    });
+      await addDoc('chat', {
+        user_id: user.id,
+        user_name: user.user_metadata?.full_name || user.email,
+        text: notificationMessage,
+        timestamp: new Date().toISOString(),
+      }, { silent: true });
 
-    if (action === 'approve') {
-      toast({ title: t('leave_approved_title'), description: t('leave_approved_desc') });
-    } else if (action === 'reject') {
-      toast({ title: t('leave_rejected_title'), description: t('leave_rejected_desc') });
+      if (action === 'approve') {
+        toast({ title: t('leave_approved_title'), description: t('leave_approved_desc') });
+      } else if (action === 'reject') {
+        toast({ title: t('leave_rejected_title'), description: t('leave_rejected_desc') });
+      }
+    } catch (error) {
+      console.error("Failed to process leave action", error);
+    } finally {
+      setIsProcessing(false);
+      setConfirmAction({ action: null, leaveId: null });
     }
-    setConfirmAction({ action: null, leaveId: null });
   };
 
 
@@ -391,8 +400,8 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel onClick={() => setConfirmAction({ action: null, leaveId: null })}>{t('cancel')}</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleConfirmAction}>{t('confirm')}</AlertDialogAction>
+                                    <AlertDialogCancel onClick={() => setConfirmAction({ action: null, leaveId: null })} disabled={isProcessing}>{t('cancel')}</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleConfirmAction} disabled={isProcessing}>{isProcessing ? t('loading') : t('confirm')}</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -411,8 +420,8 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel onClick={() => setConfirmAction({ action: null, leaveId: null })}>{t('cancel')}</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleConfirmAction}>{t('confirm')}</AlertDialogAction>
+                                    <AlertDialogCancel onClick={() => setConfirmAction({ action: null, leaveId: null })} disabled={isProcessing}>{t('cancel')}</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleConfirmAction} disabled={isProcessing}>{isProcessing ? t('loading') : t('confirm')}</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>

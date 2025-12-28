@@ -2,7 +2,9 @@
 -- Enable necessary extensions
 create extension if not exists "uuid-ossp";
 
+-- =====================================================
 -- 1. Profiles (for users)
+-- =====================================================
 create table if not exists profiles (
   id uuid references auth.users on delete cascade primary key,
   full_name text,
@@ -14,7 +16,6 @@ create table if not exists profiles (
 
 alter table profiles enable row level security;
 
--- Clear old policies to avoid conflicts
 drop policy if exists "Public profiles are viewable by everyone." on profiles;
 drop policy if exists "Profiles are viewable by everyone" on profiles;
 drop policy if exists "Admins can update any profile." on profiles;
@@ -22,14 +23,18 @@ drop policy if exists "Users can update own profile." on profiles;
 drop policy if exists "Users can insert their own profile." on profiles;
 drop policy if exists "Profiles are viewable by authenticated" on profiles;
 drop policy if exists "Admins full access to profiles" on profiles;
+drop policy if exists "Profiles_Select" on profiles;
+drop policy if exists "Profiles_Update_Own" on profiles;
+drop policy if exists "Profiles_Admin_All" on profiles;
 
--- New robust policies using JWT metadata to avoid recursion
 create policy "Profiles_Select" on profiles for select to authenticated using (true);
 create policy "Profiles_Update_Own" on profiles for update to authenticated using (auth.uid() = id);
 create policy "Profiles_Admin_All" on profiles for all to authenticated 
   using ( (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin' );
 
+-- =====================================================
 -- 2. Clients
+-- =====================================================
 create table if not exists clients (
   id uuid default uuid_generate_v4() primary key,
   name text not null,
@@ -46,14 +51,6 @@ create table if not exists clients (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Add created_by if it doesn't exist (in case table already existed)
-do $$ 
-begin 
-  if not exists (select 1 from information_schema.columns where table_name='clients' and column_name='created_by') then
-    alter table clients add column created_by uuid references auth.users;
-  end if;
-end $$;
-
 alter table clients enable row level security;
 
 drop policy if exists "Clients are viewable by admins." on clients;
@@ -66,7 +63,9 @@ create policy "Clients_Select" on clients for select to authenticated using (tru
 create policy "Clients_Admin_All" on clients for all to authenticated 
   using ( (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin' );
 
+-- =====================================================
 -- 3. Tasks
+-- =====================================================
 create table if not exists tasks (
   id uuid default uuid_generate_v4() primary key,
   title text not null,
@@ -110,59 +109,148 @@ drop policy if exists "Users can view tasks they are assigned to or created." on
 drop policy if exists "Staff can manage tasks." on tasks;
 drop policy if exists "Public can view tasks via client public token." on tasks;
 drop policy if exists "Tasks_Select_All" on tasks;
-drop policy if exists "Tasks_Insert_Admin" on tasks;
-drop policy if exists "Tasks_Update_Admin" on tasks;
-drop policy if exists "Tasks_Delete_Admin" on tasks;
+drop policy if exists "Tasks_Admin_Manage" on tasks;
 
 create policy "Tasks_Select_All" on tasks for select to authenticated using (true);
 create policy "Tasks_Admin_Manage" on tasks for all to authenticated 
   using ( (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin' OR auth.uid()::uuid = created_by OR auth.uid()::uuid = ANY(assigned_to) );
 
+-- =====================================================
 -- 4. Courses
+-- =====================================================
+create table if not exists courses (
+  id uuid default uuid_generate_v4() primary key,
+  name text not null,
+  link text,
+  duration text,
+  user_id uuid references auth.users on delete cascade not null,
+  status text check (status in ('not_started', 'in_progress', 'completed')) default 'not_started',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
 alter table courses enable row level security;
+
 drop policy if exists "Users can view their own courses." on courses;
 drop policy if exists "Admins can manage courses." on courses;
 drop policy if exists "Courses_Own_Select" on courses;
 drop policy if exists "Courses_Admin_All" on courses;
+drop policy if exists "Courses_Select" on courses;
 
 create policy "Courses_Select" on courses for select to authenticated using (auth.uid() = user_id OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 create policy "Courses_Admin_All" on courses for all to authenticated using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
+-- =====================================================
 -- 5. Leaves
+-- =====================================================
+create table if not exists leaves (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users on delete cascade not null,
+  user_name text,
+  type text check (type in ('sick', 'annual', 'unpaid', 'emergency', 'other')) default 'annual',
+  start_date date not null,
+  end_date date not null,
+  reason text,
+  status text check (status in ('pending', 'approved', 'rejected')) default 'pending',
+  approved_by uuid references auth.users,
+  approved_at timestamp with time zone,
+  source text default 'manual',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
 alter table leaves enable row level security;
+
 drop policy if exists "Users can view/create their own leaves." on leaves;
 drop policy if exists "Users can insert their own leaves." on leaves;
 drop policy if exists "Admins can manage all leaves." on leaves;
 drop policy if exists "HR_ReadOnly_Member" on leaves;
 drop policy if exists "HR_Admin_All_Leaves" on leaves;
+drop policy if exists "Leaves_Select" on leaves;
+drop policy if exists "Leaves_Insert" on leaves;
+drop policy if exists "Leaves_Admin_All" on leaves;
 
 create policy "Leaves_Select" on leaves for select to authenticated using (auth.uid() = user_id OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 create policy "Leaves_Insert" on leaves for insert to authenticated with check (auth.uid() = user_id);
 create policy "Leaves_Admin_All" on leaves for all to authenticated using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
+-- =====================================================
 -- 6. Deductions
+-- =====================================================
+create table if not exists deductions (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users on delete cascade not null,
+  user_name text,
+  amount decimal(10, 2) not null,
+  reason text,
+  type text check (type in ('absence', 'late', 'penalty', 'other')) default 'other',
+  source text default 'manual',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
 alter table deductions enable row level security;
+
 drop policy if exists "Users can view their own deductions." on deductions;
 drop policy if exists "Admins can manage deductions." on deductions;
 drop policy if exists "HR_Admin_All_Deductions" on deductions;
+drop policy if exists "Deductions_Select" on deductions;
+drop policy if exists "Deductions_Admin_All" on deductions;
 
 create policy "Deductions_Select" on deductions for select to authenticated using (auth.uid() = user_id OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 create policy "Deductions_Admin_All" on deductions for all to authenticated using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
+-- =====================================================
 -- 7. Audit Logs
+-- =====================================================
+create table if not exists audit_logs (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users on delete set null,
+  action text not null,
+  table_name text,
+  record_id uuid,
+  old_data jsonb,
+  new_data jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
 alter table audit_logs enable row level security;
+
 drop policy if exists "Everyone can view audit logs." on audit_logs;
+drop policy if exists "Audit_Logs_Select" on audit_logs;
+
 create policy "Audit_Logs_Select" on audit_logs for select to authenticated using (true);
 
+-- =====================================================
 -- 8. Attendance
+-- =====================================================
+create table if not exists attendance (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users on delete cascade not null,
+  clock_in timestamp with time zone not null,
+  clock_out timestamp with time zone,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
 alter table attendance enable row level security;
+
 drop policy if exists "Users can view/manage their own attendance." on attendance;
 drop policy if exists "Attendance_Own_All" on attendance;
+drop policy if exists "Attendance_All_Authenticated" on attendance;
+
 create policy "Attendance_All_Authenticated" on attendance for all to authenticated 
   using ( auth.uid() = user_id OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin' );
 
+-- =====================================================
 -- 9. Chat
+-- =====================================================
+create table if not exists chat (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users on delete cascade not null,
+  user_name text,
+  text text not null,
+  timestamp timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
 alter table chat enable row level security;
+
 drop policy if exists "Everyone can view chat." on chat;
 drop policy if exists "Authenticated users can post to chat." on chat;
 drop policy if exists "Chat_Select" on chat;
@@ -171,7 +259,70 @@ drop policy if exists "Chat_Insert" on chat;
 create policy "Chat_Select" on chat for select to authenticated using (true);
 create policy "Chat_Insert" on chat for insert to authenticated with check (auth.uid() = user_id);
 
--- 10. Update handle_new_user to ensure metadata role is respected
+-- =====================================================
+-- 10. Notifications (NEW)
+-- =====================================================
+create table if not exists notifications (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users on delete cascade not null,
+  type text check (type in ('task_assigned', 'leave_approved', 'leave_rejected', 'mention', 'task_completed', 'general')) default 'general',
+  title text not null,
+  message text not null,
+  link text,
+  is_read boolean default false,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table notifications enable row level security;
+
+drop policy if exists "Notifications_Select_Own" on notifications;
+drop policy if exists "Notifications_Update_Own" on notifications;
+drop policy if exists "Notifications_Delete_Own" on notifications;
+drop policy if exists "Notifications_Insert" on notifications;
+
+create policy "Notifications_Select_Own" on notifications for select to authenticated 
+  using (auth.uid() = user_id);
+create policy "Notifications_Update_Own" on notifications for update to authenticated 
+  using (auth.uid() = user_id);
+create policy "Notifications_Delete_Own" on notifications for delete to authenticated 
+  using (auth.uid() = user_id);
+create policy "Notifications_Insert" on notifications for insert to authenticated 
+  with check (true);
+
+-- =====================================================
+-- 11. Files (NEW)
+-- =====================================================
+create table if not exists files (
+  id uuid default uuid_generate_v4() primary key,
+  name text not null,
+  file_path text not null,
+  file_type text not null,
+  file_size bigint not null,
+  folder text default 'general',
+  client_id uuid references clients on delete set null,
+  task_id uuid references tasks on delete set null,
+  uploaded_by uuid references auth.users on delete set null,
+  uploaded_by_name text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table files enable row level security;
+
+drop policy if exists "Files_Select" on files;
+drop policy if exists "Files_Insert" on files;
+drop policy if exists "Files_Delete" on files;
+drop policy if exists "Files_Admin_All" on files;
+
+create policy "Files_Select" on files for select to authenticated using (true);
+create policy "Files_Insert" on files for insert to authenticated with check (auth.uid() = uploaded_by);
+create policy "Files_Delete" on files for delete to authenticated 
+  using (auth.uid() = uploaded_by OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
+create policy "Files_Admin_All" on files for all to authenticated 
+  using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
+
+-- =====================================================
+-- 12. Handle New User Function
+-- =====================================================
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -188,3 +339,61 @@ begin
   return new;
 end;
 $$ language plpgsql security definer;
+
+-- Create the trigger if it doesn't exist
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- =====================================================
+-- 13. Enable Realtime for tables
+-- =====================================================
+-- Note: Run these separately if you get "already exists" errors
+do $$ 
+begin
+  alter publication supabase_realtime add table profiles;
+exception when others then null;
+end $$;
+
+do $$ 
+begin
+  alter publication supabase_realtime add table tasks;
+exception when others then null;
+end $$;
+
+do $$ 
+begin
+  alter publication supabase_realtime add table clients;
+exception when others then null;
+end $$;
+
+do $$ 
+begin
+  alter publication supabase_realtime add table chat;
+exception when others then null;
+end $$;
+
+do $$ 
+begin
+  alter publication supabase_realtime add table notifications;
+exception when others then null;
+end $$;
+
+do $$ 
+begin
+  alter publication supabase_realtime add table files;
+exception when others then null;
+end $$;
+
+do $$ 
+begin
+  alter publication supabase_realtime add table leaves;
+exception when others then null;
+end $$;
+
+do $$ 
+begin
+  alter publication supabase_realtime add table attendance;
+exception when others then null;
+end $$;

@@ -3,7 +3,7 @@
 import type { Client, Task, TaskTemplate, User } from '@/lib/data';
 import { useMemo, useState } from 'react';
 import { Button } from './ui/button';
-import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus, MessageSquare, UserCog, Briefcase, Banknote } from 'lucide-react';
+import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus, MessageSquare, UserCog, Briefcase, Banknote, CalendarDays, FolderOpen } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MemberTasksBarChart } from './charts/member-tasks-bar-chart';
 import { CompletionRatioPieChart } from './charts/completion-ratio-pie-chart';
@@ -45,6 +45,9 @@ import TeamChat from './team-chat';
 import { HRManagementPage } from './hr-management-page';
 import TeamManagement from './team-management';
 import SalaryReport from './salary-report';
+import { GlobalCalendar } from './global-calendar';
+import { FileManager } from './file-manager';
+import { NotificationCenter } from './notification-center';
 
 export type UserReport = {
   name: string;
@@ -55,7 +58,7 @@ export type UserReport = {
   done: number;
 };
 
-type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat' | 'hr' | 'team' | 'salary';
+type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat' | 'hr' | 'team' | 'salary' | 'calendar' | 'files';
 
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string | undefined }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
@@ -190,6 +193,10 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
         return <TeamManagement users={users as User[]} />;
       case 'salary':
         return <SalaryReport users={users as User[]} tasks={tasks} />;
+      case 'calendar':
+        return <GlobalCalendar />;
+      case 'files':
+        return <FileManager />;
       case 'dashboard':
       default:
         return (
@@ -364,8 +371,20 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                       <span>{t('salary_report')}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'files'} onClick={() => setActiveView('files')}>
+                      <FolderOpen />
+                      <span>{t('file_manager')}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </>
               )}
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeView === 'calendar'} onClick={() => setActiveView('calendar')}>
+                  <CalendarDays />
+                  <span>{t('calendar')}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter>
@@ -394,6 +413,8 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                     {activeView === 'hr' && t('hr_management')}
                     {activeView === 'team' && t('team_management')}
                     {activeView === 'salary' && t('salary_report')}
+                    {activeView === 'calendar' && t('calendar')}
+                    {activeView === 'files' && t('file_manager')}
                   </h2>
                   <p className="text-muted-foreground">
                     {isAdmin ? t('home_page_description') : t('welcome_back_desc')}
@@ -401,6 +422,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                 </div>
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
+                <NotificationCenter />
                 {isAdmin && (
                   <Button onClick={() => setTemplateDialogOpen(true)} className="w-full sm:w-auto">
                     <Plus /> {t('add_task')}

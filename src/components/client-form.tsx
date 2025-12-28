@@ -57,12 +57,16 @@ export default function ClientForm({
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
+  const [isLoading, setIsLoading] = useState(false);
+
+  // ... (rest of useEffect)
+
   const handleSubmit = async () => {
     if (!user) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: t('must_be_logged_in_to_create_course'), // Using existing translation
+        description: t('must_be_logged_in_to_create_course'),
       });
       return;
     }
@@ -75,27 +79,36 @@ export default function ClientForm({
       return;
     }
 
-    const clientData = {
-      name: form.name,
-      project_name: form.project_name,
-      total_payment: form.total_payment,
-      paid_amount: form.paid_amount,
-      contact_info: form.contact_info,
-      notes: form.notes,
-      created_by: user.id,
-    };
+    setIsLoading(true);
 
-    if (client) {
-      updateDoc('clients', client.id, clientData);
-    } else {
-      addDoc('clients', {
-        ...clientData,
-        created_at: new Date().toISOString(),
-      });
+    try {
+      const clientData = {
+        name: form.name,
+        project_name: form.project_name,
+        total_payment: form.total_payment,
+        paid_amount: form.paid_amount,
+        contact_info: form.contact_info,
+        notes: form.notes,
+        created_by: user.id,
+      };
+
+      if (client) {
+        await updateDoc('clients', client.id, clientData);
+      } else {
+        await addDoc('clients', {
+          ...clientData,
+          created_at: new Date().toISOString(),
+        });
+      }
+
+      setForm(INITIAL_FORM_STATE);
+      onOpenChange(false);
+    } catch (error) {
+      console.error(error);
+      // Toast is handled in use-mutations
+    } finally {
+      setIsLoading(false);
     }
-
-    setForm(INITIAL_FORM_STATE);
-    onOpenChange(false);
   };
 
   return (
@@ -165,7 +178,9 @@ export default function ClientForm({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('cancel')}
           </Button>
-          <Button onClick={handleSubmit}>{client ? t('save_changes') : t('add_client')}</Button>
+          <Button onClick={handleSubmit} disabled={isLoading}>
+            {isLoading ? t('saving') : (client ? t('save_changes') : t('add_client'))}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

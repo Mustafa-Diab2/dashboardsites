@@ -23,7 +23,7 @@ export function TaskChecklist({ checklist, onChange, readonly = false }: TaskChe
     if (!newItemTitle.trim()) return;
 
     const newItem: ChecklistItem = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       title: newItemTitle.trim(),
       done: false,
       created_at: new Date(),

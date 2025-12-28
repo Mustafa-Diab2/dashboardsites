@@ -29,14 +29,17 @@ export default function TeamChat() {
   const handleSendMessage = async () => {
     if (!user || !newMessage.trim()) return;
 
-    await addDoc('chat', {
-      user_id: user.id,
-      user_name: user.user_metadata?.full_name || user.email,
-      text: newMessage,
-      timestamp: new Date().toISOString(),
-    });
-
-    setNewMessage('');
+    try {
+      await addDoc('chat', {
+        user_id: user.id,
+        user_name: user.user_metadata?.full_name || user.email,
+        text: newMessage,
+        timestamp: new Date().toISOString(),
+      });
+      setNewMessage('');
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
   };
 
   const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {

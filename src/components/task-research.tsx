@@ -42,7 +42,7 @@ export function TaskResearch({ research, onChange, readonly = false }: TaskResea
     if (!newItem.title?.trim() || !newItem.url?.trim()) return;
 
     const item: ResearchItem = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       title: newItem.title.trim(),
       url: newItem.url.trim(),
       type: newItem.type as ResearchItem['type'] || 'other',

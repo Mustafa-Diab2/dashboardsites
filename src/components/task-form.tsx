@@ -132,6 +132,10 @@ export function TaskForm({
     });
   };
 
+  const [isLoading, setIsLoading] = useState(false);
+
+  // ... (rest of useEffect)
+
   const handleSubmit = async () => {
     if (!user) {
       toast({ variant: 'destructive', title: 'Error', description: t('must_be_logged_in_to_create_task') });
@@ -146,6 +150,8 @@ export function TaskForm({
       return;
     }
 
+    setIsLoading(true);
+
     try {
       const taskData = {
         ...form,
@@ -154,16 +160,18 @@ export function TaskForm({
       };
 
       if (task) {
-        updateDoc('tasks', task.id, taskData)
+        await updateDoc('tasks', task.id, taskData)
       } else {
-        addTask('tasks', { ...taskData, created_at: new Date().toISOString() });
+        await addTask('tasks', { ...taskData, created_at: new Date().toISOString() });
       }
 
       toast({ title: t('task_created_title'), description: `${t('task_created_desc')} "${form.title}"` });
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating/updating task:', error);
-      toast({ variant: 'destructive', title: t('error_title'), description: t('error_desc') });
+      // Toast handled in use-mutations
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -360,7 +368,9 @@ export function TaskForm({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('cancel')}
           </Button>
-          <Button onClick={handleSubmit}>{t('save_task')}</Button>
+          <Button onClick={handleSubmit} disabled={isLoading}>
+            {isLoading ? t('saving') : t('save_task')}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

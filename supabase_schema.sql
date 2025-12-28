@@ -392,8 +392,132 @@ begin
 exception when others then null;
 end $$;
 
+-- Security: Vulnerabilities
+CREATE TABLE IF NOT EXISTS vulnerabilities (
+    id UUID PRIMARY KEY DEFAULT crypto.randomUUID(),
+    title TEXT NOT NULL,
+    description TEXT,
+    severity TEXT CHECK (severity IN ('critical', 'high', 'medium', 'low')),
+    status TEXT CHECK (status IN ('open', 'in_progress', 'resolved', 'wont_fix')),
+    category TEXT,
+    affected_component TEXT,
+    reported_by TEXT,
+    assigned_to TEXT,
+    cve_id TEXT,
+    fix_deadline TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    resolved_at TIMESTAMP WITH TIME ZONE
+);
+
+ALTER TABLE vulnerabilities ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow authenticated users to manage vulnerabilities" ON vulnerabilities;
+CREATE POLICY "Allow authenticated users to manage vulnerabilities" ON vulnerabilities
+    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- Security: Pen Tests
+CREATE TABLE IF NOT EXISTS pen_tests (
+    id UUID PRIMARY KEY DEFAULT crypto.randomUUID(),
+    name TEXT NOT NULL,
+    scope TEXT,
+    tester TEXT,
+    status TEXT CHECK (status IN ('scheduled', 'in_progress', 'completed')),
+    start_date TIMESTAMP WITH TIME ZONE,
+    end_date TIMESTAMP WITH TIME ZONE,
+    findings_count INTEGER DEFAULT 0,
+    report_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE pen_tests ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow authenticated users to manage pen_tests" ON pen_tests;
+CREATE POLICY "Allow authenticated users to manage pen_tests" ON pen_tests
+    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- Security: Incidents
+CREATE TABLE IF NOT EXISTS security_incidents (
+    id UUID PRIMARY KEY DEFAULT crypto.randomUUID(),
+    title TEXT NOT NULL,
+    description TEXT,
+    severity TEXT CHECK (severity IN ('critical', 'high', 'medium', 'low')),
+    status TEXT CHECK (status IN ('detected', 'investigating', 'contained', 'resolved')),
+    incident_type TEXT,
+    affected_systems TEXT,
+    detected_at TIMESTAMP WITH TIME ZONE,
+    resolved_at TIMESTAMP WITH TIME ZONE,
+    response_actions TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE security_incidents ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow authenticated users to manage security_incidents" ON security_incidents;
+CREATE POLICY "Allow authenticated users to manage security_incidents" ON security_incidents
+    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- Backend: API Endpoints
+CREATE TABLE IF NOT EXISTS api_endpoints (
+    id UUID PRIMARY KEY DEFAULT crypto.randomUUID(),
+    name TEXT NOT NULL,
+    method TEXT CHECK (method IN ('GET', 'POST', 'PUT', 'PATCH', 'DELETE')),
+    path TEXT NOT NULL,
+    description TEXT,
+    category TEXT,
+    auth_required BOOLEAN DEFAULT TRUE,
+    request_body TEXT,
+    response_example TEXT,
+    query_params TEXT,
+    headers TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE api_endpoints ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow authenticated users to manage api_endpoints" ON api_endpoints;
+CREATE POLICY "Allow authenticated users to manage api_endpoints" ON api_endpoints
+    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- Backend: Environment Variables
+CREATE TABLE IF NOT EXISTS env_variables (
+    id UUID PRIMARY KEY DEFAULT crypto.randomUUID(),
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    environment TEXT CHECK (environment IN ('development', 'staging', 'production')),
+    description TEXT,
+    is_secret BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE env_variables ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow authenticated users to manage env_variables" ON env_variables;
+CREATE POLICY "Allow authenticated users to manage env_variables" ON env_variables
+    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- Enable Realtime for new tables
 do $$ 
 begin
-  alter publication supabase_realtime add table attendance;
+  alter publication supabase_realtime add table vulnerabilities;
+exception when others then null;
+end $$;
+
+do $$ 
+begin
+  alter publication supabase_realtime add table pen_tests;
+exception when others then null;
+end $$;
+
+do $$ 
+begin
+  alter publication supabase_realtime add table security_incidents;
+exception when others then null;
+end $$;
+
+do $$ 
+begin
+  alter publication supabase_realtime add table api_endpoints;
+exception when others then null;
+end $$;
+
+do $$ 
+begin
+  alter publication supabase_realtime add table env_variables;
 exception when others then null;
 end $$;

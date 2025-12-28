@@ -3,7 +3,7 @@
 import type { Client, Task, TaskTemplate, User } from '@/lib/data';
 import { useMemo, useState } from 'react';
 import { Button } from './ui/button';
-import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus, MessageSquare, UserCog, Briefcase, Banknote, CalendarDays, FolderOpen, Paintbrush } from 'lucide-react';
+import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus, MessageSquare, UserCog, Briefcase, Banknote, CalendarDays, FolderOpen, Paintbrush, Shield, Server } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MemberTasksBarChart } from './charts/member-tasks-bar-chart';
 import { CompletionRatioPieChart } from './charts/completion-ratio-pie-chart';
@@ -49,6 +49,8 @@ import { GlobalCalendar } from './global-calendar';
 import { FileManager } from './file-manager';
 import { NotificationCenter } from './notification-center';
 import { AIMockupGenerator } from './ai-mockup-generator';
+import { SecurityDashboard } from './security-dashboard';
+import { BackendTools } from './backend-tools';
 
 export type UserReport = {
   name: string;
@@ -59,7 +61,7 @@ export type UserReport = {
   done: number;
 };
 
-type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat' | 'hr' | 'team' | 'salary' | 'calendar' | 'files' | 'ai-mockup';
+type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat' | 'hr' | 'team' | 'salary' | 'calendar' | 'files' | 'ai-mockup' | 'security' | 'backend';
 
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string | undefined }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
@@ -200,6 +202,10 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
         return <FileManager />;
       case 'ai-mockup':
         return <AIMockupGenerator />;
+      case 'security':
+        return <SecurityDashboard />;
+      case 'backend':
+        return <BackendTools />;
       case 'dashboard':
       default:
         return (
@@ -386,6 +392,18 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                       <span>AI Mockup</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'security'} onClick={() => setActiveView('security')}>
+                      <Shield />
+                      <span>Security Dashboard</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'backend'} onClick={() => setActiveView('backend')}>
+                      <Server />
+                      <span>Backend Tools</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </>
               )}
               <SidebarMenuItem>
@@ -425,6 +443,8 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                     {activeView === 'calendar' && t('calendar')}
                     {activeView === 'files' && t('file_manager')}
                     {activeView === 'ai-mockup' && 'AI Mockup Generator'}
+                    {activeView === 'security' && 'Security Dashboard'}
+                    {activeView === 'backend' && 'Backend Tools'}
                   </h2>
                   <p className="text-muted-foreground">
                     {isAdmin ? t('home_page_description') : t('welcome_back_desc')}

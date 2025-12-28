@@ -141,9 +141,9 @@ export function GlobalCalendar() {
     return (
         <>
             <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="font-headline flex items-center gap-2">
+                <CardHeader className="px-4 py-3 sm:p-6">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <CardTitle className="font-headline flex items-center gap-2 text-lg sm:text-xl">
                             <CalendarIcon className="h-5 w-5" />
                             {t('calendar')}
                         </CardTitle>
@@ -151,11 +151,12 @@ export function GlobalCalendar() {
                             <Button
                                 variant="outline"
                                 size="icon"
+                                className="h-8 w-8"
                                 onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
                             >
                                 <ChevronLeft className="h-4 w-4" />
                             </Button>
-                            <span className="font-medium min-w-[150px] text-center">
+                            <span className="font-medium min-w-[120px] sm:min-w-[150px] text-center text-sm sm:text-base">
                                 {format(currentMonth, 'MMMM yyyy', {
                                     locale: language === 'ar' ? ar : enUS,
                                 })}
@@ -163,6 +164,7 @@ export function GlobalCalendar() {
                             <Button
                                 variant="outline"
                                 size="icon"
+                                className="h-8 w-8"
                                 onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
                             >
                                 <ChevronRight className="h-4 w-4" />
@@ -172,28 +174,28 @@ export function GlobalCalendar() {
                 </CardHeader>
                 <CardContent>
                     {/* Legend */}
-                    <div className="flex gap-4 mb-4 text-sm">
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 mb-4 text-xs sm:text-sm">
                         <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-blue-500" />
+                            <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-blue-500" />
                             <span>{t('task_deadline')}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-green-500" />
+                            <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-500" />
                             <span>{t('leave')}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-red-500" />
+                            <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-red-500" />
                             <span>{t('high_priority')}</span>
                         </div>
                     </div>
 
                     {/* Calendar Grid */}
-                    <div className="grid grid-cols-7 gap-1">
+                    <div className="grid grid-cols-7 gap-px sm:gap-1 bg-muted rounded-lg overflow-hidden border">
                         {/* Week day headers */}
                         {weekDays.map((day) => (
                             <div
                                 key={day}
-                                className="text-center text-sm font-medium text-muted-foreground py-2"
+                                className="text-center text-[10px] sm:text-sm font-medium text-muted-foreground py-2 bg-background"
                             >
                                 {day}
                             </div>
@@ -210,14 +212,14 @@ export function GlobalCalendar() {
                                     key={day.toISOString()}
                                     onClick={() => handleDayClick(day)}
                                     className={cn(
-                                        'min-h-[80px] p-1 border rounded-md cursor-pointer transition-colors hover:bg-muted/50',
-                                        !isCurrentMonth && 'opacity-40',
-                                        isCurrentDay && 'border-primary border-2'
+                                        'min-h-[60px] sm:min-h-[80px] p-0.5 sm:p-1 bg-background cursor-pointer transition-colors hover:bg-muted/50 relative',
+                                        !isCurrentMonth && 'text-muted-foreground/30',
+                                        isCurrentDay && 'z-10 ring-1 ring-inset ring-primary'
                                     )}
                                 >
                                     <div
                                         className={cn(
-                                            'text-sm font-medium mb-1',
+                                            'text-[10px] sm:text-sm font-medium mb-1',
                                             isCurrentDay && 'text-primary'
                                         )}
                                     >

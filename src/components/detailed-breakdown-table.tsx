@@ -13,8 +13,8 @@ import { useLanguage } from "@/context/language-context";
 export function DetailedBreakdownTable({ data }: { data: UserReport[] }) {
   const { t } = useLanguage();
   return (
-    <div className="rounded-md border">
-      <Table>
+    <div className="rounded-md border overflow-x-auto">
+      <Table className="min-w-[600px]">
         <TableHeader>
           <TableRow>
             <TableHead className="w-[250px]">{t('member')}</TableHead>
@@ -36,7 +36,7 @@ export function DetailedBreakdownTable({ data }: { data: UserReport[] }) {
               <TableCell className="text-center">{user.done}</TableCell>
             </TableRow>
           ))}
-           {data.length === 0 && (
+          {data.length === 0 && (
             <TableRow>
               <TableCell colSpan={6} className="h-24 text-center">
                 {t('no_data_available')}

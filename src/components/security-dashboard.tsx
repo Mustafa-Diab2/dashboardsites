@@ -410,13 +410,15 @@ export function SecurityDashboard() {
                 </CardHeader>
                 <CardContent>
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
-                        <TabsList className="grid w-full grid-cols-5 mb-6">
-                            <TabsTrigger value="overview">Overview</TabsTrigger>
-                            <TabsTrigger value="vulnerabilities">Vulnerabilities</TabsTrigger>
-                            <TabsTrigger value="pentests">Pen Tests</TabsTrigger>
-                            <TabsTrigger value="incidents">Incidents</TabsTrigger>
-                            <TabsTrigger value="checklist">Checklist</TabsTrigger>
-                        </TabsList>
+                        <div className="overflow-x-auto mb-6">
+                            <TabsList className="flex w-max sm:w-full min-w-full">
+                                <TabsTrigger value="overview" className="flex-1">Overview</TabsTrigger>
+                                <TabsTrigger value="vulnerabilities" className="flex-1">Vulnerabilities</TabsTrigger>
+                                <TabsTrigger value="pentests" className="flex-1">Pen Tests</TabsTrigger>
+                                <TabsTrigger value="incidents" className="flex-1">Incidents</TabsTrigger>
+                                <TabsTrigger value="checklist" className="flex-1">Checklist</TabsTrigger>
+                            </TabsList>
+                        </div>
 
                         {/* Overview Tab */}
                         <TabsContent value="overview">
@@ -517,8 +519,8 @@ export function SecurityDashboard() {
                                     </Button>
                                 </div>
 
-                                <div className="border rounded-lg">
-                                    <table className="w-full">
+                                <div className="border rounded-lg overflow-x-auto">
+                                    <table className="w-full min-w-[800px]">
                                         <thead className="bg-muted">
                                             <tr>
                                                 <th className="text-left p-3 text-sm font-medium">Severity</th>

@@ -274,24 +274,26 @@ export function BackendTools() {
                 </CardHeader>
                 <CardContent>
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
-                        <TabsList className="grid w-full grid-cols-4 mb-6">
-                            <TabsTrigger value="api-docs" className="flex items-center gap-2">
-                                <FileJson className="h-4 w-4" />
-                                API Docs
-                            </TabsTrigger>
-                            <TabsTrigger value="api-tester" className="flex items-center gap-2">
-                                <Play className="h-4 w-4" />
-                                API Tester
-                            </TabsTrigger>
-                            <TabsTrigger value="env-vars" className="flex items-center gap-2">
-                                <Braces className="h-4 w-4" />
-                                Env Vars
-                            </TabsTrigger>
-                            <TabsTrigger value="code-review" className="flex items-center gap-2">
-                                <Code2 className="h-4 w-4" />
-                                Code Review
-                            </TabsTrigger>
-                        </TabsList>
+                        <div className="overflow-x-auto mb-6">
+                            <TabsList className="flex w-max sm:w-full min-w-full">
+                                <TabsTrigger value="api-docs" className="flex-1 flex items-center gap-2">
+                                    <FileJson className="h-4 w-4" />
+                                    API Docs
+                                </TabsTrigger>
+                                <TabsTrigger value="api-tester" className="flex-1 flex items-center gap-2">
+                                    <Play className="h-4 w-4" />
+                                    API Tester
+                                </TabsTrigger>
+                                <TabsTrigger value="env-vars" className="flex-1 flex items-center gap-2">
+                                    <Braces className="h-4 w-4" />
+                                    Env Vars
+                                </TabsTrigger>
+                                <TabsTrigger value="code-review" className="flex-1 flex items-center gap-2">
+                                    <Code2 className="h-4 w-4" />
+                                    Code Review
+                                </TabsTrigger>
+                            </TabsList>
+                        </div>
 
                         {/* API Documentation Tab */}
                         <TabsContent value="api-docs">
@@ -508,8 +510,8 @@ export function BackendTools() {
                                     </Button>
                                 </div>
 
-                                <div className="border rounded-lg">
-                                    <table className="w-full">
+                                <div className="border rounded-lg overflow-x-auto">
+                                    <table className="w-full min-w-[600px]">
                                         <thead className="bg-muted">
                                             <tr>
                                                 <th className="text-left p-3 text-sm font-medium">Key</th>

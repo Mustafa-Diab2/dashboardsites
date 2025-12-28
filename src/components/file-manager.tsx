@@ -214,19 +214,20 @@ export function FileManager() {
                             <FolderIcon className="h-5 w-5" />
                             {t('file_manager')}
                         </CardTitle>
-                        <div className="flex items-center gap-2 w-full md:w-auto">
-                            <div className="relative flex-1 md:w-64">
+                        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                            <div className="relative flex-1 sm:w-64">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder={t('search_files')}
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="pl-9"
+                                    className="pl-9 h-9 sm:h-10"
                                 />
                             </div>
                             <Button
                                 variant="outline"
                                 size="icon"
+                                className="h-9 sm:h-10 w-9 sm:w-10"
                                 onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
                             >
                                 {viewMode === 'grid' ? (
@@ -235,20 +236,21 @@ export function FileManager() {
                                     <Grid className="h-4 w-4" />
                                 )}
                             </Button>
-                            <Button onClick={() => setUploadDialogOpen(true)}>
-                                <Upload className="h-4 w-4 mr-2" />
-                                {t('upload')}
+                            <Button onClick={() => setUploadDialogOpen(true)} className="h-9 sm:h-10">
+                                <Upload className="h-4 w-4 mr-1 sm:mr-2" />
+                                <span className="hidden sm:inline">{t('upload')}</span>
+                                <span className="sm:hidden">{t('add')}</span>
                             </Button>
                         </div>
                     </div>
                 </CardHeader>
                 <CardContent>
                     {/* Filters */}
-                    <div className="flex flex-wrap gap-4 mb-6">
-                        <div className="grid gap-2">
-                            <Label>{t('folder')}</Label>
+                    <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 mb-6">
+                        <div className="grid gap-1.5 flex-1 min-w-[140px]">
+                            <Label className="text-xs sm:text-sm">{t('folder')}</Label>
                             <Select value={selectedFolder} onValueChange={setSelectedFolder}>
-                                <SelectTrigger className="w-[150px]">
+                                <SelectTrigger className="w-full sm:w-[150px] h-9 sm:h-10">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -261,10 +263,10 @@ export function FileManager() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="grid gap-2">
-                            <Label>{t('client')}</Label>
+                        <div className="grid gap-1.5 flex-1 min-w-[140px]">
+                            <Label className="text-xs sm:text-sm">{t('client')}</Label>
                             <Select value={selectedClient} onValueChange={setSelectedClient}>
-                                <SelectTrigger className="w-[180px]">
+                                <SelectTrigger className="w-full sm:w-[180px] h-9 sm:h-10">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -344,8 +346,8 @@ export function FileManager() {
                             ))}
                         </div>
                     ) : (
-                        <div className="border rounded-lg overflow-hidden">
-                            <table className="w-full">
+                        <div className="border rounded-lg overflow-x-auto">
+                            <table className="w-full min-w-[600px]">
                                 <thead className="bg-muted">
                                     <tr>
                                         <th className="text-left p-3 text-sm font-medium">

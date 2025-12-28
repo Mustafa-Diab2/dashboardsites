@@ -138,7 +138,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
       case 'reports':
         return (
           <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="font-headline">{t('tasks_by_member')}</CardTitle>
@@ -162,7 +162,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
               <CardHeader>
                 <CardTitle className="font-headline">{t('detailed_member_breakdown')}</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="overflow-x-auto">
                 <DetailedBreakdownTable data={byUser} />
               </CardContent>
             </Card>
@@ -214,7 +214,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
               <>
                 <AIInsights byUser={byUser} />
 
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Card>
                     <CardHeader>
                       <CardTitle className="font-headline">{t('tasks_by_member')}</CardTitle>
@@ -238,7 +238,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                   <CardHeader>
                     <CardTitle className="font-headline">{t('detailed_member_breakdown')}</CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="overflow-x-auto">
                     <DetailedBreakdownTable data={byUser} />
                   </CardContent>
                 </Card>
@@ -295,7 +295,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
               {t('select_template_or_start_fresh')}
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 overflow-x-auto">
             <TaskTemplates templates={[]} onSelectTemplate={handleSelectTemplate} />
           </div>
           <DialogFooter>
@@ -423,13 +423,13 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
             </div>
           </SidebarFooter>
         </Sidebar>
-        <SidebarInset>
-          <div className="p-4 sm:p-6 lg:p-8 space-y-8">
+        <SidebarInset className="overflow-x-hidden">
+          <div className="p-3 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <SidebarTrigger className="md:hidden" />
+              <div className="flex items-center gap-3">
+                <SidebarTrigger className="mb-0" />
                 <div>
-                  <h2 className="font-semibold text-2xl font-headline">
+                  <h2 className="font-semibold text-xl sm:text-2xl font-headline">
                     {activeView === 'dashboard' && t('team_analytics')}
                     {activeView === 'my-tasks' && t('my_tasks')}
                     {activeView === 'attendance' && t('attendance')}

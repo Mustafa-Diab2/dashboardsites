@@ -10,8 +10,10 @@ import { useSupabase } from '@/context/supabase-context';
 import { useSupabaseCollection } from '@/hooks/use-supabase-data';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import type { User, Task, Deduction } from '@/lib/data';
-import { Banknote, Loader2, Sparkles } from 'lucide-react';
+import { Banknote, Loader2, Sparkles, FileDown } from 'lucide-react';
 import { generateSalaryInsight, GenerateSalaryInsightInput } from '@/ai/flows/generate-salary-insights';
+import { Skeleton } from './ui/skeleton';
+import { exportTeamReportToPDF } from '@/lib/pdf-export';
 
 interface SalaryReportProps {
   users: User[];
@@ -19,12 +21,15 @@ interface SalaryReportProps {
 }
 
 export default function SalaryReport({ users, tasks }: SalaryReportProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user } = useSupabase();
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [insights, setInsights] = useState<Record<string, string | null>>({});
   const [isLoadingInsight, setIsLoadingInsight] = useState<Record<string, boolean>>({});
+
+  const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('default', { month: 'long' }));
+  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
   useEffect(() => {
     const now = new Date();
@@ -129,16 +134,35 @@ export default function SalaryReport({ users, tasks }: SalaryReportProps) {
     }
   };
 
-  const months = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('default', { month: 'long' }));
-  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+  const handleExportPDF = () => {
+    exportTeamReportToPDF(salaryData.map(row => ({
+      name: row.userName,
+      total: row.grossSalary,
+      backlog: row.totalDeductions,
+      in_progress: row.totalHours,
+      review: 0,
+      done: row.netSalary
+    })), language);
+  };
 
-  if (selectedMonth === null || selectedYear === null) {
-    return <Card><CardHeader><CardTitle>{t('loading')}...</CardTitle></CardHeader></Card>;
+  if (selectedMonth === null || selectedYear === null || !attendanceRecords) {
+    return (
+      <Card className="glass-card border-white/5">
+        <CardHeader>
+          <Skeleton className="h-8 w-64" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </CardContent>
+      </Card>
+    );
   }
 
 
   return (
-    <Card>
+    <Card className="glass-card border-white/5 animate-in fade-in duration-500">
       <CardHeader>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <CardTitle className="font-headline flex items-center gap-2">

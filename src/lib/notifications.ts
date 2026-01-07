@@ -110,3 +110,39 @@ export const notifyTaskCompleted = (userId: string, taskTitle: string, completed
         title: 'تم إكمال المهمة',
         message: `أكمل ${completedBy} العمل على مهمة "${taskTitle}"`,
     });
+
+// --- Activity Logs ---
+
+export type ActivityAction = 'create' | 'update' | 'delete' | 'upload' | 'login' | 'logout';
+export type ActivityEntity = 'user' | 'task' | 'file' | 'client' | 'profile' | 'attendance';
+
+export async function logActivity({
+    userId,
+    userName,
+    action,
+    entity,
+    details
+}: {
+    userId: string;
+    userName: string;
+    action: ActivityAction;
+    entity: ActivityEntity;
+    details: string;
+}) {
+    try {
+        const { error } = await supabase.from('activity_logs').insert([
+            {
+                user_id: userId,
+                user_name: userName,
+                action,
+                entity,
+                details,
+                created_at: new Date().toISOString(),
+            },
+        ]);
+
+        if (error) console.error('Failed to log activity:', error);
+    } catch (err) {
+        console.error('Error logging activity:', err);
+    }
+}

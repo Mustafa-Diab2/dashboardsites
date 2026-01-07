@@ -51,6 +51,10 @@ import { NotificationCenter } from './notification-center';
 import { AIPromptGenerator } from './ai-prompt-generator';
 import { SecurityDashboard } from './security-dashboard';
 import { BackendTools } from './backend-tools';
+import { ActivityLog } from './activity-log';
+import { History } from 'lucide-react';
+
+import { motion, AnimatePresence } from 'framer-motion';
 
 export type UserReport = {
   name: string;
@@ -61,7 +65,7 @@ export type UserReport = {
   done: number;
 };
 
-type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat' | 'hr' | 'team' | 'salary' | 'calendar' | 'files' | 'ai-prompt' | 'security' | 'backend';
+type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat' | 'hr' | 'team' | 'salary' | 'calendar' | 'files' | 'ai-prompt' | 'security' | 'backend' | 'activity';
 
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string | undefined }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
@@ -70,7 +74,7 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
   const [initialTaskData, setInitialTaskData] = useState<Partial<Task> | undefined>(undefined);
 
   const { user } = useSupabase();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const users = useUsers(userRole);
   const clients = useClients();
   const [activeView, setActiveView] = useState<View>('dashboard');
@@ -215,6 +219,8 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
         return <SecurityDashboard />;
       case 'backend':
         return <BackendTools />;
+      case 'activity':
+        return <ActivityLog />;
       case 'dashboard':
       default:
         return (
@@ -280,6 +286,11 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
       case 'filter':
         break;
       case 'export-pdf':
+        if (isAdmin) {
+          import('@/lib/pdf-export').then(mod => {
+            mod.exportTeamReportToPDF(byUser, language);
+          });
+        }
         break;
       default:
         break;
@@ -395,6 +406,12 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'activity'} onClick={() => setActiveView('activity')}>
+                      <History />
+                      <span>{language === 'ar' ? 'سجل النشاطات' : 'Activity Log'}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
                     <SidebarMenuButton isActive={activeView === 'files'} onClick={() => setActiveView('files')}>
                       <FolderOpen />
                       <span>{t('file_manager')}</span>
@@ -481,7 +498,17 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                 )}
               </div>
             </div>
-            {renderContent()}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeView}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+              >
+                {renderContent()}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </SidebarInset>
       </SidebarProvider >

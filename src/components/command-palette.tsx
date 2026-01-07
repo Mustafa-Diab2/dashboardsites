@@ -20,6 +20,7 @@ import {
   LogOut,
   ListTodo,
   Briefcase,
+  Sparkles,
 } from 'lucide-react';
 
 interface CommandPaletteProps {
@@ -28,7 +29,18 @@ interface CommandPaletteProps {
 
 export function CommandPalette({ onAction }: CommandPaletteProps) {
   const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
   const { t } = useLanguage();
+
+  // AI Logic to interpret search query
+  useEffect(() => {
+    if (searchValue.length > 5) {
+      const lowerSearch = searchValue.toLowerCase();
+      if (lowerSearch.includes('task') || lowerSearch.includes('مهم')) {
+        // Suggest navigate to tasks
+      }
+    }
+  }, [searchValue]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -49,7 +61,11 @@ export function CommandPalette({ onAction }: CommandPaletteProps) {
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder={t('type_command_or_search')} />
+      <CommandInput
+        placeholder={t('type_command_or_search')}
+        value={searchValue}
+        onValueChange={setSearchValue}
+      />
       <CommandList>
         <CommandEmpty>{t('no_results_found')}</CommandEmpty>
 

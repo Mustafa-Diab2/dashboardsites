@@ -2,32 +2,36 @@
 
 import { useSupabase } from '@/context/supabase-context';
 import { useSupabaseCollection, useSupabaseDoc } from '@/hooks/use-supabase-data';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 export function useUsers(userRole: string | null | undefined) {
   const { user } = useSupabase();
 
-  const shouldFetchAllUsers = userRole === 'admin';
+  // Define who can see the team list
+  const canSeeTeam = userRole === 'admin' || userRole === 'developer' || userRole === 'manager';
 
-  // Use useMemo to stabilize the query function
   const fetchUsers = useCallback((query: any) => {
-    if (shouldFetchAllUsers) {
+    if (canSeeTeam) {
+      // Just fetch all profiles, ordered by name
       return query.order('full_name', { ascending: true });
     }
-    // If not admin, return empty or dummy query for the collection part
+    // Regular users: only fetch their own
     return query.eq('id', user?.id || '00000000-0000-0000-0000-000000000000');
-  }, [shouldFetchAllUsers, user?.id]);
+  }, [canSeeTeam, user?.id]);
 
-  const { data: allUsers, isLoading } = useSupabaseCollection(
+  const { data: allUsers, isLoading, error } = useSupabaseCollection(
     'profiles',
     fetchUsers
   );
 
-  if (shouldFetchAllUsers) {
-    return allUsers || [];
-  }
+  useEffect(() => {
+    if (error) {
+      console.error('TEAM FETCH ERROR:', error);
+    }
+    if (allUsers) {
+      console.log(`TEAM DATA: Received ${allUsers.length} members for role: ${userRole}`);
+    }
+  }, [allUsers, error, userRole]);
 
-  // For regular users, we can just filter the allUsers which would only contain them
-  // or return the specific data
   return allUsers || [];
 }

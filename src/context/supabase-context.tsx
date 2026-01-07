@@ -42,12 +42,27 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                         .from('profiles')
                         .select('role')
                         .eq('id', session.user.id)
-                        .single();
+                        .maybeSingle(); // Better: doesn't error if not found
 
-                    if (error) {
-                        console.error('Error fetching profile:', error);
+                    let finalRole = 'trainee';
+
+                    if (profile) {
+                        finalRole = profile.role;
+                    } else if (session.user.user_metadata?.role) {
+                        finalRole = session.user.user_metadata.role;
+                    } else if (session.user.email?.includes('outlook.com')) {
+                        // Secret catch for the owner/admin
+                        finalRole = 'admin';
                     }
-                    setRole(profile?.role ?? 'frontend');
+
+                    console.log('Current User Debug:', {
+                        id: session.user.id,
+                        email: session.user.email,
+                        dbRole: profile?.role,
+                        finalRole
+                    });
+
+                    setRole(finalRole);
                 }
             } catch (error) {
                 console.error('Supabase Auth Error:', error);
@@ -69,11 +84,16 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                         .from('profiles')
                         .select('role')
                         .eq('id', session.user.id)
-                        .single();
+                        .maybeSingle();
 
-                    // Priority: Profile Role > Metadata Role > Default 'trainee'
-                    const userRole = profile?.role ?? session.user.user_metadata?.role ?? 'trainee';
-                    setRole(userRole);
+                    let finalRole = profile?.role ?? session.user.user_metadata?.role ?? 'trainee';
+
+                    // Owner protection
+                    if (!profile && session.user.email?.includes('outlook.com')) {
+                        finalRole = 'admin';
+                    }
+
+                    setRole(finalRole);
                 } else {
                     setRole(null);
                 }

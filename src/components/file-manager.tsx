@@ -196,11 +196,16 @@ export function FileManager() {
 
     const getTimeAgo = (dateString: string) => {
         try {
-            return formatDistanceToNow(new Date(dateString), {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '';
+
+            return formatDistanceToNow(date, {
                 addSuffix: true,
                 locale: language === 'ar' ? ar : enUS,
             });
-        } catch {
+        } catch (err) {
+            console.error('Date formatting error:', err);
             return '';
         }
     };
@@ -271,7 +276,7 @@ export function FileManager() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">{t('all')}</SelectItem>
-                                    {clients.map((client) => (
+                                    {(clients || []).map((client) => (
                                         <SelectItem key={client.id} value={client.id}>
                                             {client.name}
                                         </SelectItem>
@@ -486,7 +491,7 @@ export function FileManager() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="">{t('none')}</SelectItem>
-                                    {clients.map((client) => (
+                                    {(clients || []).map((client) => (
                                         <SelectItem key={client.id} value={client.id}>
                                             {client.name}
                                         </SelectItem>

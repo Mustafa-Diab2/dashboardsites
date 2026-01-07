@@ -174,17 +174,82 @@ export function AIMockupGenerator() {
 
     const generatePrompt = (): string => {
         const projectTypeLabel = PROJECT_TYPES.find(p => p.value === settings.projectType)?.label || settings.projectType;
-        const colorSchemeLabel = COLOR_SCHEMES.find(c => c.value === settings.colorScheme)?.label || settings.colorScheme;
+        const colorScheme = COLOR_SCHEMES.find(c => c.value === settings.colorScheme);
         const styleLabel = STYLES.find(s => s.value === settings.style)?.label || settings.style;
 
-        return `Ultra-realistic, high-fidelity UI/UX website mockup for ${settings.projectName || projectTypeLabel}. 
-Category: ${projectTypeLabel}. 
-Design Style: ${styleLabel}, modern, professional, sleek. 
-Color Palette: ${colorSchemeLabel}. 
-Layout Features: ${settings.features.join(', ')}. 
-Description: ${settings.description || `A premium ${projectTypeLabel} website for ${settings.targetAudience || 'professionals'}`}. 
-Viewing on: ${settings.deviceType === 'desktop' ? 'Wide Cinema Display' : 'Modern Smartphone'}. 
-Rendering: 8k resolution, Unreal Engine 5 style lighting, glassmorphism elements, clean typography, highly detailed user interface, trending on Dribbble and Behance.`;
+        // Get main colors for the prompt
+        const primaryColor = colorScheme?.colors[0] || '#667eea';
+        const secondaryColor = colorScheme?.colors[1] || '#764ba2';
+
+        // Build detailed features description
+        const featuresDescription = settings.features.length > 0
+            ? `The layout must include these specific components: ${settings.features.join(', ')}. `
+            : '';
+
+        // Project type specific details
+        const projectSpecifics: Record<string, string> = {
+            'ecommerce': 'with product cards, shopping cart icon, pricing displays, sale badges, and checkout flow elements',
+            'portfolio': 'with project showcases, skills section, testimonials grid, and contact information',
+            'landing': 'with hero section, feature highlights, social proof, pricing cards, and clear call-to-action buttons',
+            'blog': 'with article cards, author information, categories, search functionality, and comment sections',
+            'dashboard': 'with data visualization charts, statistics cards, sidebar navigation, KPI metrics, and interactive widgets',
+            'corporate': 'with company information, services grid, team members, case studies, and professional contact forms',
+            'saas': 'with product features, pricing tiers, customer testimonials, integration showcase, and signup forms'
+        };
+
+        const typeSpecific = projectSpecifics[settings.projectType] || '';
+
+        // Style-specific instructions
+        const styleInstructions: Record<string, string> = {
+            'minimal': 'ultra-clean, lots of white space, simple geometric shapes, helvetica-style fonts, subtle shadows',
+            'glassmorphism': 'frosted glass effect, background blur, transparency layers, soft shadows, vivid gradients',
+            'neumorphism': 'soft 3D appearance, subtle shadows and highlights, monochromatic, tactile buttons',
+            'flat': 'completely flat design, no shadows, bold solid colors, simple icons, geometric shapes',
+            'material': 'material design principles, elevation layers, shadow depth, floating action buttons, card layouts',
+            'brutalist': 'bold typography, asymmetric layouts, raw appearance, unconventional spacing, strong contrasts',
+            'retro': 'vintage color palettes, old-school typography, nostalgic elements, grain textures',
+            'futuristic': 'neon accents, holographic effects, sleek animations, sci-fi inspired, dark backgrounds with bright highlights'
+        };
+
+        const styleDetail = styleInstructions[settings.style] || 'modern and professional';
+
+        // Device-specific layout
+        const deviceLayout = settings.deviceType === 'desktop'
+            ? 'widescreen desktop layout, 1920x1080 resolution, multi-column grid, spacious layout, large hero images'
+            : 'mobile-first responsive design, vertical scroll, touch-optimized buttons, single-column layout, mobile navigation';
+
+        return `Create a professional, pixel-perfect website UI mockup design.
+
+PROJECT DETAILS:
+- Website Name: ${settings.projectName || projectTypeLabel}
+- Type: ${projectTypeLabel} website ${typeSpecific}
+- Purpose: ${settings.description || `A modern ${projectTypeLabel} platform for ${settings.targetAudience || 'target users'}`}
+- Target Audience: ${settings.targetAudience || 'modern users who appreciate good design'}
+
+DESIGN REQUIREMENTS:
+- Style: ${styleLabel} design aesthetic - ${styleDetail}
+- Color Palette: Primary ${primaryColor}, Secondary ${secondaryColor}, ${colorScheme?.label || 'modern'} color scheme
+- ${featuresDescription}
+- Layout Type: ${deviceLayout}
+
+TECHNICAL SPECIFICATIONS:
+- High-fidelity mockup, production-ready appearance
+- Modern UI/UX principles, intuitive navigation
+- Consistent spacing and alignment throughout
+- Professional typography with clear hierarchy
+- Interactive elements clearly visible (buttons, links, forms)
+- ${settings.deviceType === 'desktop' ? 'Desktop browser chrome visible' : 'Mobile device frame visible'}
+
+QUALITY STANDARDS:
+- Ultra-detailed interface, every pixel matters
+- Realistic content placement with lorem ipsum or relevant placeholder text
+- Professional imagery suggestions with proper aspect ratios
+- Clear visual hierarchy and focus points
+- Industry-standard ${projectTypeLabel} best practices
+- Trending on Dribbble and Behance quality level
+- 4K resolution, crisp and clear details
+
+Style: photorealistic UI mockup, professional web design, award-winning interface`;
     };
 
     const handleGenerate = async () => {

@@ -9,9 +9,6 @@ export function useSupabaseCollection<T = any>(
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<any>(null);
 
-    // Stabilize queryFn with stringification to detect real changes
-    const queryKey = queryFn?.toString();
-
     useEffect(() => {
         let isMounted = true;
 
@@ -28,7 +25,6 @@ export function useSupabaseCollection<T = any>(
 
                 if (fetchError) {
                     setError(fetchError);
-                    setData(null);
                 } else {
                     setData(result as T[]);
                     setError(null);
@@ -43,7 +39,7 @@ export function useSupabaseCollection<T = any>(
         fetchData();
 
         const channel = supabase
-            .channel(`public-all:${table}-${queryKey?.length || 0}`)
+            .channel(`public:${table}:${Math.random()}`)
             .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
                 fetchData();
             })
@@ -53,7 +49,7 @@ export function useSupabaseCollection<T = any>(
             isMounted = false;
             supabase.removeChannel(channel);
         };
-    }, [table, queryKey]); // Re-run only when table or logic changes
+    }, [table, queryFn]); // Use the memoized queryFn directly
 
     return { data, isLoading, error };
 }

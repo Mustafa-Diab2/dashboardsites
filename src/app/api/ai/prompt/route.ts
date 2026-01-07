@@ -4,10 +4,6 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(req: Request) {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -29,14 +25,18 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { prompt, model, systemPrompt } = await req.json();
-
         if (!process.env.OPENAI_API_KEY) {
             return NextResponse.json(
                 { error: 'OpenAI API Key is not configured' },
                 { status: 500 }
             );
         }
+
+        const openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
+        });
+
+        const { prompt, model, systemPrompt } = await req.json();
 
         const response = await openai.chat.completions.create({
             model: model || 'gpt-3.5-turbo',

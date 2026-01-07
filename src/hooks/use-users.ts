@@ -19,19 +19,10 @@ export function useUsers(userRole: string | null | undefined) {
     return query.eq('id', user?.id || '00000000-0000-0000-0000-000000000000');
   }, [canSeeTeam, user?.id]);
 
-  const { data: allUsers, isLoading, error } = useSupabaseCollection(
+  const { data: allUsers } = useSupabaseCollection(
     'profiles',
     fetchUsers
   );
-
-  useEffect(() => {
-    if (error) {
-      console.error('TEAM FETCH ERROR:', error);
-    }
-    if (allUsers) {
-      console.log(`TEAM DATA: Received ${allUsers.length} members for role: ${userRole}`);
-    }
-  }, [allUsers, error, userRole]);
 
   return allUsers || [];
 }

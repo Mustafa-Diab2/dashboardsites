@@ -1,6 +1,4 @@
-'use client';
-
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export function useSupabaseCollection<T = any>(
@@ -11,6 +9,13 @@ export function useSupabaseCollection<T = any>(
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<any>(null);
     const isInitialLoad = useRef(true);
+    // Store the latest queryFn without causing re-renders
+    const queryFnRef = useRef(queryFn);
+
+    // Update ref when queryFn changes
+    useEffect(() => {
+        queryFnRef.current = queryFn;
+    }, [queryFn]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -19,8 +24,8 @@ export function useSupabaseCollection<T = any>(
             }
             let query = supabase.from(table).select('*');
 
-            if (queryFn) {
-                query = queryFn(query);
+            if (queryFnRef.current) {
+                query = queryFnRef.current(query);
             }
 
             const { data, error } = await query;
@@ -39,7 +44,7 @@ export function useSupabaseCollection<T = any>(
         fetchData();
 
         const channel = supabase
-            .channel(`public:${table}`)
+            .channel(`public:${table}:${Math.random()}`)
             .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
                 fetchData();
             })
@@ -48,7 +53,7 @@ export function useSupabaseCollection<T = any>(
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [table, queryFn]);
+    }, [table]);
 
     return { data, isLoading, error };
 }
@@ -92,8 +97,9 @@ export function useSupabaseDoc<T = any>(
 
         fetchData();
 
+        const channelName = `public:${table}:${id}:${Math.random()}`;
         const channel = supabase
-            .channel(`public:${table}:${id}`)
+            .channel(channelName)
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table, filter: `id=eq.${id}` },

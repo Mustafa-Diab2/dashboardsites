@@ -110,7 +110,16 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
   }, [tasks, users]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      // Clear the session and sign out
+      await supabase.auth.signOut();
+      // Force reload to clear all state
+      window.location.reload();
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Even if there's an error, try to reload
+      window.location.reload();
+    }
   };
 
   const handleOpenTaskForm = (template?: Partial<Task>) => {

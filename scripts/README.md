@@ -4,21 +4,13 @@
 
 ## set-admin-claim.js
 
-سكريبت لإدارة صلاحيات الأدمن (Custom Claims) في Firebase Auth.
+...existing code...
 
 ### المتطلبات
 
-1. تثبيت `firebase-admin`:
-   ```bash
-   npm install firebase-admin
-   ```
+...existing code...
 
-2. الحصول على Service Account Key من Firebase Console ووضعه في:
-   ```
-   scripts/serviceAccountKey.json
-   ```
-
-   **⚠️ مهم**: هذا الملف محمي في `.gitignore` ولن يُرفع إلى Git
+...existing code...
 
 ### الاستخدام
 
@@ -46,7 +38,7 @@ node scripts/set-admin-claim.js view user@example.com
 # تعيين صلاحية أدمن
 $ node scripts/set-admin-claim.js set admin@taskwise.com
 
-✓ تم تهيئة Firebase Admin SDK
+...existing code...
 🔍 البحث عن المستخدم: admin@taskwise.com...
 ✓ تم العثور على المستخدم
   UID: abc123xyz

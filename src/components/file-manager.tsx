@@ -155,7 +155,7 @@ export function FileManager() {
                 file_type: uploadFile.type,
                 file_size: uploadFile.size,
                 folder: uploadFolder,
-                client_id: uploadClientId || null,
+                client_id: (uploadClientId && uploadClientId !== 'none') ? uploadClientId : null,
                 uploaded_by: user.id,
                 uploaded_by_name: user.user_metadata?.full_name || user.email,
                 created_at: new Date().toISOString(),
@@ -490,7 +490,7 @@ export function FileManager() {
                                     <SelectValue placeholder={t('optional')} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">{t('none')}</SelectItem>
+                                    <SelectItem value="none">{t('none')}</SelectItem>
                                     {(clients || []).map((client) => (
                                         <SelectItem key={client.id} value={client.id}>
                                             {client.name}

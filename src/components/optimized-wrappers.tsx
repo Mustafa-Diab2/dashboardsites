@@ -42,7 +42,7 @@ export const BudgetManagement = dynamic(
 );
 
 export const GoalsOKRs = dynamic(
-  () => import('./goals-okrs').then(mod => ({ default: mod.GoalsOKRs })),
+  () => import('./goals-okrs').then(mod => ({ default: mod.GoalsOKRsManagement })),
   { 
     loading: () => <ChartSkeleton />,
     ssr: false
@@ -58,7 +58,7 @@ export const KPIDashboard = dynamic(
 );
 
 export const ReportsDashboard = dynamic(
-  () => import('./reports-dashboard').then(mod => ({ default: mod.ReportsDashboard })),
+  () => import('./reports-dashboard'),
   { 
     loading: () => <TableSkeleton />,
     ssr: false
@@ -66,7 +66,7 @@ export const ReportsDashboard = dynamic(
 );
 
 export const TeamManagement = dynamic(
-  () => import('./team-management').then(mod => ({ default: mod.TeamManagement })),
+  () => import('./team-management'),
   { 
     loading: () => <TableSkeleton />,
     ssr: false
@@ -82,7 +82,7 @@ export const HRManagementPage = dynamic(
 );
 
 export const ClientsDashboard = dynamic(
-  () => import('./clients-dashboard').then(mod => ({ default: mod.ClientsDashboard })),
+  () => import('./clients-dashboard'),
   { 
     loading: () => <TableSkeleton />,
     ssr: false
@@ -90,7 +90,7 @@ export const ClientsDashboard = dynamic(
 );
 
 export const AttendanceAdmin = dynamic(
-  () => import('./attendance-admin').then(mod => ({ default: mod.AttendanceAdmin })),
+  () => import('./attendance-admin'),
   { 
     loading: () => <TableSkeleton />,
     ssr: false

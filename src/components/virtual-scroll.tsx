@@ -1,6 +1,6 @@
 'use client';
 
-import { FixedSizeList as List } from 'react-window';
+import { FixedSizeList } from 'react-window';
 import { useMemo, useRef, useCallback } from 'react';
 
 interface VirtualScrollProps<T> {
@@ -32,7 +32,7 @@ export function VirtualScroll<T>({
   className = '',
   overscanCount = 3,
 }: VirtualScrollProps<T>) {
-  const listRef = useRef<List>(null);
+  const listRef = useRef<FixedSizeList>(null);
 
   const Row = useCallback(
     ({ index, style }: { index: number; style: React.CSSProperties }) => {
@@ -52,7 +52,7 @@ export function VirtualScroll<T>({
   }
 
   return (
-    <List
+    <FixedSizeList
       ref={listRef}
       className={className}
       height={containerHeight}
@@ -63,7 +63,7 @@ export function VirtualScroll<T>({
       itemKey={itemKey}
     >
       {Row}
-    </List>
+    </FixedSizeList>
   );
 }
 

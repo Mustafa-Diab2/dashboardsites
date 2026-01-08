@@ -14,17 +14,24 @@ export default function Courses({ userRole }: { userRole: string }) {
   const { user } = useSupabase();
   const [isCourseFormOpen, setCourseFormOpen] = useState(false);
 
+  const isAdmin = userRole === 'admin';
+
   const fetchCourses = useCallback((query: any) => {
     if (!user) return query;
+    // Admin يرى كل الكورسات، المستخدمين العاديين يروا كورساتهم فقط
+    if (isAdmin) {
+      return query.order('created_at', { ascending: false });
+    }
     return query.eq('user_id', user.id);
-  }, [user]);
+  }, [user, isAdmin]);
 
   const { data: courses, isLoading } = useSupabaseCollection(
     'courses',
     fetchCourses
   );
 
-  const isAdmin = userRole === 'admin';
+  // جلب بيانات الموظفين للـ Admin
+  const { data: profiles } = useSupabaseCollection('profiles');
 
   return (
     <>
@@ -33,7 +40,7 @@ export default function Courses({ userRole }: { userRole: string }) {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="font-headline flex items-center gap-2">
             <BookOpen />
-            {t('my_courses')}
+            {isAdmin ? (t('all_courses') || 'All Courses') : t('my_courses')}
           </CardTitle>
           {isAdmin && (
             <Button size="sm" onClick={() => setCourseFormOpen(true)}>
@@ -50,19 +57,31 @@ export default function Courses({ userRole }: { userRole: string }) {
             </div>
           ) : courses && courses.length > 0 ? (
             <ul className="space-y-2">
-              {courses.map(course => (
-                <li key={course.id} className="p-3 rounded-md bg-muted/50 flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">{course.name}</p>
-                    <p className="text-sm text-muted-foreground">{course.duration} - {course.status}</p>
-                  </div>
-                  <Button asChild variant="outline" size="sm">
-                    <a href={course.link} target="_blank" rel="noopener noreferrer">
-                      {t('go_to_course')}
-                    </a>
-                  </Button>
-                </li>
-              ))}
+              {courses.map(course => {
+                const assignedUser = isAdmin && profiles ? 
+                  profiles.find((p: any) => p.id === course.user_id) : null;
+                
+                return (
+                  <li key={course.id} className="p-3 rounded-md bg-muted/50 flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">{course.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {course.duration} - {course.status}
+                        {isAdmin && assignedUser && (
+                          <span className="ml-2 text-primary">
+                            • {assignedUser.full_name || assignedUser.email}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <Button asChild variant="outline" size="sm">
+                      <a href={course.link} target="_blank" rel="noopener noreferrer">
+                        {t('go_to_course')}
+                      </a>
+                    </Button>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="text-muted-foreground text-center py-4">

@@ -34,7 +34,7 @@ export const TableSkeleton = () => (
 
 // Code-split heavy components
 export const BudgetManagement = dynamic(
-  () => import('./budget-management'),
+  () => import('./budget-management').then(mod => ({ default: mod.BudgetManagement })),
   { 
     loading: () => <BudgetSkeleton />,
     ssr: false // Disable SSR for heavy components
@@ -42,7 +42,7 @@ export const BudgetManagement = dynamic(
 );
 
 export const GoalsOKRs = dynamic(
-  () => import('./goals-okrs'),
+  () => import('./goals-okrs').then(mod => ({ default: mod.GoalsOKRs })),
   { 
     loading: () => <ChartSkeleton />,
     ssr: false
@@ -50,7 +50,7 @@ export const GoalsOKRs = dynamic(
 );
 
 export const KPIDashboard = dynamic(
-  () => import('./kpi-dashboard'),
+  () => import('./kpi-dashboard').then(mod => ({ default: mod.KPIDashboard })),
   { 
     loading: () => <ChartSkeleton />,
     ssr: false
@@ -58,7 +58,7 @@ export const KPIDashboard = dynamic(
 );
 
 export const ReportsDashboard = dynamic(
-  () => import('./reports-dashboard'),
+  () => import('./reports-dashboard').then(mod => ({ default: mod.ReportsDashboard })),
   { 
     loading: () => <TableSkeleton />,
     ssr: false
@@ -66,7 +66,7 @@ export const ReportsDashboard = dynamic(
 );
 
 export const TeamManagement = dynamic(
-  () => import('./team-management'),
+  () => import('./team-management').then(mod => ({ default: mod.TeamManagement })),
   { 
     loading: () => <TableSkeleton />,
     ssr: false
@@ -74,7 +74,7 @@ export const TeamManagement = dynamic(
 );
 
 export const HRManagementPage = dynamic(
-  () => import('./hr-management-page'),
+  () => import('./hr-management-page').then(mod => ({ default: mod.HRManagementPage })),
   { 
     loading: () => <TableSkeleton />,
     ssr: false
@@ -82,7 +82,7 @@ export const HRManagementPage = dynamic(
 );
 
 export const ClientsDashboard = dynamic(
-  () => import('./clients-dashboard'),
+  () => import('./clients-dashboard').then(mod => ({ default: mod.ClientsDashboard })),
   { 
     loading: () => <TableSkeleton />,
     ssr: false
@@ -90,7 +90,7 @@ export const ClientsDashboard = dynamic(
 );
 
 export const AttendanceAdmin = dynamic(
-  () => import('./attendance-admin'),
+  () => import('./attendance-admin').then(mod => ({ default: mod.AttendanceAdmin })),
   { 
     loading: () => <TableSkeleton />,
     ssr: false

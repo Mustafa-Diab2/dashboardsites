@@ -95,12 +95,7 @@ export function DocumentManagement() {
         // Upload to Supabase Storage
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('documents')
-          .upload(filePath, file, {
-            onUploadProgress: (progress) => {
-              const percent = (progress.loaded / progress.total) * 100
-              setUploadProgress(percent)
-            }
-          })
+          .upload(filePath, file)
 
         if (uploadError) throw uploadError
 

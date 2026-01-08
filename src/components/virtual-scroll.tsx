@@ -1,3 +1,5 @@
+'use client';
+
 import { FixedSizeList as List } from 'react-window';
 import { useMemo, useRef, useCallback } from 'react';
 

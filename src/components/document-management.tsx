@@ -94,7 +94,7 @@ export function DocumentManagement() {
       
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
-        const filePath = `documents/${user?.id}/${Date.now()}_${file.name}`
+        const filePath = `${user?.id}/${Date.now()}_${file.name}`
 
         // Upload to Supabase Storage
         const uploadPromise = (async () => {

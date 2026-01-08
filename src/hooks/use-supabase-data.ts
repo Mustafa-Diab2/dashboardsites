@@ -11,15 +11,15 @@ export function useSupabaseCollection<T = any>(
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<any>(null);
     
-    // استخدم ref لتخزين queryFn وتجنب إعادة الاشتراك
+    // استخدم ref لتخزين queryFn
     const queryFnRef = useRef(queryFn);
     queryFnRef.current = queryFn;
-    
-    // استخدم ref لتتبع حالة الـ subscription
-    const subscriptionRef = useRef<any>(null);
 
     useEffect(() => {
+        if (!table) return; // Guard للـ null tables
+        
         let isMounted = true;
+        let channel: any = null;
 
         const fetchData = async () => {
             try {
@@ -47,28 +47,25 @@ export function useSupabaseCollection<T = any>(
 
         fetchData();
 
-        // أنشئ subscription مرة واحدة فقط
-        if (!subscriptionRef.current) {
-            const channelName = `public:${table}`;
-            subscriptionRef.current = supabase
-                .channel(channelName)
-                .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
-                    if (isMounted) {
-                        fetchData();
-                    }
-                })
-                .subscribe();
-        }
+        // أنشئ subscription جديدة لكل table
+        const channelName = `realtime:${table}:${Date.now()}`;
+        channel = supabase
+            .channel(channelName)
+            .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
+                if (isMounted) {
+                    fetchData();
+                }
+            })
+            .subscribe();
 
         return () => {
             isMounted = false;
-            // امسح الـ subscription عند unmount فقط
-            if (subscriptionRef.current) {
-                supabase.removeChannel(subscriptionRef.current);
-                subscriptionRef.current = null;
+            if (channel) {
+                channel.unsubscribe();
+                supabase.removeChannel(channel);
             }
         };
-    }, [table]); // أزل queryFn من dependencies
+    }, [table]);
 
     return { data, isLoading, error };
 }

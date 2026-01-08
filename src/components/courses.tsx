@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { BookOpen, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { useSupabase } from '@/context/supabase-context';
@@ -15,23 +15,26 @@ export default function Courses({ userRole }: { userRole: string }) {
   const [isCourseFormOpen, setCourseFormOpen] = useState(false);
 
   const isAdmin = userRole === 'admin';
+  const userId = user?.id;
 
-  const fetchCourses = useCallback((query: any) => {
-    if (!user) return query;
-    // Admin يرى كل الكورسات، المستخدمين العاديين يروا كورساتهم فقط
+  // جلب كل الكورسات
+  const { data: allCourses, isLoading } = useSupabaseCollection('courses');
+  
+  // جلب بيانات الموظفين للـ Admin فقط
+  const { data: profiles } = useSupabaseCollection(isAdmin ? 'profiles' : null as any);
+
+  // فلتر الكورسات بناءً على الدور
+  const courses = useMemo(() => {
+    if (!allCourses) return null;
     if (isAdmin) {
-      return query.order('created_at', { ascending: false });
+      // Admin يرى كل الكورسات مرتبة
+      return [...allCourses].sort((a: any, b: any) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
     }
-    return query.eq('user_id', user.id);
-  }, [user, isAdmin]);
-
-  const { data: courses, isLoading } = useSupabaseCollection(
-    'courses',
-    fetchCourses
-  );
-
-  // جلب بيانات الموظفين للـ Admin
-  const { data: profiles } = useSupabaseCollection('profiles');
+    // المستخدم العادي يرى كورساته فقط
+    return allCourses.filter((course: any) => course.user_id === userId);
+  }, [allCourses, isAdmin, userId]);
 
   return (
     <>

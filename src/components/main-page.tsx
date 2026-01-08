@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useMemo } from 'react';
 import type { Task } from '@/lib/data';
 import ReportsDashboard from '@/components/reports-dashboard';
 import { useSupabase } from '@/context/supabase-context';
@@ -26,16 +26,20 @@ export default function MainPage() {
     finalRole: userRole
   });
 
-  const fetchTasks = useCallback((query: any) => {
-    if (!user) return query;
-    if (userRole === 'admin') return query;
-    return query.contains('assigned_to', [user.id]);
-  }, [user, userRole]);
-
-  const { data: tasks, isLoading: isTasksLoading } = useSupabaseCollection(
-    'tasks',
-    fetchTasks
-  );
+  const userId = user?.id;
+  
+  // جلب كل المهام
+  const { data: allTasks, isLoading: isTasksLoading } = useSupabaseCollection('tasks');
+  
+  // فلتر المهام بناءً على الدور
+  const tasks = useMemo(() => {
+    if (!allTasks) return [];
+    if (userRole === 'admin') return allTasks;
+    // المستخدم العادي يرى مهامه فقط
+    return allTasks.filter((task: any) => 
+      task.assigned_to && Array.isArray(task.assigned_to) && task.assigned_to.includes(userId)
+    );
+  }, [allTasks, userRole, userId]);
 
   // We only block the entire dashboard if auth is still loading.
   // Other data (tasks, profile) can load progressively.

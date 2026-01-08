@@ -11,8 +11,11 @@ export function useOptimizedQuery<T = any>(
   queryFn?: (query: any) => any,
   options?: Omit<UseQueryOptions<T[]>, 'queryKey' | 'queryFn'>
 ) {
+  // استخدم queryKey ثابت - بدون queryFn.toString()
+  const queryKey = queryFn ? [table, 'filtered'] : [table];
+  
   return useQuery<T[]>({
-    queryKey: [table, queryFn?.toString()],
+    queryKey,
     queryFn: async () => {
       let query = supabase.from(table).select('*')
       if (queryFn) {

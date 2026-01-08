@@ -3,7 +3,7 @@
 import type { Client, Task, TaskTemplate, User } from '@/lib/data';
 import { useMemo, useState } from 'react';
 import { Button } from './ui/button';
-import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus, MessageSquare, UserCog, Briefcase, Banknote, CalendarDays, FolderOpen, Shield, Server, Brain, Workflow, FileText, Receipt } from 'lucide-react';
+import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus, MessageSquare, UserCog, Briefcase, Banknote, CalendarDays, FolderOpen, Shield, Server, Brain, Workflow, FileText, Receipt, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MemberTasksBarChart } from './charts/member-tasks-bar-chart';
 import { CompletionRatioPieChart } from './charts/completion-ratio-pie-chart';
@@ -57,6 +57,7 @@ import { AICommandCenter } from './ai-command-center';
 import { WorkflowBuilder } from './workflow-builder';
 import { DocumentManagement } from './document-management';
 import { InvoicingSystem } from './invoicing-system';
+import { DeductionsManagement } from './deductions-management';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -69,7 +70,7 @@ export type UserReport = {
   done: number;
 };
 
-type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat' | 'hr' | 'team' | 'salary' | 'calendar' | 'files' | 'ai-prompt' | 'security' | 'backend' | 'activity' | 'ai-command' | 'workflows' | 'documents' | 'invoicing';
+type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat' | 'hr' | 'team' | 'salary' | 'calendar' | 'files' | 'ai-prompt' | 'security' | 'backend' | 'activity' | 'ai-command' | 'workflows' | 'documents' | 'invoicing' | 'deductions';
 
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string | undefined }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
@@ -233,6 +234,8 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
         return <DocumentManagement />;
       case 'invoicing':
         return <InvoicingSystem />;
+      case 'deductions':
+        return <DeductionsManagement userRole={userRole} />;
       case 'dashboard':
       default:
         return (
@@ -470,6 +473,12 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                     <SidebarMenuButton isActive={activeView === 'invoicing'} onClick={() => setActiveView('invoicing')}>
                       <Receipt />
                       <span>{language === 'ar' ? 'نظام الفواتير' : 'Invoicing System'}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'deductions'} onClick={() => setActiveView('deductions')}>
+                      <DollarSign />
+                      <span>{language === 'ar' ? 'الخصومات والجزاءات' : 'Deductions & Penalties'}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </>

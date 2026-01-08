@@ -20,20 +20,34 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        let isMounted = true;
+        
         if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
             console.error('CRITICAL: NEXT_PUBLIC_SUPABASE_URL is missing! Auth will not work.');
+            setIsLoading(false);
+            return;
         }
-        // Safety timeout to prevent hanging UI indefinitely
+        
+        // Safety timeout - قلل من 8 ثواني إلى 3 ثواني
         const timeout = setTimeout(() => {
-            if (isLoading) {
-                console.warn('Supabase initialization took too long, forcing load completion...');
+            if (isMounted && isLoading) {
+                console.warn('Supabase initialization timeout - forcing completion');
                 setIsLoading(false);
             }
-        }, 8000);
+        }, 3000);
 
         const getSession = async () => {
             try {
-                const { data: { session } } = await supabase.auth.getSession();
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                
+                if (sessionError) {
+                    console.error('Session Error:', sessionError);
+                    if (isMounted) setIsLoading(false);
+                    return;
+                }
+                
+                if (!isMounted) return;
+                
                 setSession(session);
                 setUser(session?.user ?? null);
 
@@ -42,7 +56,9 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                         .from('profiles')
                         .select('role')
                         .eq('id', session.user.id)
-                        .maybeSingle(); // Better: doesn't error if not found
+                        .maybeSingle();
+
+                    if (!isMounted) return;
 
                     let finalRole = 'trainee';
 
@@ -51,15 +67,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                     } else if (session.user.user_metadata?.role) {
                         finalRole = session.user.user_metadata.role;
                     } else if (session.user.email?.includes('outlook.com')) {
-                        // Secret catch for the owner/admin
                         finalRole = 'admin';
                     }
 
-                    console.log('Current User Debug:', {
+                    console.log('User loaded:', {
                         id: session.user.id,
                         email: session.user.email,
-                        dbRole: profile?.role,
-                        finalRole
+                        role: finalRole
                     });
 
                     setRole(finalRole);
@@ -67,14 +81,18 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             } catch (error) {
                 console.error('Supabase Auth Error:', error);
             } finally {
-                setIsLoading(false);
-                clearTimeout(timeout);
+                if (isMounted) {
+                    setIsLoading(false);
+                    clearTimeout(timeout);
+                }
             }
         };
 
         getSession();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (!isMounted) return;
+            
             setSession(session);
             setUser(session?.user ?? null);
 
@@ -86,9 +104,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                         .eq('id', session.user.id)
                         .maybeSingle();
 
+                    if (!isMounted) return;
+
                     let finalRole = profile?.role ?? session.user.user_metadata?.role ?? 'trainee';
 
-                    // Owner protection
                     if (!profile && session.user.email?.includes('outlook.com')) {
                         finalRole = 'admin';
                     }
@@ -99,16 +118,16 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 }
             } catch (error) {
                 console.error('Auth State Change Error:', error);
-                if (session?.user) {
+                if (session?.user && isMounted) {
                     setRole(session.user.user_metadata?.role ?? 'trainee');
                 }
             } finally {
-                setIsLoading(false);
-                clearTimeout(timeout);
+                if (isMounted) setIsLoading(false);
             }
         });
 
         return () => {
+            isMounted = false;
             subscription.unsubscribe();
             clearTimeout(timeout);
         };

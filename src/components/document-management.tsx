@@ -94,7 +94,9 @@ export function DocumentManagement() {
       
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
-        const filePath = `${user?.id}/${Date.now()}_${file.name}`
+        // Encode filename to handle Arabic/special characters
+        const encodedFileName = encodeURIComponent(file.name)
+        const filePath = `${user?.id}/${Date.now()}_${encodedFileName}`
 
         // Upload to Supabase Storage
         const uploadPromise = (async () => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useSupabase } from '@/context/supabase-context'
 import { useCollection } from '@/hooks/use-supabase-data'
 import { useAddMutation, useUpdateMutation } from '@/hooks/use-mutations'
@@ -100,7 +100,7 @@ export function BudgetManagement() {
     expense_date: new Date().toISOString().split('T')[0]
   })
 
-  const calculateLaborCost = (budgetId: string) => {
+  const calculateLaborCost = useCallback((budgetId: string) => {
     // حساب تكلفة العمل من ساعات الحضور والمهام
     const budgetTasks = tasks?.filter((t: any) => {
       const budget = budgets?.find((b: ProjectBudget) => b.id === budgetId)
@@ -130,13 +130,13 @@ export function BudgetManagement() {
     })
 
     return totalCost
-  }
+  }, [tasks, budgets, profiles, attendance, budgetForm.start_date])
 
-  const getBudgetExpenses = (budgetId: string) => {
+  const getBudgetExpenses = useCallback((budgetId: string) => {
     return expenses?.filter((e: BudgetExpense) => e.budget_id === budgetId) || []
-  }
+  }, [expenses])
 
-  const calculateBudgetHealth = (budget: ProjectBudget): ProjectBudget['health_status'] => {
+  const calculateBudgetHealth = useCallback((budget: ProjectBudget): ProjectBudget['health_status'] => {
     const actualLabor = budget.actual_labor_cost || calculateLaborCost(budget.id)
     const actualExpenses = budget.actual_expenses || getBudgetExpenses(budget.id).reduce((sum: number, e: BudgetExpense) => sum + e.amount, 0)
     const totalActual = actualLabor + actualExpenses
@@ -146,7 +146,7 @@ export function BudgetManagement() {
     if (percentage >= 90) return 'critical'
     if (percentage >= 75) return 'at_risk'
     return 'on_track'
-  }
+  }, [calculateLaborCost, getBudgetExpenses])
 
   const handleAddBudget = async () => {
     const health_status = 'on_track'
@@ -228,27 +228,33 @@ export function BudgetManagement() {
     }
   }
 
-  // Summary Stats
-  const totalBudgets = budgets?.reduce((sum: number, b: ProjectBudget) => sum + b.total_budget, 0) || 0
-  const totalActualCost = budgets?.reduce((sum: number, b: ProjectBudget) => {
-    const laborCost = b.actual_labor_cost || calculateLaborCost(b.id)
-    const expenseCost = b.actual_expenses || 0
-    return sum + laborCost + expenseCost
-  }, 0) || 0
-  const variance = totalBudgets - totalActualCost
-  const utilizationRate = totalBudgets > 0 ? (totalActualCost / totalBudgets) * 100 : 0
+  // Summary Stats - استخدم useMemo لتجنب الحسابات المتكررة
+  const summaryStats = useMemo(() => {
+    const totalBudgets = budgets?.reduce((sum: number, b: ProjectBudget) => sum + b.total_budget, 0) || 0
+    const totalActualCost = budgets?.reduce((sum: number, b: ProjectBudget) => {
+      const laborCost = b.actual_labor_cost || calculateLaborCost(b.id)
+      const expenseCost = b.actual_expenses || 0
+      return sum + laborCost + expenseCost
+    }, 0) || 0
+    const variance = totalBudgets - totalActualCost
+    const utilizationRate = totalBudgets > 0 ? (totalActualCost / totalBudgets) * 100 : 0
 
-  const budgetData = budgets?.map((budget: ProjectBudget) => {
-    const laborCost = budget.actual_labor_cost || calculateLaborCost(budget.id)
-    const expenseCost = budget.actual_expenses || 0
-    return {
-      name: budget.project_name,
-      budget: budget.total_budget,
-      actual: laborCost + expenseCost,
-      labor: laborCost,
-      expenses: expenseCost
-    }
-  }) || []
+    return { totalBudgets, totalActualCost, variance, utilizationRate }
+  }, [budgets, calculateLaborCost])
+
+  const budgetData = useMemo(() => {
+    return budgets?.map((budget: ProjectBudget) => {
+      const laborCost = budget.actual_labor_cost || calculateLaborCost(budget.id)
+      const expenseCost = budget.actual_expenses || 0
+      return {
+        name: budget.project_name,
+        budget: budget.total_budget,
+        actual: laborCost + expenseCost,
+        labor: laborCost,
+        expenses: expenseCost
+      }
+    }) || []
+  }, [budgets, calculateLaborCost])
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8']
 
@@ -370,7 +376,7 @@ export function BudgetManagement() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalBudgets.toLocaleString()}</div>
+            <div className="text-2xl font-bold">${summaryStats.totalBudgets.toLocaleString()}</div>
           </CardContent>
         </Card>
 
@@ -382,7 +388,7 @@ export function BudgetManagement() {
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalActualCost.toLocaleString()}</div>
+            <div className="text-2xl font-bold">${summaryStats.totalActualCost.toLocaleString()}</div>
           </CardContent>
         </Card>
 
@@ -391,11 +397,11 @@ export function BudgetManagement() {
             <CardTitle className="text-sm font-medium">
               {language === 'ar' ? 'الفرق' : 'Variance'}
             </CardTitle>
-            {variance >= 0 ? <TrendingUp className="h-4 w-4 text-green-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />}
+            {summaryStats.variance >= 0 ? <TrendingUp className="h-4 w-4 text-green-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />}
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${Math.abs(variance).toLocaleString()}
+            <div className={`text-2xl font-bold ${summaryStats.variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              ${Math.abs(summaryStats.variance).toLocaleString()}
             </div>
           </CardContent>
         </Card>
@@ -408,7 +414,7 @@ export function BudgetManagement() {
             <PieChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{utilizationRate.toFixed(1)}%</div>
+            <div className="text-2xl font-bold">{summaryStats.utilizationRate.toFixed(1)}%</div>
           </CardContent>
         </Card>
       </div>

@@ -13,11 +13,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 5 * 60 * 1000,
-        cacheTime: 10 * 60 * 1000,
+        staleTime: 2 * 60 * 1000, // 2 دقيقة بدلاً من 5
+        gcTime: 5 * 60 * 1000, // استخدم gcTime بدلاً من cacheTime (deprecated)
         refetchOnWindowFocus: false,
-        refetchOnReconnect: true,
+        refetchOnReconnect: false, // منع إعادة التحميل التلقائي
+        refetchOnMount: false, // منع إعادة التحميل عند mount
         retry: 1,
+        retryDelay: 1000,
       },
     },
   }))

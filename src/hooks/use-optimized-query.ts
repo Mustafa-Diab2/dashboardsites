@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from './use-toast'
 
@@ -97,25 +98,30 @@ export function useRealtimeQuery<T = any>(
 ) {
   const queryClient = useQueryClient()
   const query = useOptimizedQuery<T>(table, queryFn)
+  const queryFnRef = useRef(queryFn)
+  queryFnRef.current = queryFn
 
-  // Setup real-time subscription
-  if (typeof window !== 'undefined') {
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    let timeoutId: NodeJS.Timeout | null = null
+    const channelName = `${table}-changes`
+    
     const channel = supabase
-      .channel(`${table}-changes-${Math.random()}`)
+      .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
-        setTimeout(() => {
+        if (timeoutId) clearTimeout(timeoutId)
+        timeoutId = setTimeout(() => {
           queryClient.invalidateQueries({ queryKey: [table] })
         }, debounceMs)
       })
       .subscribe()
 
-    // Cleanup
-    if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', () => {
-        supabase.removeChannel(channel)
-      })
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      supabase.removeChannel(channel)
     }
-  }
+  }, [table, debounceMs, queryClient])
 
   return query
 }

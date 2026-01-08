@@ -9,5 +9,23 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co', 
-  supabaseAnonKey || 'placeholder-key'
+  supabaseAnonKey || 'placeholder-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 2, // حدد عدد الأحداث في الثانية
+      },
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'nexus-dashboard',
+      },
+    },
+  }
 );

@@ -10,6 +10,13 @@ export function useSupabaseCollection<T = any>(
     const [data, setData] = useState<T[] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<any>(null);
+    
+    // استخدم ref لتخزين queryFn وتجنب إعادة الاشتراك
+    const queryFnRef = useRef(queryFn);
+    queryFnRef.current = queryFn;
+    
+    // استخدم ref لتتبع حالة الـ subscription
+    const subscriptionRef = useRef<any>(null);
 
     useEffect(() => {
         let isMounted = true;
@@ -17,8 +24,8 @@ export function useSupabaseCollection<T = any>(
         const fetchData = async () => {
             try {
                 let query = supabase.from(table).select('*');
-                if (queryFn) {
-                    query = queryFn(query);
+                if (queryFnRef.current) {
+                    query = queryFnRef.current(query);
                 }
 
                 const { data: result, error: fetchError } = await query;
@@ -40,18 +47,28 @@ export function useSupabaseCollection<T = any>(
 
         fetchData();
 
-        const channel = supabase
-            .channel(`public:${table}:${Math.random()}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
-                fetchData();
-            })
-            .subscribe();
+        // أنشئ subscription مرة واحدة فقط
+        if (!subscriptionRef.current) {
+            const channelName = `public:${table}`;
+            subscriptionRef.current = supabase
+                .channel(channelName)
+                .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
+                    if (isMounted) {
+                        fetchData();
+                    }
+                })
+                .subscribe();
+        }
 
         return () => {
             isMounted = false;
-            supabase.removeChannel(channel);
+            // امسح الـ subscription عند unmount فقط
+            if (subscriptionRef.current) {
+                supabase.removeChannel(subscriptionRef.current);
+                subscriptionRef.current = null;
+            }
         };
-    }, [table, queryFn]); // Use the memoized queryFn directly
+    }, [table]); // أزل queryFn من dependencies
 
     return { data, isLoading, error };
 }
@@ -69,6 +86,9 @@ export function useSupabaseDoc<T = any>(
     const isInitialLoad = useRef(true);
 
     useEffect(() => {
+        let isMounted = true;
+        let channel: any = null;
+
         if (!id) {
             setData(null);
             setIsLoading(false);
@@ -79,39 +99,56 @@ export function useSupabaseDoc<T = any>(
             if (isInitialLoad.current) {
                 setIsLoading(true);
             }
-            const { data, error } = await supabase
-                .from(table)
-                .select('*')
-                .eq('id', id)
-                .single();
+            
+            try {
+                const { data: result, error: fetchError } = await supabase
+                    .from(table)
+                    .select('*')
+                    .eq('id', id)
+                    .single();
 
-            if (error) {
-                setError(error);
-                setData(null);
-            } else {
-                setData(data as T);
-                setError(null);
+                if (!isMounted) return;
+
+                if (fetchError) {
+                    setError(fetchError);
+                    setData(null);
+                } else {
+                    setData(result as T);
+                    setError(null);
+                }
+            } catch (err) {
+                if (isMounted) {
+                    setError(err);
+                }
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                    isInitialLoad.current = false;
+                }
             }
-            setIsLoading(false);
-            isInitialLoad.current = false;
         };
 
         fetchData();
 
-        const channelName = `public:${table}:${id}:${Math.random()}`;
-        const channel = supabase
+        const channelName = `public:${table}:${id}`;
+        channel = supabase
             .channel(channelName)
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table, filter: `id=eq.${id}` },
                 () => {
-                    fetchData();
+                    if (isMounted) {
+                        fetchData();
+                    }
                 }
             )
             .subscribe();
 
         return () => {
-            supabase.removeChannel(channel);
+            isMounted = false;
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
         };
     }, [table, id]);
 

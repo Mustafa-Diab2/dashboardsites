@@ -3,7 +3,7 @@
 import type { Client, Task, TaskTemplate, User } from '@/lib/data';
 import { useMemo, useState } from 'react';
 import { Button } from './ui/button';
-import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus, MessageSquare, UserCog, Briefcase, Banknote, CalendarDays, FolderOpen, Shield, Server, Brain } from 'lucide-react';
+import { FileDown, Plus, LogOut, LayoutDashboard, ListTodo, BarChart, Users, GanttChartSquare, Clock, BookOpen, FilePlus, MessageSquare, UserCog, Briefcase, Banknote, CalendarDays, FolderOpen, Shield, Server, Brain, Workflow, FileText, Receipt } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MemberTasksBarChart } from './charts/member-tasks-bar-chart';
 import { CompletionRatioPieChart } from './charts/completion-ratio-pie-chart';
@@ -53,6 +53,10 @@ import { SecurityDashboard } from './security-dashboard';
 import { BackendTools } from './backend-tools';
 import { ActivityLog } from './activity-log';
 import { History } from 'lucide-react';
+import { AICommandCenter } from './ai-command-center';
+import { WorkflowBuilder } from './workflow-builder';
+import { DocumentManagement } from './document-management';
+import { InvoicingSystem } from './invoicing-system';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -65,7 +69,7 @@ export type UserReport = {
   done: number;
 };
 
-type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat' | 'hr' | 'team' | 'salary' | 'calendar' | 'files' | 'ai-prompt' | 'security' | 'backend' | 'activity';
+type View = 'dashboard' | 'my-tasks' | 'reports' | 'clients' | 'attendance' | 'courses' | 'chat' | 'hr' | 'team' | 'salary' | 'calendar' | 'files' | 'ai-prompt' | 'security' | 'backend' | 'activity' | 'ai-command' | 'workflows' | 'documents' | 'invoicing';
 
 export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], userRole: string | undefined }) {
   const [isTaskFormOpen, setTaskFormOpen] = useState(false);
@@ -221,6 +225,14 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
         return <BackendTools />;
       case 'activity':
         return <ActivityLog />;
+      case 'ai-command':
+        return <AICommandCenter />;
+      case 'workflows':
+        return <WorkflowBuilder />;
+      case 'documents':
+        return <DocumentManagement />;
+      case 'invoicing':
+        return <InvoicingSystem />;
       case 'dashboard':
       default:
         return (
@@ -433,6 +445,31 @@ export default function ReportsDashboard({ tasks, userRole }: { tasks: Task[], u
                     <SidebarMenuButton isActive={activeView === 'backend'} onClick={() => setActiveView('backend')}>
                       <Server />
                       <span>Backend Tools</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarSeparator className="my-2 opacity-20" />
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'ai-command'} onClick={() => setActiveView('ai-command')}>
+                      <Brain />
+                      <span>{language === 'ar' ? 'مركز الأوامر الذكي' : 'AI Command Center'}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'workflows'} onClick={() => setActiveView('workflows')}>
+                      <Workflow />
+                      <span>{language === 'ar' ? 'سير العمل الآلي' : 'Workflow Automation'}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'documents'} onClick={() => setActiveView('documents')}>
+                      <FileText />
+                      <span>{language === 'ar' ? 'إدارة المستندات' : 'Document Management'}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={activeView === 'invoicing'} onClick={() => setActiveView('invoicing')}>
+                      <Receipt />
+                      <span>{language === 'ar' ? 'نظام الفواتير' : 'Invoicing System'}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </>

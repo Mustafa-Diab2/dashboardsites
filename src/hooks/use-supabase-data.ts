@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useOptimizedQuery, useRealtimeQuery } from './use-optimized-query';
 
+// Legacy hook - kept for backwards compatibility but not recommended
 export function useSupabaseCollection<T = any>(
     table: string,
     queryFn?: (query: any) => any

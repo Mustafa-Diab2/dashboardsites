@@ -44,6 +44,8 @@ export function ActivityLog() {
             task: 'secondary',
             file: 'outline',
             client: 'destructive',
+            course: 'default',
+            attendance: 'secondary',
         };
         return <Badge variant={variants[entity] || 'outline'}>{entity}</Badge>;
     };

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { User, Session } from '@supabase/supabase-js';
+import { logActivity } from '@/lib/notifications';
 
 interface SupabaseContextType {
     user: User | null;
@@ -90,7 +91,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
         getSession();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!isMounted) return;
             
             setSession(session);
@@ -100,7 +101,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 if (session?.user) {
                     const { data: profile } = await supabase
                         .from('profiles')
-                        .select('role')
+                        .select('role, full_name')
                         .eq('id', session.user.id)
                         .maybeSingle();
 
@@ -113,6 +114,28 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                     }
 
                     setRole(finalRole);
+                    
+                    // سجل النشاط عند تسجيل الدخول
+                    if (event === 'SIGNED_IN') {
+                        await logActivity({
+                            userId: session.user.id,
+                            userName: profile?.full_name || session.user.email || 'Unknown User',
+                            action: 'login',
+                            entity: 'user',
+                            details: `Logged in from ${typeof window !== 'undefined' ? window.navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop' : 'Unknown'}`
+                        });
+                    }
+                    
+                    // سجل النشاط عند تسجيل الخروج
+                    if (event === 'SIGNED_OUT') {
+                        await logActivity({
+                            userId: session.user.id,
+                            userName: profile?.full_name || session.user.email || 'Unknown User',
+                            action: 'logout',
+                            entity: 'user',
+                            details: 'Logged out'
+                        });
+                    }
                 } else {
                     setRole(null);
                 }

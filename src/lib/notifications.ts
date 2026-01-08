@@ -114,7 +114,7 @@ export const notifyTaskCompleted = (userId: string, taskTitle: string, completed
 // --- Activity Logs ---
 
 export type ActivityAction = 'create' | 'update' | 'delete' | 'upload' | 'login' | 'logout';
-export type ActivityEntity = 'user' | 'task' | 'file' | 'client' | 'profile' | 'attendance';
+export type ActivityEntity = 'user' | 'task' | 'file' | 'client' | 'profile' | 'attendance' | 'course';
 
 export async function logActivity({
     userId,

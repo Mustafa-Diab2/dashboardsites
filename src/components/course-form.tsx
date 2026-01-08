@@ -24,6 +24,7 @@ import { useMutations } from '@/hooks/use-mutations';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/context/language-context';
 import { useUsers } from '@/hooks/use-users';
+import { logActivity } from '@/lib/notifications';
 
 const INITIAL_FORM_STATE = {
   name: '',
@@ -82,6 +83,16 @@ export default function CourseForm({
       user_id: form.userId,
       status: 'not_started',
       created_at: new Date().toISOString(),
+    });
+
+    // سجل النشاط
+    const assignedUser = users?.find(u => u.id === form.userId);
+    await logActivity({
+      userId: user.id,
+      userName: user.email || 'Admin',
+      action: 'create',
+      entity: 'course' as any,
+      details: `Created course "${form.name}" and assigned to ${assignedUser?.full_name || assignedUser?.email || 'user'}`
     });
 
     setForm(INITIAL_FORM_STATE);

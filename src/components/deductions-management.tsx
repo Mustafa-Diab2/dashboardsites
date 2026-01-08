@@ -81,11 +81,17 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
     // Process only new messages
     const newMessages = chatMessages.filter(msg => !processedMessageIds.has(msg.id));
     
+    console.log('Processing chat messages for deductions:', {
+      totalMessages: chatMessages.length,
+      newMessages: newMessages.length,
+      isAdmin,
+      usersCount: users.length
+    });
+
     newMessages.forEach((msg) => {
       if (!msg.id || !msg.text || !msg.user_id) return;
 
-      const messageUser = users.find(u => u.id === msg.user_id);
-      if (!messageUser || (messageUser as any).role !== 'admin') return;
+      console.log('Checking message:', msg.text);
 
       const text = msg.text?.toLowerCase() || '';
 
@@ -118,6 +124,12 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
           });
 
           if (targetUser && amount > 0) {
+            console.log('Creating deduction:', {
+              targetUser: targetUser.full_name,
+              amount,
+              message: msg.text
+            });
+
             addDoc('deductions', {
               user_id: targetUser.id,
               user_name: targetUser.full_name,

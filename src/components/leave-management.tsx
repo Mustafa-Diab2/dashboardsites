@@ -89,11 +89,17 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
     // Process only new messages
     const newMessages = chatMessages.filter(msg => !processedMessageIds.has(msg.id));
 
+    console.log('Processing chat messages for leaves:', {
+      totalMessages: chatMessages.length,
+      newMessages: newMessages.length,
+      isAdmin,
+      usersCount: users.length
+    });
+
     newMessages.forEach((msg) => {
       if (!msg.id || !msg.text || !msg.user_id) return;
 
-      const messageUser = users.find(u => u.id === msg.user_id);
-      if (!messageUser || (messageUser as any).role !== 'admin') return;
+      console.log('Checking leave message:', msg.text);
 
       const text = msg.text?.toLowerCase() || '';
 

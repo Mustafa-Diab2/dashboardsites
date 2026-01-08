@@ -69,7 +69,7 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
 
   const { data: chatData } = useSupabaseCollection(
     'chat',
-    (query) => isAdmin ? query.order('timestamp', { ascending: false }) : query.limit(0)
+    (query) => isAdmin ? query.order('timestamp', { ascending: false }).limit(100) : query.limit(0)
   );
   const chatMessages = (chatData || []) as any[];
 
@@ -78,8 +78,11 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
 
     const processedMessageIds = new Set(deductions.filter(d => d.extracted_from_chat_message_id).map(d => d.extracted_from_chat_message_id));
 
-    chatMessages.forEach((msg) => {
-      if (!msg.id || !msg.text || !msg.user_id || processedMessageIds.has(msg.id)) return;
+    // Process only new messages
+    const newMessages = chatMessages.filter(msg => !processedMessageIds.has(msg.id));
+    
+    newMessages.forEach((msg) => {
+      if (!msg.id || !msg.text || !msg.user_id) return;
 
       const messageUser = users.find(u => u.id === msg.user_id);
       if (!messageUser || (messageUser as any).role !== 'admin') return;

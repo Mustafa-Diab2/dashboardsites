@@ -76,18 +76,21 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
 
   const { data: chatData } = useSupabaseCollection(
     'chat',
-    (query) => isAdmin ? query.order('timestamp', { ascending: false }) : query.limit(0)
+    (query) => isAdmin ? query.order('timestamp', { ascending: false }).limit(100) : query.limit(0)
   );
 
   const chatMessages = (chatData || []) as any[];
 
   useEffect(() => {
-    if (!isAdmin || !chatMessages || !users || chatMessages.length === 0) return;
+    if (!isAdmin || !chatMessages || !users || chatMessages.length === 0 || users.length === 0) return;
 
     const processedMessageIds = new Set(allLeaves.filter(l => l.extracted_from_chat_message_id).map(l => l.extracted_from_chat_message_id));
 
-    chatMessages.forEach((msg) => {
-      if (!msg.id || !msg.text || !msg.user_id || processedMessageIds.has(msg.id)) return;
+    // Process only new messages
+    const newMessages = chatMessages.filter(msg => !processedMessageIds.has(msg.id));
+
+    newMessages.forEach((msg) => {
+      if (!msg.id || !msg.text || !msg.user_id) return;
 
       const messageUser = users.find(u => u.id === msg.user_id);
       if (!messageUser || (messageUser as any).role !== 'admin') return;

@@ -57,12 +57,12 @@ export function KPIDashboard() {
   const { t, language } = useLanguage()
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
 
-  const kpis = useCollection<KPI>('kpis')
-  const kpiHistory = useCollection<KPIHistory>('kpi_history')
-  const tasks = useCollection<any>('tasks')
-  const profiles = useCollection<any>('profiles')
-  const attendance = useCollection<any>('attendance')
-  const clients = useCollection<any>('clients')
+  const { data: kpis } = useCollection<KPI>('kpis')
+  const { data: kpiHistory } = useCollection<KPIHistory>('kpi_history')
+  const { data: tasks } = useCollection<any>('tasks')
+  const { data: profiles } = useCollection<any>('profiles')
+  const { data: attendance } = useCollection<any>('attendance')
+  const { data: clients } = useCollection<any>('clients')
 
   const { mutate: updateKPI } = useUpdateMutation('kpis')
   const { mutate: addKPIHistory } = useAddMutation('kpi_history')
@@ -104,7 +104,7 @@ export function KPIDashboard() {
 
     // Client Satisfaction (من المدفوعات)
     const paidClients = clients?.filter((c: any) => c.paid_amount >= c.total_payment * 0.9) || []
-    const satisfaction = clients?.length > 0 
+    const satisfaction = clients && clients.length > 0 
       ? ((paidClients.length / clients.length) * 5).toFixed(1) 
       : '0'
 
@@ -120,8 +120,8 @@ export function KPIDashboard() {
       : 0
 
     // Revenue vs Target
-    const totalRevenue = clients?.reduce((sum: any, c: any) => sum + (c.paid_amount || 0), 0) || 0
-    const revenueTarget = clients?.reduce((sum: any, c: any) => sum + (c.total_payment || 0), 0) || 1
+    const totalRevenue = clients?.reduce((sum: number, c: any) => sum + (c.paid_amount || 0), 0) || 0
+    const revenueTarget = clients?.reduce((sum: number, c: any) => sum + (c.total_payment || 0), 0) || 1
     const revenueAchievement = Math.round((totalRevenue / revenueTarget) * 100)
 
     // يمكن تحديث قاعدة البيانات هنا
@@ -130,11 +130,11 @@ export function KPIDashboard() {
 
   const filteredKPIs = selectedCategory === 'all' 
     ? kpis 
-    : kpis?.filter(kpi => kpi.category === selectedCategory)
+    : kpis?.filter((kpi: KPI) => kpi.category === selectedCategory)
 
   const getKPIHistory = (kpiId: string) => {
-    return kpiHistory?.filter(h => h.kpi_id === kpiId)
-      .sort((a, b) => new Date(a.period_start).getTime() - new Date(b.period_start).getTime()) || []
+    return kpiHistory?.filter((h: KPIHistory) => h.kpi_id === kpiId)
+      .sort((a: KPIHistory, b: KPIHistory) => new Date(a.period_start).getTime() - new Date(b.period_start).getTime()) || []
   }
 
   const getTrendIcon = (trend: string) => {

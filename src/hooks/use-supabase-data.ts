@@ -54,6 +54,9 @@ export function useSupabaseCollection<T = any>(
     return { data, isLoading, error };
 }
 
+// Alias for backward compatibility
+export const useCollection = useSupabaseCollection;
+
 export function useSupabaseDoc<T = any>(
     table: string,
     id: string | null | undefined

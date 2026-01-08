@@ -69,15 +69,12 @@ export function BudgetManagement() {
   const [showExpenseDialog, setShowExpenseDialog] = useState(false)
   const [selectedBudget, setSelectedBudget] = useState<string | null>(null)
 
-  const budgets = useCollection<ProjectBudget>('project_budgets', {
-    orderBy: { column: 'created_at', ascending: false }
-  })
-
-  const expenses = useCollection<BudgetExpense>('budget_expenses')
-  const clients = useCollection<any>('clients')
-  const tasks = useCollection<any>('tasks')
-  const attendance = useCollection<any>('attendance')
-  const profiles = useCollection<any>('profiles')
+  const { data: budgets } = useCollection<ProjectBudget>('project_budgets', (q) => q.order('created_at', { ascending: false }))
+  const { data: expenses } = useCollection<BudgetExpense>('budget_expenses')
+  const { data: clients } = useCollection<any>('clients')
+  const { data: tasks } = useCollection<any>('tasks')
+  const { data: attendance } = useCollection<any>('attendance')
+  const { data: profiles } = useCollection<any>('profiles')
 
   const { mutate: addBudget } = useAddMutation('project_budgets')
   const { mutate: updateBudget } = useUpdateMutation('project_budgets')
@@ -106,7 +103,7 @@ export function BudgetManagement() {
   const calculateLaborCost = (budgetId: string) => {
     // حساب تكلفة العمل من ساعات الحضور والمهام
     const budgetTasks = tasks?.filter((t: any) => {
-      const budget = budgets?.find(b => b.id === budgetId)
+      const budget = budgets?.find((b: ProjectBudget) => b.id === budgetId)
       return t.client_id === budget?.client_id
     }) || []
 
@@ -136,12 +133,12 @@ export function BudgetManagement() {
   }
 
   const getBudgetExpenses = (budgetId: string) => {
-    return expenses?.filter(e => e.budget_id === budgetId) || []
+    return expenses?.filter((e: BudgetExpense) => e.budget_id === budgetId) || []
   }
 
   const calculateBudgetHealth = (budget: ProjectBudget): ProjectBudget['health_status'] => {
     const actualLabor = budget.actual_labor_cost || calculateLaborCost(budget.id)
-    const actualExpenses = budget.actual_expenses || getBudgetExpenses(budget.id).reduce((sum, e) => sum + e.amount, 0)
+    const actualExpenses = budget.actual_expenses || getBudgetExpenses(budget.id).reduce((sum: number, e: BudgetExpense) => sum + e.amount, 0)
     const totalActual = actualLabor + actualExpenses
     const percentage = (totalActual / budget.total_budget) * 100
 
@@ -180,7 +177,7 @@ export function BudgetManagement() {
     })
     
     // Update budget actual expenses
-    const budget = budgets?.find(b => b.id === expenseForm.budget_id)
+    const budget = budgets?.find((b: ProjectBudget) => b.id === expenseForm.budget_id)
     if (budget) {
       const newActualExpenses = (budget.actual_expenses || 0) + expenseForm.amount
       await updateBudget({
@@ -232,8 +229,8 @@ export function BudgetManagement() {
   }
 
   // Summary Stats
-  const totalBudgets = budgets?.reduce((sum, b) => sum + b.total_budget, 0) || 0
-  const totalActualCost = budgets?.reduce((sum, b) => {
+  const totalBudgets = budgets?.reduce((sum: number, b: ProjectBudget) => sum + b.total_budget, 0) || 0
+  const totalActualCost = budgets?.reduce((sum: number, b: ProjectBudget) => {
     const laborCost = b.actual_labor_cost || calculateLaborCost(b.id)
     const expenseCost = b.actual_expenses || 0
     return sum + laborCost + expenseCost
@@ -241,7 +238,7 @@ export function BudgetManagement() {
   const variance = totalBudgets - totalActualCost
   const utilizationRate = totalBudgets > 0 ? (totalActualCost / totalBudgets) * 100 : 0
 
-  const budgetData = budgets?.map(budget => {
+  const budgetData = budgets?.map((budget: ProjectBudget) => {
     const laborCost = budget.actual_labor_cost || calculateLaborCost(budget.id)
     const expenseCost = budget.actual_expenses || 0
     return {
@@ -287,7 +284,7 @@ export function BudgetManagement() {
                       <SelectValue placeholder={language === 'ar' ? 'اختر العميل' : 'Select client'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {clients?.map(client => (
+                      {clients?.map((client: any) => (
                         <SelectItem key={client.id} value={client.id}>
                           {client.name} - {client.project_name}
                         </SelectItem>
@@ -467,7 +464,7 @@ export function BudgetManagement() {
 
       {/* Budgets List */}
       <div className="grid gap-4">
-        {budgets?.map(budget => {
+        {budgets?.map((budget: ProjectBudget) => {
           const laborCost = budget.actual_labor_cost || calculateLaborCost(budget.id)
           const expenseCost = budget.actual_expenses || 0
           const totalActual = laborCost + expenseCost

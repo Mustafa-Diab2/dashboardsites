@@ -179,8 +179,8 @@ async function sendNotification(
   
   for (const user of users) {
     await createNotification({
-      user_id: user,
-      type: 'workflow',
+      userId: user,
+      type: 'general',
       title,
       message,
       link
@@ -192,7 +192,7 @@ async function escalateTask(taskId: string, managerId: string): Promise<void> {
   await assignTask(taskId, managerId)
   
   await createNotification({
-    user_id: managerId,
+    userId: managerId,
     type: 'escalation',
     title: 'تصعيد مهمة',
     message: 'تم تصعيد مهمة تحتاج اهتمامك',
@@ -326,7 +326,7 @@ export async function checkUpcomingDeadlines(): Promise<void> {
     
     for (const userId of assignees) {
       await createNotification({
-        user_id: userId,
+        userId: userId,
         type: 'deadline_approaching',
         title: 'موعد تسليم قريب',
         message: `مهمة "${task.title}" موعد تسليمها خلال 48 ساعة`,

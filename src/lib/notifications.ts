@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-type NotificationType = 'task_assigned' | 'leave_approved' | 'leave_rejected' | 'mention' | 'task_completed' | 'general';
+type NotificationType = 'task_assigned' | 'leave_approved' | 'leave_rejected' | 'mention' | 'task_completed' | 'general' | 'task_reassigned' | 'escalation' | 'warning' | 'deadline_approaching';
 
 interface CreateNotificationParams {
     userId: string;

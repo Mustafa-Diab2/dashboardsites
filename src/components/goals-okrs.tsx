@@ -67,15 +67,9 @@ export function GoalsOKRsManagement() {
   const [showKRDialog, setShowKRDialog] = useState(false)
   const [selectedOKR, setSelectedOKR] = useState<OKR | null>(null)
 
-  const okrs = useCollection<OKR>('okrs', {
-    orderBy: { column: 'created_at', ascending: false }
-  })
-
-  const keyResults = useCollection<KeyResult>('key_results', {
-    orderBy: { column: 'created_at', ascending: false }
-  })
-
-  const profiles = useCollection<any>('profiles')
+  const { data: okrs } = useCollection<OKR>('okrs', (q) => q.order('created_at', { ascending: false }))
+  const { data: keyResults } = useCollection<KeyResult>('key_results', (q) => q.order('created_at', { ascending: false }))
+  const { data: profiles } = useCollection<any>('profiles')
 
   const { mutate: addOKR } = useAddMutation('okrs')
   const { mutate: updateOKR } = useUpdateMutation('okrs')
@@ -101,16 +95,16 @@ export function GoalsOKRsManagement() {
     due_date: ''
   })
 
-  const filteredOKRs = okrs?.filter(okr => okr.quarter === selectedQuarter) || []
+  const filteredOKRs = okrs?.filter((okr: OKR) => okr.quarter === selectedQuarter) || []
 
   const getOKRKeyResults = (okrId: string) => {
-    return keyResults?.filter(kr => kr.okr_id === okrId) || []
+    return keyResults?.filter((kr: KeyResult) => kr.okr_id === okrId) || []
   }
 
   const calculateOKRProgress = (okrId: string) => {
     const krs = getOKRKeyResults(okrId)
     if (krs.length === 0) return 0
-    const totalProgress = krs.reduce((sum, kr) => sum + kr.progress, 0)
+    const totalProgress = krs.reduce((sum: number, kr: KeyResult) => sum + kr.progress, 0)
     return Math.round(totalProgress / krs.length)
   }
 

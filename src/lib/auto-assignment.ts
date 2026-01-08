@@ -101,7 +101,7 @@ export async function autoAssignTask(
       .single()
 
     await createNotification({
-      user_id: bestMember.id,
+      userId: bestMember.id,
       type: 'task_assigned',
       title: 'مهمة جديدة (تعيين تلقائي)',
       message: `تم تعيينك تلقائياً لمهمة: ${task?.title}`,
@@ -203,7 +203,7 @@ export async function balanceTeamWorkload(): Promise<void> {
 
       // إشعار
       await createNotification({
-        user_id: suggestion.to,
+        userId: suggestion.to,
         type: 'task_reassigned',
         title: 'إعادة تعيين مهمة',
         message: `تم تعيينك لمهمة لموازنة الأحمال`,

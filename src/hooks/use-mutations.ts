@@ -70,3 +70,28 @@ export function useMutations() {
 
   return { addDoc, updateDoc, deleteDoc };
 }
+
+// Individual mutation hooks for backward compatibility
+export function useAddMutation(table: string) {
+  const { addDoc } = useMutations();
+  return {
+    mutate: async (data: any) => addDoc(table, data)
+  };
+}
+
+export function useUpdateMutation(table: string) {
+  const { updateDoc } = useMutations();
+  return {
+    mutate: async (data: any) => {
+      const { id, ...rest } = data;
+      return updateDoc(table, id, rest);
+    }
+  };
+}
+
+export function useDeleteMutation(table: string) {
+  const { deleteDoc } = useMutations();
+  return {
+    mutate: async (id: string) => deleteDoc(table, id)
+  };
+}

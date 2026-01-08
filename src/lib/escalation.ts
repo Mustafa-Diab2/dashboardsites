@@ -183,7 +183,7 @@ async function notifyEscalation(task: any, rule: EscalationRule): Promise<void> 
 
   for (const admin of admins) {
     await createNotification({
-      user_id: admin.id,
+      userId: admin.id,
       type: 'escalation',
       title: 'تصعيد مهمة ⚠️',
       message,
@@ -195,7 +195,7 @@ async function notifyEscalation(task: any, rule: EscalationRule): Promise<void> 
   if (task.assigned_to && task.assigned_to.length > 0) {
     for (const userId of task.assigned_to) {
       await createNotification({
-        user_id: userId,
+        userId: userId,
         type: 'warning',
         title: 'تنبيه: مهمة تحتاج اهتمام',
         message: `مهمتك "${task.title}" تم تصعيدها: ${rule.name}`,
@@ -231,7 +231,7 @@ export async function escalateTaskManually(
   // Notify recipients
   for (const userId of escalateTo) {
     await createNotification({
-      user_id: userId,
+      userId: userId,
       type: 'escalation',
       title: 'تصعيد مهمة يدوي',
       message: `مهمة "${task.title}": ${reason}`,

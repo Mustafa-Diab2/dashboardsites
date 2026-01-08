@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useSupabase } from '@/context/supabase-context';
 import { useSupabaseCollection, useSupabaseDoc } from '@/hooks/use-supabase-data';
 import { useMutations } from '@/hooks/use-mutations';
@@ -81,26 +81,22 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
 
   const chatMessages = (chatData || []) as any[];
 
+  const processedMessagesRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     if (!isAdmin || !chatMessages || !users || chatMessages.length === 0 || users.length === 0) return;
 
-    const processedMessageIds = new Set(allLeaves.filter(l => l.extracted_from_chat_message_id).map(l => l.extracted_from_chat_message_id));
+    // Process only new messages that haven't been processed yet
+    const newMessages = chatMessages.filter(msg => 
+      msg.id && 
+      msg.text && 
+      msg.user_id && 
+      !processedMessagesRef.current.has(msg.id)
+    );
 
-    // Process only new messages
-    const newMessages = chatMessages.filter(msg => !processedMessageIds.has(msg.id));
-
-    console.log('Processing chat messages for leaves:', {
-      totalMessages: chatMessages.length,
-      newMessages: newMessages.length,
-      isAdmin,
-      usersCount: users.length
-    });
+    if (newMessages.length === 0) return;
 
     newMessages.forEach((msg) => {
-      if (!msg.id || !msg.text || !msg.user_id) return;
-
-      console.log('Checking leave message:', msg.text);
-
       const text = msg.text?.toLowerCase() || '';
 
       const leavePatterns = [
@@ -135,6 +131,9 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
 
             const days = differenceInDays(endDate, startDate) + 1;
 
+            // Mark message as processed
+            processedMessagesRef.current.add(msg.id);
+
             addDoc('leaves', {
               user_id: targetUser.id,
               user_name: targetUser.full_name,
@@ -147,13 +146,12 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
               created_at: new Date().toISOString(),
               extracted_from_chat_message_id: msg.id,
             });
-            processedMessageIds.add(msg.id);
             return;
           }
         }
       }
     });
-  }, [chatMessages, users, isAdmin, allLeaves, addDoc, t]);
+  }, [chatMessages, users, isAdmin, addDoc, t]);
 
 
   const handleSubmit = async () => {

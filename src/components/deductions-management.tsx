@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useSupabase } from '@/context/supabase-context';
 import { useSupabaseCollection, useSupabaseDoc } from '@/hooks/use-supabase-data';
 import { useMutations } from '@/hooks/use-mutations';
@@ -73,26 +73,22 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
   );
   const chatMessages = (chatData || []) as any[];
 
+  const processedMessagesRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     if (!isAdmin || !chatMessages || chatMessages.length === 0 || !users || users.length === 0) return;
 
-    const processedMessageIds = new Set(deductions.filter(d => d.extracted_from_chat_message_id).map(d => d.extracted_from_chat_message_id));
-
-    // Process only new messages
-    const newMessages = chatMessages.filter(msg => !processedMessageIds.has(msg.id));
+    // Process only new messages that haven't been processed yet
+    const newMessages = chatMessages.filter(msg => 
+      msg.id && 
+      msg.text && 
+      msg.user_id && 
+      !processedMessagesRef.current.has(msg.id)
+    );
     
-    console.log('Processing chat messages for deductions:', {
-      totalMessages: chatMessages.length,
-      newMessages: newMessages.length,
-      isAdmin,
-      usersCount: users.length
-    });
+    if (newMessages.length === 0) return;
 
     newMessages.forEach((msg) => {
-      if (!msg.id || !msg.text || !msg.user_id) return;
-
-      console.log('Checking message:', msg.text);
-
       const text = msg.text?.toLowerCase() || '';
 
       const deductionPatterns = [
@@ -124,11 +120,8 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
           });
 
           if (targetUser && amount > 0) {
-            console.log('Creating deduction:', {
-              targetUser: targetUser.full_name,
-              amount,
-              message: msg.text
-            });
+            // Mark message as processed
+            processedMessagesRef.current.add(msg.id);
 
             addDoc('deductions', {
               user_id: targetUser.id,
@@ -145,7 +138,7 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
         });
       });
     });
-  }, [chatMessages, users, isAdmin, deductions, addDoc, t]);
+  }, [chatMessages, users, isAdmin, addDoc, t]);
 
   const handleSubmit = async () => {
     if (!user || !formData.userId || !formData.amount) {

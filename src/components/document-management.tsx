@@ -59,12 +59,14 @@ export function DocumentManagement() {
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  const { data: documents } = useCollection<Document>('documents', (q) => 
-    currentFolder 
-      ? q.eq('folder_id', currentFolder).order('created_at', { ascending: false })
-      : q.is('folder_id', null).order('created_at', { ascending: false })
-  )
+  const { data: documents } = useCollection<Document>('documents', (q) => {
+    let query = currentFolder 
+      ? q.eq('folder_id', currentFolder)
+      : q.is('folder_id', null)
+    return query.order('created_at', { ascending: false })
+  })
 
   const { data: folders } = useCollection<Folder>('document_folders', (q) => 
     currentFolder
@@ -87,47 +89,62 @@ export function DocumentManagement() {
     setUploading(true)
     setUploadProgress(0)
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      const filePath = `documents/${user?.id}/${Date.now()}_${file.name}`
+    try {
+      const uploadPromises = []
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const filePath = `documents/${user?.id}/${Date.now()}_${file.name}`
 
-      try {
         // Upload to Supabase Storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('documents')
-          .upload(filePath, file)
+        const uploadPromise = (async () => {
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('documents')
+            .upload(filePath, file)
 
-        if (uploadError) throw uploadError
+          if (uploadError) throw uploadError
 
-        // Add to database
-        await addDocument({
-          name: file.name,
-          file_path: filePath,
-          file_size: file.size,
-          file_type: file.type,
-          folder_id: currentFolder,
-          uploaded_by: user?.id,
-          tags: [],
-          shared_with: []
-        })
+          // Add to database
+          return addDocument({
+            name: file.name,
+            file_path: filePath,
+            file_size: file.size,
+            file_type: file.type,
+            folder_id: currentFolder,
+            uploaded_by: user?.id,
+            tags: [],
+            shared_with: []
+          })
+        })()
 
-      } catch (error) {
-        console.error('Upload error:', error)
-        toast({
-          title: language === 'ar' ? 'خطأ في الرفع' : 'Upload Error',
-          description: language === 'ar' ? 'فشل رفع الملف' : 'Failed to upload file',
-          variant: 'destructive'
-        })
+        uploadPromises.push(uploadPromise)
+        
+        // Update progress
+        setUploadProgress(((i + 1) / files.length) * 100)
       }
-    }
 
-    setUploading(false)
-    setUploadProgress(0)
-    setShowUploadDialog(false)
-    toast({
-      title: language === 'ar' ? 'تم الرفع' : 'Uploaded',
-      description: language === 'ar' ? 'تم رفع الملفات بنجاح' : 'Files uploaded successfully'
-    })
+      // Wait for all uploads to complete
+      await Promise.all(uploadPromises)
+
+      // Wait a moment for real-time to propagate
+      await new Promise(resolve => setTimeout(resolve, 800))
+      
+      toast({
+        title: language === 'ar' ? 'تم الرفع' : 'Uploaded',
+        description: language === 'ar' ? `تم رفع ${files.length} ملف بنجاح` : `${files.length} files uploaded successfully`
+      })
+    } catch (error) {
+      console.error('Upload error:', error)
+      toast({
+        title: language === 'ar' ? 'خطأ في الرفع' : 'Upload Error',
+        description: language === 'ar' ? 'فشل رفع بعض الملفات' : 'Failed to upload some files',
+        variant: 'destructive'
+      })
+    } finally {
+      setUploading(false)
+      setUploadProgress(0)
+      setShowUploadDialog(false)
+    }
   }
 
   const handleDownload = async (doc: Document) => {
@@ -155,15 +172,27 @@ export function DocumentManagement() {
   const handleDelete = async (doc: Document) => {
     if (!confirm(language === 'ar' ? 'هل تريد حذف هذا الملف؟' : 'Delete this file?')) return
 
-    // Delete from storage
-    await supabase.storage.from('documents').remove([doc.file_path])
-    
-    // Delete from database
-    await deleteDocument(doc.id)
+    try {
+      // Delete from storage
+      await supabase.storage.from('documents').remove([doc.file_path])
+      
+      // Delete from database
+      await deleteDocument(doc.id)
 
-    toast({
-      title: language === 'ar' ? 'تم الحذف' : 'Deleted',
-    })
+      // Force refresh
+      setRefreshKey(prev => prev + 1)
+
+      toast({
+        title: language === 'ar' ? 'تم الحذف' : 'Deleted',
+      })
+    } catch (error) {
+      console.error('Delete error:', error)
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل حذف الملف' : 'Failed to delete file',
+        variant: 'destructive'
+      })
+    }
   }
 
   const formatFileSize = (bytes: number) => {
@@ -185,15 +214,27 @@ export function DocumentManagement() {
     const name = prompt(language === 'ar' ? 'اسم المجلد:' : 'Folder name:')
     if (!name) return
 
-    await addFolder({
-      name,
-      parent_id: currentFolder,
-      created_by: user?.id
-    })
+    try {
+      await addFolder({
+        name,
+        parent_id: currentFolder,
+        created_by: user?.id
+      })
 
-    toast({
-      title: language === 'ar' ? 'تم الإنشاء' : 'Created',
-    })
+      // Force refresh
+      setRefreshKey(prev => prev + 1)
+
+      toast({
+        title: language === 'ar' ? 'تم الإنشاء' : 'Created',
+      })
+    } catch (error) {
+      console.error('Create folder error:', error)
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل إنشاء المجلد' : 'Failed to create folder',
+        variant: 'destructive'
+      })
+    }
   }
 
   return (

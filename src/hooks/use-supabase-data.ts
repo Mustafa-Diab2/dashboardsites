@@ -15,37 +15,41 @@ export function useSupabaseCollection<T = any>(
     const queryFnRef = useRef(queryFn);
     queryFnRef.current = queryFn;
 
+    const fetchData = useCallback(async () => {
+        try {
+            let query = supabase.from(table).select('*');
+            if (queryFnRef.current) {
+                query = queryFnRef.current(query);
+            }
+
+            const { data: result, error: fetchError } = await query;
+
+            if (fetchError) {
+                setError(fetchError);
+            } else {
+                setData(result as T[]);
+                setError(null);
+            }
+        } catch (err) {
+            setError(err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [table]);
+
     useEffect(() => {
         if (!table) return; // Guard للـ null tables
         
         let isMounted = true;
         let channel: any = null;
 
-        const fetchData = async () => {
-            try {
-                let query = supabase.from(table).select('*');
-                if (queryFnRef.current) {
-                    query = queryFnRef.current(query);
-                }
-
-                const { data: result, error: fetchError } = await query;
-
-                if (!isMounted) return;
-
-                if (fetchError) {
-                    setError(fetchError);
-                } else {
-                    setData(result as T[]);
-                    setError(null);
-                }
-            } catch (err) {
-                if (isMounted) setError(err);
-            } finally {
-                if (isMounted) setIsLoading(false);
+        const fetchDataIfMounted = async () => {
+            if (isMounted) {
+                await fetchData();
             }
         };
 
-        fetchData();
+        fetchDataIfMounted();
 
         // أنشئ subscription جديدة لكل table
         const channelName = `realtime:${table}:${Date.now()}`;
@@ -53,7 +57,7 @@ export function useSupabaseCollection<T = any>(
             .channel(channelName)
             .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
                 if (isMounted) {
-                    fetchData();
+                    fetchDataIfMounted();
                 }
             })
             .subscribe();
@@ -65,9 +69,9 @@ export function useSupabaseCollection<T = any>(
                 supabase.removeChannel(channel);
             }
         };
-    }, [table]);
+    }, [table, fetchData]);
 
-    return { data, isLoading, error };
+    return { data, isLoading, error, refetch: fetchData };
 }
 
 // Alias for backward compatibility

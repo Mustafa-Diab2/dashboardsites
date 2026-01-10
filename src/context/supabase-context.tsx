@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useReducer, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { User, Session } from '@supabase/supabase-js';
 import { logActivity } from '@/lib/notifications';
@@ -53,6 +54,7 @@ const SupabaseContext = createContext<SupabaseContextType | undefined>(undefined
 
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const [state, dispatch] = useReducer(authReducer, initialState);
+    const queryClient = useQueryClient();
 
     useEffect(() => {
         let isMounted = true;
@@ -188,7 +190,63 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             subscription.unsubscribe();
             clearTimeout(timeout);
         };
-    }, []);
+    }, [queryClient]);
+
+    // 🔥 Separate useEffect للـ profile subscription - يعمل عند login
+    useEffect(() => {
+        if (!state.user?.id) return;
+
+        let profileChannel: any = null;
+        let isMounted = true;
+
+        const setupSubscription = () => {
+            profileChannel = supabase
+                .channel(`profile:${state.user!.id}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'UPDATE',
+                        schema: 'public',
+                        table: 'profiles',
+                        filter: `id=eq.${state.user!.id}`
+                    },
+                    (payload) => {
+                        if (!isMounted) return;
+                        
+                        console.log('🔄 Profile updated:', payload);
+                        
+                        const newRole = (payload.new as any)?.role;
+                        if (newRole) {
+                            dispatch({
+                                type: 'SET_AUTH',
+                                payload: {
+                                    user: state.user!,
+                                    session: state.session,
+                                    role: newRole
+                                }
+                            });
+                            
+                            // Invalidate cache بعد role change
+                            if (queryClient) {
+                                console.log('🔄 Invalidating queries after role change');
+                                queryClient.invalidateQueries();
+                            }
+                        }
+                    }
+                )
+                .subscribe();
+        };
+
+        setupSubscription();
+
+        return () => {
+            isMounted = false;
+            if (profileChannel) {
+                profileChannel.unsubscribe();
+                supabase.removeChannel(profileChannel);
+            }
+        };
+    }, [state.user?.id, state.session, queryClient]);
 
     const contextValue = useMemo(() => ({
         user: state.user,

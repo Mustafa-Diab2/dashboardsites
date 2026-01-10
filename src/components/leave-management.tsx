@@ -48,8 +48,7 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
 
   const [confirmAction, setConfirmAction] = useState<{ action: LeaveAction; leaveId: string | null }>({ action: null, leaveId: null });
 
-  const { data: userData } = useSupabaseDoc('profiles', user?.id);
-  const isAdmin = (userData as any)?.role === 'admin' || supabaseRole === 'admin';
+  const isAdmin = supabaseRole === 'admin';
 
   const fetchLeaves = useCallback((query: any) => query.order('created_at', { ascending: false }), []);
 
@@ -82,6 +81,15 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
   const chatMessages = (chatData || []) as any[];
 
   const processedMessagesRef = useRef<Set<string>>(new Set());
+
+  // استخدام refs للـ stable dependencies
+  const addDocRef = useRef(addDoc);
+  const tRef = useRef(t);
+  
+  useEffect(() => {
+    addDocRef.current = addDoc;
+    tRef.current = t;
+  }, [addDoc, t]);
 
   useEffect(() => {
     if (!isAdmin || !chatMessages || !users || chatMessages.length === 0 || users.length === 0) return;
@@ -119,7 +127,7 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
           if (targetUser) {
             const startDate = new Date();
             const endDate = new Date();
-            let reason = `${t('auto_extracted_from_chat')}: "${msg.text.substring(0, 100)}"`;
+            let reason = `${tRef.current('auto_extracted_from_chat')}: "${msg.text.substring(0, 100)}"`;
 
             if (text.includes('بكرة') || text.includes('tomorrow')) {
               startDate.setDate(startDate.getDate() + 1);
@@ -134,7 +142,7 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
             // Mark message as processed
             processedMessagesRef.current.add(msg.id);
 
-            addDoc('leaves', {
+            addDocRef.current('leaves', {
               user_id: targetUser.id,
               user_name: targetUser.full_name,
               type: 'annual',
@@ -151,7 +159,7 @@ export function LeaveManagement({ userRole }: { userRole: string | undefined }) 
         }
       }
     });
-  }, [chatMessages, users, isAdmin, addDoc, t]);
+  }, [chatMessages, users, isAdmin]); // stable dependencies فقط
 
 
   const handleSubmit = async () => {

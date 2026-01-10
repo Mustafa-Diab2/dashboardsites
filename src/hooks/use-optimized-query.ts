@@ -1,9 +1,10 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from './use-toast'
+import { queryKeys, hashQueryFn } from '@/lib/query-keys'
 
 // Optimized Query Hook
 export function useOptimizedQuery<T = any>(
@@ -11,8 +12,12 @@ export function useOptimizedQuery<T = any>(
   queryFn?: (query: any) => any,
   options?: Omit<UseQueryOptions<T[]>, 'queryKey' | 'queryFn'>
 ) {
-  // استخدم queryKey ثابت - بدون queryFn.toString()
-  const queryKey = queryFn ? [table, 'filtered'] : [table];
+  // استخدام stable queryKey مع hash للـ filter
+  const queryKey = useMemo(() => {
+    if (!queryFn) return queryKeys.table(table);
+    const filterHash = hashQueryFn(queryFn);
+    return queryKeys.tableFiltered(table, filterHash);
+  }, [table, queryFn]);
   
   return useQuery<T[]>({
     queryKey,

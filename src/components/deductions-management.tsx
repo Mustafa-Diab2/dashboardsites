@@ -44,8 +44,7 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
   }, [])
 
 
-  const { data: userData } = useSupabaseDoc('profiles', user?.id);
-  const isAdmin = (userData as any)?.role === 'admin' || supabaseRole === 'admin';
+  const isAdmin = supabaseRole === 'admin';
 
   const fetchDeductions = useCallback((query: any) => query.order('date', { ascending: false }), []);
 
@@ -74,6 +73,15 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
   const chatMessages = (chatData || []) as any[];
 
   const processedMessagesRef = useRef<Set<string>>(new Set());
+
+  // استخدام refs للـ stable dependencies
+  const addDocRef = useRef(addDoc);
+  const tRef = useRef(t);
+  
+  useEffect(() => {
+    addDocRef.current = addDoc;
+    tRef.current = t;
+  }, [addDoc, t]);
 
   useEffect(() => {
     if (!isAdmin || !chatMessages || chatMessages.length === 0 || !users || users.length === 0) return;
@@ -123,11 +131,11 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
             // Mark message as processed
             processedMessagesRef.current.add(msg.id);
 
-            addDoc('deductions', {
+            addDocRef.current('deductions', {
               user_id: targetUser.id,
               user_name: targetUser.full_name,
               amount,
-              reason: `${t('auto_extracted_from_chat')}: "${msg.text.substring(0, 100)}"`,
+              reason: `${tRef.current('auto_extracted_from_chat')}: "${msg.text.substring(0, 100)}"`,
               type: 'penalty',
               date: msg.timestamp || new Date().toISOString(),
               extracted_from_chat_message_id: msg.id,
@@ -138,7 +146,7 @@ export function DeductionsManagement({ userRole }: { userRole: string | undefine
         });
       });
     });
-  }, [chatMessages, users, isAdmin, addDoc, t]);
+  }, [chatMessages, users, isAdmin]); // stable dependencies فقط
 
   const handleSubmit = async () => {
     if (!user || !formData.userId || !formData.amount) {

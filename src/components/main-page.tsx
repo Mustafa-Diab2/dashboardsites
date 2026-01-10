@@ -10,21 +10,8 @@ import { AuthCard } from '@/components/auth-card';
 export default function MainPage() {
   const { user, isLoading: isAuthLoading, role } = useSupabase();
 
-  const { data: userData, isLoading: isUserDocLoading } = useSupabaseDoc(
-    'profiles',
-    user?.id
-  );
-
-  // Prefer userData role because useSupabaseDoc uses real-time subscriptions
-  const userRole = (userData as any)?.role || role;
-
-  console.log('Current User Debug:', {
-    id: user?.id,
-    email: user?.email,
-    contextRole: role,
-    dbRole: (userData as any)?.role,
-    finalRole: userRole
-  });
+  // استخدام role من context مباشرة - single source of truth
+  const userRole = role;
 
   const userId = user?.id;
   
@@ -40,6 +27,8 @@ export default function MainPage() {
       task.assigned_to && Array.isArray(task.assigned_to) && task.assigned_to.includes(userId)
     );
   }, [allTasks, userRole, userId]);
+
+  const isLoading = isAuthLoading;
 
   // We only block the entire dashboard if auth is still loading.
   // Other data (tasks, profile) can load progressively.
@@ -76,7 +65,7 @@ export default function MainPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <ReportsDashboard tasks={taskData} userRole={userRole} />
+      <ReportsDashboard tasks={taskData} userRole={userRole || undefined} />
     </div>
   );
 }

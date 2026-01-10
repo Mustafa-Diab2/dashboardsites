@@ -51,8 +51,8 @@ export function useSupabaseCollection<T = any>(
 
         fetchDataIfMounted();
 
-        // أنشئ subscription جديدة لكل table
-        const channelName = `realtime:${table}:${Date.now()}`;
+        // استخدام channel name ثابت بدون Date.now()
+        const channelName = `public:${table}`;
         channel = supabase
             .channel(channelName)
             .on('postgres_changes', { event: '*', schema: 'public', table }, () => {

@@ -86,9 +86,7 @@ export function TaskForm({
   const { t, language } = useLanguage();
   const [form, setForm] = useState<TaskFormData>(INITIAL_FORM_STATE);
 
-  const { data: userData } = useSupabaseDoc('profiles', user?.id);
-
-  const users = useUsers(userRole || (userData as any)?.role);
+  const users = useUsers(userRole);
 
   const { data: allTasksData } = useSupabaseCollection('tasks');
   const allTasks = (allTasksData as Task[]) || [];

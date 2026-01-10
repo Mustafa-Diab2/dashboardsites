@@ -20,8 +20,8 @@ export default function Courses({ userRole }: { userRole: string }) {
   // جلب كل الكورسات
   const { data: allCourses, isLoading } = useSupabaseCollection('courses');
   
-  // جلب بيانات الموظفين للـ Admin فقط
-  const { data: profiles } = useSupabaseCollection(isAdmin ? 'profiles' : null as any);
+  // جلب بيانات الموظفين دائماً (بدون conditional)
+  const { data: profiles } = useSupabaseCollection('profiles');
 
   // فلتر الكورسات بناءً على الدور
   const courses = useMemo(() => {

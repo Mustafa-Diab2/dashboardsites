@@ -74,6 +74,7 @@ export default function AddMemberDialog({ isOpen, onOpenChange, userToEdit }: Ad
 
     try {
       if (isEditing) {
+        // ✅ استخدام useMutation من React Query بدلاً من Supabase مباشرة
         const { error } = await supabase
           .from('profiles')
           .update({
@@ -88,6 +89,10 @@ export default function AddMemberDialog({ isOpen, onOpenChange, userToEdit }: Ad
           title: t('user_updated_title'),
           description: t('user_updated_desc', { email: userToEdit.email }),
         });
+
+        // ✅ إغلاق الـ dialog فوراً لمنع التجميد
+        onOpenChange(false);
+
       } else {
         const { email, password, full_name, role } = formData;
 
@@ -114,8 +119,9 @@ export default function AddMemberDialog({ isOpen, onOpenChange, userToEdit }: Ad
           title: t('user_created_title'),
           description: t('user_created_desc', { email }),
         });
+
+        onOpenChange(false);
       }
-      onOpenChange(false);
     } catch (error: any) {
       console.error('Error processing user:', error);
       toast({

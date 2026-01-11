@@ -69,7 +69,7 @@ export function useSupabaseCollection<T = any>(
                 supabase.removeChannel(channel);
             }
         };
-    }, [table, fetchData]);
+    }, [table, fetchData]); // fetchData is stable from useCallback
 
     return { data, isLoading, error, refetch: fetchData };
 }

@@ -13,8 +13,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 5 * 60 * 1000, // 5 دقائق - تحسين الأداء
-        gcTime: 10 * 60 * 1000, // 10 دقائق للـ garbage collection
+        staleTime: 10 * 60 * 1000, // ✅ زيادة من 5 إلى 10 دقائق - تقليل إعادة التحميل
+        gcTime: 15 * 60 * 1000, // ✅ زيادة من 10 إلى 15 دقيقة للـ garbage collection
         refetchOnWindowFocus: false, // منع refetch عند التبديل بين النوافذ
         refetchOnReconnect: true, // refetch عند استعادة الاتصال
         refetchOnMount: (query) => {
@@ -23,9 +23,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
         retry: 1,
         retryDelay: 1000,
+        networkMode: 'offlineFirst', // ✅ استخدام الكاش أولاً لتحسين الأداء
         // تحسين performance
         structuralSharing: true, // منع re-renders غير ضرورية
         refetchInterval: false, // منع polling تلقائي
+      },
+      mutations: {
+        // ✅ إضافة إعدادات للـ mutations
+        networkMode: 'offlineFirst',
+        retry: 1,
       },
     },
   }))

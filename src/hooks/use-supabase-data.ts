@@ -10,7 +10,7 @@ export function useSupabaseCollection<T = any>(
     const [data, setData] = useState<T[] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<any>(null);
-    
+
     // استخدم ref لتخزين queryFn
     const queryFnRef = useRef(queryFn);
     queryFnRef.current = queryFn;
@@ -39,7 +39,7 @@ export function useSupabaseCollection<T = any>(
 
     useEffect(() => {
         if (!table) return; // Guard للـ null tables
-        
+
         let isMounted = true;
         let channel: any = null;
 
@@ -100,7 +100,7 @@ export function useSupabaseDoc<T = any>(
             if (isInitialLoad.current) {
                 setIsLoading(true);
             }
-            
+
             try {
                 const { data: result, error: fetchError } = await supabase
                     .from(table)
@@ -148,6 +148,8 @@ export function useSupabaseDoc<T = any>(
         return () => {
             isMounted = false;
             if (channel) {
+                // ✅ تحسين الترتيب: unsubscribe قبل removeChannel
+                channel.unsubscribe();
                 supabase.removeChannel(channel);
             }
         };

@@ -18,7 +18,7 @@ export function useOptimizedQuery<T = any>(
     const filterHash = hashQueryFn(queryFn);
     return queryKeys.tableFiltered(table, filterHash);
   }, [table, queryFn]);
-  
+
   return useQuery<T[]>({
     queryKey,
     queryFn: async () => {
@@ -45,7 +45,7 @@ export function useOptimizedMutation<T = any>(
   return useMutation({
     mutationFn: async (data: any) => {
       let result
-      
+
       if (action === 'insert') {
         result = await supabase.from(table).insert([data]).select()
       } else if (action === 'update') {
@@ -54,20 +54,20 @@ export function useOptimizedMutation<T = any>(
       } else if (action === 'delete') {
         result = await supabase.from(table).delete().eq('id', data)
       }
-      
+
       if (result?.error) throw result.error
       return result?.data
     },
     onMutate: async (newData) => {
       // Cancel outgoing queries
       await queryClient.cancelQueries({ queryKey: [table] })
-      
+
       // Snapshot previous value
       const previous = queryClient.getQueryData([table])
-      
+
       // Optimistically update
       if (action === 'insert') {
-        queryClient.setQueryData<T[]>([table], (old: any) => 
+        queryClient.setQueryData<T[]>([table], (old: any) =>
           old ? [...old, { ...newData, id: 'temp-' + Date.now() }] : [newData]
         )
       } else if (action === 'update') {
@@ -79,7 +79,7 @@ export function useOptimizedMutation<T = any>(
           old ? old.filter((item: any) => item.id !== newData) : old
         )
       }
-      
+
       return { previous }
     },
     onError: (err, variables, context: any) => {
@@ -113,20 +113,28 @@ export function useRealtimeQuery<T = any>(
     if (typeof window === 'undefined') return
 
     let timeoutId: NodeJS.Timeout | null = null
-    const channelName = `${table}-changes`
-    
+    let isMounted = true
+    // ✅ إضافة timestamp للـ channel name لمنع التضارب
+    const channelName = `realtime:${table}:${Date.now()}`
+
     const channel = supabase
       .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
+        if (!isMounted) return
         if (timeoutId) clearTimeout(timeoutId)
         timeoutId = setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: [table] })
+          if (isMounted) {
+            queryClient.invalidateQueries({ queryKey: [table] })
+          }
         }, debounceMs)
       })
       .subscribe()
 
     return () => {
+      isMounted = false
       if (timeoutId) clearTimeout(timeoutId)
+      // ✅ تحسين الترتيب: unsubscribe ثم removeChannel
+      channel.unsubscribe()
       supabase.removeChannel(channel)
     }
   }, [table, debounceMs, queryClient])

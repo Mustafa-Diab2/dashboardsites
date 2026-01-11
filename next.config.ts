@@ -1,22 +1,19 @@
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
   output: 'standalone',
-  
+
   // Performance: Enable strict mode for better optimization
   reactStrictMode: true,
-  
-  // Performance: Use SWC minification (faster than Terser)
-  swcMinify: true,
-  
+
   typescript: {
     ignoreBuildErrors: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
   },
-  
+
   // Performance: Optimize images with modern formats
   images: {
     formats: ['image/avif', 'image/webp'],
@@ -44,13 +41,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  
+
   // Performance: Enable compression
   compress: true,
-  
-  // Performance: Optimize fonts
-  optimizeFonts: true,
-  
+
   // Performance: Code splitting & chunk optimization
   webpack: (config, { dev, isServer }) => {
     if (!dev && !isServer) {
@@ -95,10 +89,10 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
-  
+
   // Performance: Disable source maps in production
   productionBrowserSourceMaps: false,
-  
+
   // Performance: Experimental optimizations
   experimental: {
     optimizeCss: true,

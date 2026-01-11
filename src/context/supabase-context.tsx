@@ -20,7 +20,7 @@ interface AuthState {
     isLoading: boolean;
 }
 
-type AuthAction = 
+type AuthAction =
     | { type: 'SET_LOADING'; payload: boolean }
     | { type: 'SET_AUTH'; payload: { user: User | null; session: Session | null; role: string | null } }
     | { type: 'CLEAR_AUTH' };
@@ -58,13 +58,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         let isMounted = true;
-        
+
         if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
             console.error('CRITICAL: NEXT_PUBLIC_SUPABASE_URL is missing! Auth will not work.');
             dispatch({ type: 'SET_LOADING', payload: false });
             return;
         }
-        
+
         // Safety timeout - قلل من 8 ثواني إلى 3 ثواني
         const timeout = setTimeout(() => {
             if (isMounted) {
@@ -76,13 +76,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         const getSession = async () => {
             try {
                 const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                
+
                 if (sessionError) {
                     console.error('Session Error:', sessionError);
                     if (isMounted) dispatch({ type: 'SET_LOADING', payload: false });
                     return;
                 }
-                
+
                 if (!isMounted) return;
 
                 if (session?.user) {
@@ -154,7 +154,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                             role: finalRole
                         }
                     });
-                    
+
                     // سجل النشاط عند تسجيل الدخول
                     if (event === 'SIGNED_IN') {
                         logActivity({
@@ -198,6 +198,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
         let profileChannel: any = null;
         let isMounted = true;
+        let debounceTimer: NodeJS.Timeout | null = null;
 
         const setupSubscription = () => {
             profileChannel = supabase
@@ -212,11 +213,17 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                     },
                     (payload) => {
                         if (!isMounted) return;
-                        
+
                         console.log('🔄 Profile updated:', payload);
-                        
+
                         const newRole = (payload.new as any)?.role;
-                        if (newRole) {
+                        if (newRole && newRole !== state.role) {
+                            // Clear any existing debounce timer
+                            if (debounceTimer) {
+                                clearTimeout(debounceTimer);
+                            }
+
+                            // Update role immediately
                             dispatch({
                                 type: 'SET_AUTH',
                                 payload: {
@@ -225,12 +232,26 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                                     role: newRole
                                 }
                             });
-                            
-                            // Invalidate cache بعد role change
-                            if (queryClient) {
-                                console.log('🔄 Invalidating queries after role change');
-                                queryClient.invalidateQueries();
-                            }
+
+                            // Debounce cache invalidation to prevent multiple rapid invalidations
+                            debounceTimer = setTimeout(() => {
+                                if (isMounted && queryClient) {
+                                    console.log('🔄 Invalidating user-specific queries after role change');
+                                    // ✅ FIX: Invalidate ONLY specific queries instead of ALL queries
+                                    queryClient.invalidateQueries({
+                                        predicate: (query) => {
+                                            const key = query.queryKey[0] as string;
+                                            // Only invalidate user-related and permission-sensitive queries
+                                            return key === 'profiles' ||
+                                                key === 'users' ||
+                                                key === 'tasks' ||
+                                                key === 'departments' ||
+                                                key === 'attendance' ||
+                                                key === 'leaves';
+                                        }
+                                    });
+                                }
+                            }, 500); // 500ms debounce
                         }
                     }
                 )
@@ -241,12 +262,15 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
         return () => {
             isMounted = false;
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
+            }
             if (profileChannel) {
                 profileChannel.unsubscribe();
                 supabase.removeChannel(profileChannel);
             }
         };
-    }, [state.user?.id, state.session, queryClient]);
+    }, [state.user?.id, state.role, queryClient]); // ✅ Added state.role to prevent redundant updates
 
     const contextValue = useMemo(() => ({
         user: state.user,
